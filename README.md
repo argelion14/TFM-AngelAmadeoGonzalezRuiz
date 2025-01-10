@@ -37,7 +37,7 @@ docker build -t jwt-flask-app .
 ```
 
 ```bash
-docker run --name jwt-flask-app -d jwt-flask-app
+docker run --name jwt-flask-app -p 5000:5000 -d jwt-flask-app
 ```
 
 ```bash
