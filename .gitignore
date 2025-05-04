@@ -169,3 +169,13 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Certs
+*.pem
+*.crt
+*.key
+*.p12
+*.crs
+*.csr
+*.p7s
+*.srl
