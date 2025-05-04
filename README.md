@@ -59,3 +59,14 @@ curl -X POST http://127.0.0.1:5000/login -H "Content-Type: application/json" -d 
 ```bash
 curl -X GET http://127.0.0.1:5000/protected -H "Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InVzdWFyaW8iLCJleHAiOjE3MzY1MTc1Njh9.BeKYJSQ_r0CoLB1ZVLr786K364nY5ucgWu4IOImJFfg"
 ```
+
+---
+
+### Resumen 28/04/2025
+
+#### Qué has hecho hasta ahora. Ten preparado una demo si la tienes para ver qué has conseguido resumiendo entradas y salidas de los módulos implementados.
+
+
+
+
+#### Siguientes pasos y fechas. Trae una propuesta y luego discutiremos sobre esto.
