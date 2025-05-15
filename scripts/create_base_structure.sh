@@ -13,7 +13,6 @@ ALICE_CSR="ecdsa01Peer01.csr"
 ALICE_CERT="ecdsa01Peer01Cert.pem"
 
 SIGNED_PERMISSIONS="permissions.p7s"
-SIGNED_PERMISSIONS_PEM="permissions.p7s.pem"
 
 ### 1. Crear clave privada de la CA
 echo "🔑 Generando clave privada de la CA..."
