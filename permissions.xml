@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="http://community.rti.com/schema/7.3.0/dds_security_permissions.xsd">
+    <permissions>
+        <grant name="operador_grant">
+            <subject_name>CN=operador1,O=empresa</subject_name>
+            <validity>
+                <not_before>2024-01-01T00:00:00Z</not_before>
+                <not_after>2026-01-01T00:00:00Z</not_after>
+            </validity>
+            <default>DENY</default>
+            <allow_rule>
+                <domains>
+                    <id>0</id>
+                </domains>
+                <publish>
+                    <topics>
+                        <topic>DronesData</topic>
+                    </topics>
+                </publish>
+            </allow_rule>
+        </grant>
+        <grant name="visualizador_grant">
+            <subject_name>CN=visualizador,O=empresa</subject_name>
+            <validity>
+                <not_before>2024-01-01T00:00:00Z</not_before>
+                <not_after>2026-01-01T00:00:00Z</not_after>
+            </validity>
+            <default>DENY</default>
+            <allow_rule>
+                <domains>
+                    <id>0</id>
+                </domains>
+                <subscribe>
+                    <topics>
+                        <topic>DronesData</topic>
+                    </topics>
+                </subscribe>
+            </allow_rule>
+        </grant>
+        <grant name="admin_grant">
+            <subject_name>CN=admin,O=empresa</subject_name>
+            <default>ALLOW</default>
+            <allow_rule>
+                <domains />
+                <publish>
+                    <topics>
+                        <topic>*</topic>
+                    </topics>
+                </publish>
+                <subscribe>
+                    <topics>
+                        <topic>*</topic>
+                    </topics>
+                </subscribe>
+                <relay>
+                    <topics>
+                        <topic>*</topic>
+                    </topics>
+                </relay>
+            </allow_rule>
+        </grant>
+    </permissions>
+</dds>

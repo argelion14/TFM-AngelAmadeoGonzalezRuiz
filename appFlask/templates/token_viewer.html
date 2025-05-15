@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Visor de Token JWT - ArGeL</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 700px;
+            margin: auto;
+        }
+        textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: monospace;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #f1f1f1;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Visor de Token JWT 🔍</h1>
+        <textarea id="jwtInput" placeholder="Pega aquí tu token JWT..."></textarea>
+        <button onclick="decodeToken()">Decodificar Token</button>
+        <div id="error" class="error"></div>
+        <table id="resultTable" style="display:none;">
+            <thead>
+                <tr><th>Campo</th><th>Valor</th></tr>
+            </thead>
+            <tbody id="resultBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        function base64UrlDecode(input) {
+            let base64 = input.replace(/-/g, '+').replace(/_/g, '/');
+            let pad = base64.length % 4;
+            if (pad) base64 += '='.repeat(4 - pad);
+            try {
+                return decodeURIComponent(escape(window.atob(base64)));
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function decodeToken() {
+            const token = document.getElementById('jwtInput').value.trim();
+            const errorDiv = document.getElementById('error');
+            const table = document.getElementById('resultTable');
+            const tbody = document.getElementById('resultBody');
+
+            errorDiv.textContent = '';
+            tbody.innerHTML = '';
+            table.style.display = 'none';
+
+            if (!token) {
+                errorDiv.textContent = '⚠️ Debes pegar un token JWT.';
+                return;
+            }
+
+            const parts = token.split('.');
+            if (parts.length !== 3) {
+                errorDiv.textContent = '❌ Token inválido: debe tener 3 partes (header.payload.signature).';
+                return;
+            }
+
+            const payload = base64UrlDecode(parts[1]);
+            if (!payload) {
+                errorDiv.textContent = '❌ No se pudo decodificar el payload.';
+                return;
+            }
+
+            try {
+                const data = JSON.parse(payload);
+
+                Object.keys(data).forEach(key => {
+                    let value = data[key];
+                    if (Array.isArray(value)) value = value.join(', ');
+                    tbody.innerHTML += `<tr><td>${key}</td><td>${value}</td></tr>`;
+                });
+
+                table.style.display = 'table';
+            } catch (e) {
+                errorDiv.textContent = '❌ Error al parsear el payload JSON.';
+            }
+        }
+    </script>
+
+</body>
+</html>
