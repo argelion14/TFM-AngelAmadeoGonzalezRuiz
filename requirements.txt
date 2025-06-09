@@ -1,5 +1,2 @@
 flask
-pyjwt
-
-requests
-werkzeug
+flask-login

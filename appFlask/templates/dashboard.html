@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel Principal{% endblock %}
+
+{% block header %}Panel Principal{% endblock %}
+
+{% block content %}
+
+
+<div class="content-wrapper" style="margin-left: 0;">
+    <section class="content pt-3">
+        <div class="container">
+            <h1>Bienvenido, {{ username }}!</h1>
+            <h3>Tu certificado es:</h3>
+            <pre>{{ cert }}</pre>
+        </div>
+    </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/plugins/jquery/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+{% endblock %}

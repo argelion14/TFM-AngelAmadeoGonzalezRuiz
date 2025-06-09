@@ -1,26 +1,12 @@
+version: "3.8"
+
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  flaskapp:
+    build: .
     ports:
       - "5000:5000"
-    restart: unless-stopped
+    volumes:
+      - ./appFlask:/app/appFlask
+      - ./requirements.txt:/app/requirements.txt
     environment:
       - FLASK_ENV=development
-      - FLASK_APP=app.py
-    # volumes:
-    #   - .:/app
-    # networks:
-    #   - app-network
-  # db:
-  #   image: postgres:latest
-  #   restart: unless-stopped
-  #   environment:
-  #     POSTGRES_USER: user
-  #     POSTGRES_PASSWORD: password
-  #     POSTGRES_DB: mydatabase
-  #   volumes:
-  #     - db_data:/var/lib/postgresql/data
-  #   networks:
-  #     - app-network

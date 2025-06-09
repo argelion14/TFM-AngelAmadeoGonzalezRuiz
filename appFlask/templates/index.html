@@ -1,105 +1,16 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Verificador de permisos JWT - {{nombre}}</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f9f9f9;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            max-width: 700px;
-            margin: auto;
-        }
-        textarea {
-            width: 100%;
-            height: 120px;
-            padding: 10px;
-            font-family: monospace;
-            margin-bottom: 20px;
-            border-radius: 10px;
-            border: 1px solid #ddd;
-        }
-        button {
-            background-color: #4CAF50;
-            border: none;
-            color: white;
-            padding: 12px 25px;
-            text-align: center;
-            text-decoration: none;
-            font-size: 16px;
-            margin: 5px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-        button.danger {
-            background-color: #f44336;
-        }
-        #result {
-            margin-top: 20px;
-            font-size: 18px;
-            padding: 10px;
-            border-radius: 10px;
-        }
-    </style>
-</head>
-<body>
+{% extends 'base.html' %}
 
-    <div class="container">
-        <h1>Verificador de permisos JWT - {{nombre}} 😎</h1>
+{% block title %}Panel Principal{% endblock %}
 
-        <label for="token">Token JWT fraccionado:</label>
-        <textarea id="token" placeholder="Pega aquí tu token..."></textarea>
+{% block header %}Panel Principal{% endblock %}
 
-        <div>
-            <button onclick="checkAction('PUBLISH')">¿Puede PUBLICAR?</button>
-            <button class="danger" onclick="checkAction('SUBSCRIBE')">¿Puede SUSCRIBIRSE?</button>
-        </div>
-
-        <div id="result"></div>
-    </div>
-
-    <script>
-        function checkAction(action) {
-            var token = document.getElementById('token').value.trim();
-
-            if (!token) {
-                alert('Por favor, pega un token primero.');
-                return;
-            }
-
-            fetch('/action', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: token, action: action })
-            })
-            .then(response => response.json().then(data => ({status: response.status, body: data})))
-            .then(result => {
-                if (result.status === 200) {
-                    document.getElementById('result').innerHTML = `
-                        ✅ <strong>PERMITIDO:</strong> Puede hacer <b>${result.body.action}</b> en el dominio <b>${result.body.domain}</b>.
-                    `;
-                    document.getElementById('result').style.backgroundColor = "#d4edda";
-                } else {
-                    document.getElementById('result').innerHTML = `
-                        ❌ <strong>DENEGADO:</strong> No puede hacer <b>${action}</b> en este dominio.
-                    `;
-                    document.getElementById('result').style.backgroundColor = "#f8d7da";
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('result').innerHTML = '⚠️ Error al verificar token.';
-                document.getElementById('result').style.backgroundColor = "#fff3cd";
-            });
-        }
-    </script>
-
-</body>
-</html>
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Bienvenido al Panel Principal</h3>
+  </div>
+  <div class="card-body">
+    <p>Este es un ejemplo básico usando AdminLTE con Flask.</p>
+  </div>
+</div>
+{% endblock %}
