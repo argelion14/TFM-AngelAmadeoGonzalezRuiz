@@ -151,6 +151,54 @@ def usuarios2():
     users = get_users2()
     return render_template("usuarios_roles.html", usuarios=users)  # Usa la nueva plantilla
 
+def get_all_users_and_roles():
+    conn = sqlite3.connect('roles.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username FROM users")
+    users = cursor.fetchall()
+
+    cursor.execute("SELECT id, name FROM roles")
+    roles = cursor.fetchall()
+
+    conn.close()
+    return users, roles
+
+def assign_role_to_user(user_id, role_id):
+    conn = sqlite3.connect('roles.db')
+    cursor = conn.cursor()
+    # Comprobamos si ya está asignado
+    cursor.execute("SELECT * FROM user_roles WHERE user_id = ? AND role_id = ?", (user_id, role_id))
+    if not cursor.fetchone():
+        cursor.execute("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
+        conn.commit()
+    conn.close()
+
+@app.route("/asignar_rol", methods=["GET", "POST"])
+def asignar_rol():
+    if not session.get("is_superuser"):
+        return render_template("acceso_denegado.html"), 403
+
+    if request.method == "POST":
+        user_id = request.form.get("user_id")
+        role_id = request.form.get("role_id")
+        if user_id and role_id:
+            assign_role_to_user(user_id, role_id)
+            conn = sqlite3.connect('roles.db')
+            cursor = conn.cursor()
+            cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+            username = cursor.fetchone()[0]
+            cursor.execute("SELECT name FROM roles WHERE id = ?", (role_id,))
+            role_name = cursor.fetchone()[0]
+            conn.close()
+            flash(f"✅ Rol '{role_name}' asignado a '{username}' correctamente.", "success")
+        return redirect(url_for("asignar_rol"))
+
+
+    users, roles = get_all_users_and_roles()
+    return render_template("asignar_rol.html", users=users, roles=roles)
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

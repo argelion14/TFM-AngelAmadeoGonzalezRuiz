@@ -2,7 +2,15 @@
 {% block title %}Roles{% endblock %}
 {% block header %}Roles disponibles{% endblock %}
 
+
+{% block active_module_rol%}
+active
+{% endblock %}
+
+{% block open_roles%}-open{% endblock %}
+
 {% block roles_active%}active{% endblock %}
+
 
 {% block path_main %}
 <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Index</a></li>

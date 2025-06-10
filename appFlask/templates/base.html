@@ -55,7 +55,7 @@
             </a>
             <div class="sidebar">
                 <nav class="mt-2">
-                    <ul class="nav nav-pills nav-sidebar flex-column" role="menu">
+                    <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
                         <li class="nav-item">
                             <a href="{{ url_for('index') }}" class="nav-link">
                                 <i class="nav-icon fas fa-th"></i>
@@ -74,12 +74,7 @@
                                 <p>Dashboard</p>
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a href="{{ url_for('roles') }}" class="nav-link {% block roles_active%}{% endblock %}">
-                                <i class="nav-icon far fa-image"></i>
-                                <p>Roles</p>
-                            </a>
-                        </li>
+
                         {% if session.get("is_superuser") %}
                         <li class="nav-item">
                             <a href="{{ url_for('usuarios') }}" class="nav-link">
@@ -108,6 +103,30 @@
                                 <p>Ask for a role NOPE</p>
                             </a>
                         </li>
+                        {% if session.get("is_superuser") %}
+
+                        <li class="nav-header">ADMIN</li>
+
+                        <li class="nav-item menu{% block open_roles%}{% endblock %}">
+                            <a title="Módulo Roles" href="#"
+                                class="nav-link {% block active_module_rol%}{% endblock %}">
+                                <i class="nav-icon fas fa-solid fa-business-time"></i>
+                                <p>
+                                    Roles
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a title="Nueva timesheet" href="{{ url_for('roles') }}"
+                                        class="nav-link {% block roles_active %}{% endblock %}">
+                                        <i class="nav-icon fas fa-solid fa-user-clock"></i>
+                                        <p>Lista de roles</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        {% endif %}
                     </ul>
                 </nav>
             </div>
@@ -154,7 +173,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 
-    {% block scripts %}{% endblock %}
+    {% block scripts %}
+    {% endblock %}
 </body>
 
 </html>
