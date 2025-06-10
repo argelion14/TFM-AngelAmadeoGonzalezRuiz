@@ -91,6 +91,10 @@ def login():
 
     return render_template('login.html')
 
+@app.route('/informacion')
+def informacion():
+    return render_template('informacion.html')
+
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template("404.html"), 404

@@ -127,6 +127,18 @@
                             </ul>
                         </li>
                         {% endif %}
+                        <!--Documentación extra-->
+                        <li class="nav-header">EXTRA</li>
+                        <li class="nav-item  ">
+                            <a title="Información" href="{{ url_for('informacion') }}"
+                                class="nav-link {% block active_informacion %} {% endblock %}">
+                                <i class="nav-icon fas fa-solid fa-circle-info"></i>
+                                <!--<i class="material-symbols-outlined" id="icon">home</i>-->
+                                <p>Información
+                                    <!--<span class="right badge badge-danger">New</span>-->
+                                </p>
+                            </a>
+                        </li>
                     </ul>
                 </nav>
             </div>

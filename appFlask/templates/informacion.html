@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Roles{% endblock %}
+{% block header %}Roles disponibles{% endblock %}
+
+
+{% block active_module_rol%}
+active
+{% endblock %}
+
+{% block open_roles%}-open{% endblock %}
+
+{% block roles_active%}active{% endblock %}
+
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Index</a></li>
+<li class="breadcrumb-item active">roles</li>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Listado de Roles</h3>
+  </div>
+  <div class="card-body">
+    <table class="table table-bordered table-striped">
+      <thead>
+        <tr>
+          <th>Rol</th>
+          <th>Dominio</th>
+          <th>Topic</th>
+          <th>Permiso</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for role in roles %}
+        <tr>
+          <td>{{ role['name'] }}</td>
+          <td>{{ role['domain'] }}</td>
+          <td>{{ role['topic'] }}</td>
+          <td>
+            {% if role['permission'] == 'publish' %}
+              <span class="badge badge-success">Publicar</span>
+            {% elif role['permission'] == 'subscribe' %}
+              <span class="badge badge-primary">Suscribir</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
