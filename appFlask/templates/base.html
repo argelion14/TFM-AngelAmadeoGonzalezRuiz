@@ -75,21 +75,37 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{{ url_for('index') }}" class="nav-link">
-                                <i class="nav-icon far fa-image"></i>
-                                <p>Load an XML to DB</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="{{ url_for('roles') }}" class="nav-link">
+                            <a href="{{ url_for('roles') }}" class="nav-link {% block roles_active%}{% endblock %}">
                                 <i class="nav-icon far fa-image"></i>
                                 <p>Roles</p>
                             </a>
                         </li>
+                        {% if session.get("is_superuser") %}
+                        <li class="nav-item">
+                            <a href="{{ url_for('usuarios') }}" class="nav-link">
+                                <i class="nav-icon fas fa-users"></i>
+                                <p>Usuarios</p>
+                            </a>
+                        </li>
+                        {% endif %}
+                        <!-- <li class="nav-item">
+                            <a href="{{ url_for('usuarios') }}"
+                                class="nav-link {% block usuarios_active%}{% endblock %}">
+                                <i class="nav-icon far fa-image"></i>
+                                <p>Usuarios</p>
+                            </a>
+                        </li> -->
                         <li class="nav-item">
                             <a href="{{ url_for('index') }}" class="nav-link">
                                 <i class="nav-icon far fa-image"></i>
-                                <p>Ask for a role</p>
+                                <p>Load an XML to DB NOPE</p>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a href="{{ url_for('index') }}" class="nav-link">
+                                <i class="nav-icon far fa-image"></i>
+                                <p>Ask for a role NOPE</p>
                             </a>
                         </li>
                     </ul>
@@ -99,11 +115,25 @@
 
         <!-- Contenido principal -->
         <div class="content-wrapper">
-            <section class="content-header">
+
+            <!-- Content Header (Page header) -->
+            <div class="content-header">
                 <div class="container-fluid">
-                    <h1>{% block header %}Bienvenido{% endblock %}</h1>
-                </div>
-            </section>
+                    <div class="row mb-2">
+                        <div class="col-sm-6">
+                            <h1 class="m-0">{% block header %}BASE{%endblock%}</h1>
+                        </div><!-- /.col -->
+                        <div class="col-sm-6">
+                            <ol class="breadcrumb float-sm-right">
+                                {% block path_main %}
+                                <li class="breadcrumb-item active">BASE</li>
+                                {% endblock %}
+                            </ol>
+                        </div><!-- /.col -->
+                    </div><!-- /.row -->
+                </div><!-- /.container-fluid -->
+            </div>
+            <!-- /.content-header -->
 
             <section class="content">
                 <div class="container-fluid">

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Usuarios{% endblock %}
+{% block header %}Usuarios registrados{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Index</a></li>
+<li class="breadcrumb-item active">Usuarios</li>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Listado de Usuarios</h3>
+  </div>
+  <div class="card-body">
+    <table class="table table-bordered table-striped">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Usuario</th>
+          <th>Certificado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in usuarios %}
+        <tr>
+          <td>{{ user['id'] }}</td>
+          <td>{{ user['username'] }}</td>
+          <td>
+            {% if user['cert'] %}
+              <code>{{ user['cert'] }}</code>
+            {% else %}
+              <span class="text-muted">Sin certificado</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -2,6 +2,13 @@
 {% block title %}Roles{% endblock %}
 {% block header %}Roles disponibles{% endblock %}
 
+{% block roles_active%}active{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Index</a></li>
+<li class="breadcrumb-item active">roles</li>
+{% endblock %}
+
 {% block content %}
 <div class="card">
   <div class="card-header">

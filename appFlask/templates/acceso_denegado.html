@@ -1,0 +1,45 @@
+<!-- templates/acceso_denegado.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Acceso Denegado</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 50px;
+        }
+        .card {
+            display: inline-block;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #dc3545;
+        }
+        p {
+            color: #6c757d;
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+            margin-top: 1rem;
+            display: inline-block;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🚫 Acceso Denegado</h1>
+        <p>No tienes permisos suficientes para acceder a esta sección.</p>
+        <a href="{{ url_for('index') }}">Volver al inicio</a>
+    </div>
+</body>
+</html>
