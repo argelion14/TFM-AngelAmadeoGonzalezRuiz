@@ -14,8 +14,69 @@
             <h3>Tu certificado es:</h3>
             <pre>{{ cert }}</pre>
         </div>
+        <div class="content">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-lg-6">
+
+                        <div class="card card-info card-outline">
+                            <div class="card-header">
+                                <h3 class="card-title"><i class="fas fa-database"></i> Datos almacenados</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="chartjs-size-monitor">
+                                    <div class="chartjs-size-monitor-expand">
+                                        <div class=""></div>
+                                    </div>
+                                    <div class="chartjs-size-monitor-shrink">
+                                        <div class=""></div>
+                                    </div>
+                                </div>
+                                <canvas id="donutChart"
+                                    style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%; display: block; width: 393px;"
+                                    width="491" height="312" class="chartjs-render-monitor"></canvas>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="col-lg-6">
+
+                        <div class="card card-info card-outline">
+                            <div class="card-header">
+                                <h5 class="m-0"><i class="fas fa-solid fa-circle-info"></i> Información</h5>
+                            </div>
+                            <div class="card-body">
+
+                                <p class="card-text">Aquí se encuentra información útil para entender más de este
+                                    proyecto</p>
+                                <a href="{{ url_for('roles') }}" class="btn btn-info">Ir a información</a>
+                            </div>
+                        </div>
+
+                        <div class="card card-info card-outline">
+                            <div class="card-header">
+                                <h5 class="m-0"><i class="fas fa-solid fa-address-book"></i> Roles</h5>
+                            </div>
+                            <div class="card-body">
+
+                                <p class="card-text">Roles que tengo</p>
+                                <a href="{{ url_for('mis_roles') }}" class="btn btn-info">Ir a mis roles</a>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
     </section>
 </div>
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/plugins/jquery/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>

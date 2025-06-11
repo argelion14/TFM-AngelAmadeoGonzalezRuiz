@@ -16,17 +16,21 @@ app.secret_key = 'tu_clave_secreta'
 #     }
 # }
 
+
 @app.route('/')
 def home():
     return render_template('home.html')
+
 
 @app.route('/index')
 def index():
     return render_template('index.html')
 
+
 @app.route('/decode')
 def decode():
     return render_template('decode.html')
+
 
 def get_roles():
     conn = sqlite3.connect('roles.db')
@@ -37,10 +41,12 @@ def get_roles():
     conn.close()
     return rows
 
+
 @app.route("/roles")
 def roles():
     roles = get_roles()
     return render_template("roles.html", roles=roles)
+
 
 def get_users():
     conn = sqlite3.connect('roles.db')
@@ -51,6 +57,7 @@ def get_users():
     conn.close()
     return rows
 
+
 @app.route("/usuarios")
 def usuarios():
     if not session.get('is_superuser'):
@@ -58,13 +65,16 @@ def usuarios():
     users = get_users()
     return render_template("usuarios.html", usuarios=users)
 
+
 def get_user(username):
     conn = sqlite3.connect('roles.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT username, password, cert, is_superuser FROM users WHERE username = ?", (username,))
+    cursor.execute(
+        "SELECT username, password, cert, is_superuser FROM users WHERE username = ?", (username,))
     user = cursor.fetchone()
     conn.close()
     return user  # Será una tupla (username, password, cert, is_superuser)
+
 
 @app.route('/dashboard')
 def dashboard():
@@ -73,6 +83,7 @@ def dashboard():
         cert = session.get('cert')
         return render_template('dashboard.html', username=username, cert=cert)
     return redirect(url_for('login'))
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -91,13 +102,16 @@ def login():
 
     return render_template('login.html')
 
+
 @app.route('/informacion')
 def informacion():
     return render_template('informacion.html')
 
+
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template("404.html"), 404
+
 
 @app.route('/logout')
 def logout():
@@ -105,6 +119,41 @@ def logout():
     session.pop('cert', None)
     session.pop('is_superuser', None)
     return redirect(url_for('index'))
+
+
+def get_roles_by_username(username):
+    conn = sqlite3.connect('roles.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT r.name, r.description
+        FROM users u
+        JOIN user_roles ur ON u.id = ur.user_id
+        JOIN roles r ON ur.role_id = r.id
+        WHERE u.username = ?
+    ''', (username,))
+    roles = cursor.fetchall()
+    conn.close()
+    return roles
+
+
+@app.route('/mis_roles')
+def mis_roles():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    username = session['username']
+    roles = get_roles_by_username(username)
+    return render_template('mis_roles.html', username=username, roles=roles)
+
+
+
+
+
+
+
+
+
 
 
 
@@ -148,12 +197,15 @@ def get_users2():
 
     return usuarios
 
+
 @app.route("/usuarios2")
 def usuarios2():
     if not session.get('is_superuser'):
         return render_template("acceso_denegado.html"), 403
     users = get_users2()
-    return render_template("usuarios_roles.html", usuarios=users)  # Usa la nueva plantilla
+    # Usa la nueva plantilla
+    return render_template("usuarios_roles.html", usuarios=users)
+
 
 def get_all_users_and_roles():
     conn = sqlite3.connect('roles.db')
@@ -168,15 +220,19 @@ def get_all_users_and_roles():
     conn.close()
     return users, roles
 
+
 def assign_role_to_user(user_id, role_id):
     conn = sqlite3.connect('roles.db')
     cursor = conn.cursor()
     # Comprobamos si ya está asignado
-    cursor.execute("SELECT * FROM user_roles WHERE user_id = ? AND role_id = ?", (user_id, role_id))
+    cursor.execute(
+        "SELECT * FROM user_roles WHERE user_id = ? AND role_id = ?", (user_id, role_id))
     if not cursor.fetchone():
-        cursor.execute("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
+        cursor.execute(
+            "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
         conn.commit()
     conn.close()
+
 
 @app.route("/asignar_rol", methods=["GET", "POST"])
 def asignar_rol():
@@ -190,18 +246,18 @@ def asignar_rol():
             assign_role_to_user(user_id, role_id)
             conn = sqlite3.connect('roles.db')
             cursor = conn.cursor()
-            cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+            cursor.execute(
+                "SELECT username FROM users WHERE id = ?", (user_id,))
             username = cursor.fetchone()[0]
             cursor.execute("SELECT name FROM roles WHERE id = ?", (role_id,))
             role_name = cursor.fetchone()[0]
             conn.close()
-            flash(f"✅ Rol '{role_name}' asignado a '{username}' correctamente.", "success")
+            flash(
+                f"✅ Rol '{role_name}' asignado a '{username}' correctamente.", "success")
         return redirect(url_for("asignar_rol"))
-
 
     users, roles = get_all_users_and_roles()
     return render_template("asignar_rol.html", users=users, roles=roles)
-
 
 
 if __name__ == '__main__':
