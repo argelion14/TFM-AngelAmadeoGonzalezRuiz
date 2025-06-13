@@ -1,4 +1,5 @@
 import sqlite3
+import bcrypt
 
 
 def create_tables():
@@ -21,11 +22,11 @@ def create_tables():
             username TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL,
             cert TEXT,
-            is_superuser INTEGER NOT NULL DEFAULT 0  -- 0 = no, 1 = sí
+            is_superuser INTEGER NOT NULL DEFAULT 0
         )
     ''')
 
-    # Tabla intermedia para la relación muchos a muchos usuarios-roles
+    # Crear tabla intermedia user_roles
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_roles (
             user_id INTEGER,
@@ -36,7 +37,7 @@ def create_tables():
         )
     ''')
 
-    # Insertar datos en roles
+    # Insertar roles
     roles = [
         ('operator', 'Role operator: Domains 1-3, Topics: telemetry, Subscribe'),
         ('remote_driver', 'Remote driver: Truck publish'),
@@ -44,20 +45,22 @@ def create_tables():
         ('drones', 'Drones (1): Topics: Telemetry, Video feed'),
         ('field', 'Field (2): Telemetry')
     ]
-
     for role in roles:
         cursor.execute(
             'INSERT OR IGNORE INTO roles (name, description) VALUES (?, ?)', role)
 
-    # Insertar usuarios de ejemplo con is_superuser
+    # Insertar usuarios con contraseñas hasheadas
     users = [
         ('usuario1', 'pass1', 'C=US, ST=CA, O=Real Time Innovations, emailAddress=ecdsa01Peer01@rti.com, CN=RTI ECDSA01 (p256) PEER01', 1),
-        ('usuario2', 'pass2', 'C=ES, ST=Madrid, O=Mi EmpresaF, emailAddress=usuario2@miempresa.com, CN=Certificado Usuario2', 0)
+        ('usuario2', 'pass2', 'C=ES, ST=Madrid, O=Mi Empresa, emailAddress=usuario2@miempresa.com, CN=Certificado Usuario2', 0)
     ]
 
-    for user in users:
+    for username, password_plain, cert, is_superuser in users:
+        hashed_password = bcrypt.hashpw(password_plain.encode('utf-8'), bcrypt.gensalt())
         cursor.execute(
-            'INSERT OR IGNORE INTO users (username, password, cert, is_superuser) VALUES (?, ?, ?, ?)', user)
+            'INSERT OR IGNORE INTO users (username, password, cert, is_superuser) VALUES (?, ?, ?, ?)',
+            (username, hashed_password.decode('utf-8'), cert, is_superuser)
+        )
 
     # Obtener IDs de usuarios
     cursor.execute("SELECT id FROM users WHERE username = 'usuario1'")
@@ -71,22 +74,25 @@ def create_tables():
         cursor.execute("SELECT id FROM roles WHERE name = ?", (role_name,))
         role_ids[role_name] = cursor.fetchone()[0]
 
-    # Asociar múltiples roles a usuarios
-    usuario1_roles = ['operator', 'trucks', 'field']
-    usuario2_roles = ['remote_driver', 'drones']
+    # Asociar múltiples roles a los usuarios
+    usuario1_roles = ['operator', 'trucks']
+    usuario2_roles = ['field', 'drones']
 
     for role in usuario1_roles:
-        cursor.execute('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)',
-                       (usuario1_id, role_ids[role]))
-
+        cursor.execute(
+            'INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)',
+            (usuario1_id, role_ids[role])
+        )
     for role in usuario2_roles:
-        cursor.execute('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)',
-                       (usuario2_id, role_ids[role]))
+        cursor.execute(
+            'INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)',
+            (usuario2_id, role_ids[role])
+        )
 
     conn.commit()
     conn.close()
+    print("✅ Base de datos creada con contraseñas seguras.")
 
 
 if __name__ == "__main__":
     create_tables()
-    print("Tablas y datos creados correctamente.")

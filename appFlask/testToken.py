@@ -31,6 +31,9 @@ def index():
 def decode():
     return render_template('decode.html')
 
+@app.route('/informacion')
+def informacion():
+    return render_template('informacion.html')
 
 def get_roles():
     conn = sqlite3.connect('roles.db')
@@ -66,6 +69,15 @@ def usuarios():
     return render_template("usuarios.html", usuarios=users)
 
 
+@app.route('/dashboard')
+def dashboard():
+    if 'username' in session:
+        username = session['username']
+        cert = session.get('cert')
+        return render_template('dashboard.html', username=username, cert=cert)
+    return redirect(url_for('login'))
+
+
 def get_user(username):
     conn = sqlite3.connect('roles.db')
     cursor = conn.cursor()
@@ -74,15 +86,6 @@ def get_user(username):
     user = cursor.fetchone()
     conn.close()
     return user  # Será una tupla (username, password, cert, is_superuser)
-
-
-@app.route('/dashboard')
-def dashboard():
-    if 'username' in session:
-        username = session['username']
-        cert = session.get('cert')
-        return render_template('dashboard.html', username=username, cert=cert)
-    return redirect(url_for('login'))
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -103,22 +106,17 @@ def login():
     return render_template('login.html')
 
 
-@app.route('/informacion')
-def informacion():
-    return render_template('informacion.html')
-
-
-@app.errorhandler(404)
-def page_not_found(e):
-    return render_template("404.html"), 404
-
-
 @app.route('/logout')
 def logout():
     session.pop('username', None)
     session.pop('cert', None)
     session.pop('is_superuser', None)
     return redirect(url_for('index'))
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("404.html"), 404
 
 
 def get_roles_by_username(username):
@@ -145,27 +143,6 @@ def mis_roles():
     username = session['username']
     roles = get_roles_by_username(username)
     return render_template('mis_roles.html', username=username, roles=roles)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def get_users2():

@@ -1,2 +1,4 @@
 flask
 flask-login
+bcrypt
+jwt
