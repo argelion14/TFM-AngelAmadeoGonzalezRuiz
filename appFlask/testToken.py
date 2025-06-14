@@ -166,7 +166,7 @@ def generar_jwt(user):
         'username': user[0],
         'cert': user[2],
         'is_superuser': user[3] == 1,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=JWT_EXPIRATION_MINUTES)
+        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=JWT_EXPIRATION_MINUTES)
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm='HS256')
     return token
@@ -186,6 +186,32 @@ def verificar_jwt():
     return None
 
 SECRET_KEY = "tu_clave_secreta"
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        user = get_user(username)
+        if user and password == user[1]:
+            token = generar_jwt(user)
+            resp = make_response(redirect(url_for('index')))
+            resp.set_cookie('token', token, httponly=True, samesite='Lax')
+            return resp
+        else:
+            flash('Usuario o contraseña incorrectos', 'danger')
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    resp = make_response(redirect(url_for('index')))
+    resp.set_cookie('token', '', expires=0)
+    return resp
+
 
 @app.before_request
 def cargar_usuario_desde_token():
@@ -312,31 +338,6 @@ def asignar_rol():
 
     users, roles = get_all_users_and_roles()
     return render_template("asignar_rol.html", users=users, roles=roles)
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-
-        user = get_user(username)
-        if user and password == user[1]:
-            token = generar_jwt(user)
-            resp = make_response(redirect(url_for('index')))
-            resp.set_cookie('token', token, httponly=True, samesite='Lax')
-            return resp
-        else:
-            flash('Usuario o contraseña incorrectos', 'danger')
-
-    return render_template('login.html')
-
-
-@app.route('/logout')
-def logout():
-    resp = make_response(redirect(url_for('index')))
-    resp.set_cookie('token', '', expires=0)
-    return resp
 
 
 @app.route('/dashboard')
