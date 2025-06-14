@@ -75,7 +75,7 @@
                             </a>
                         </li>
 
-                        {% if session.get("is_superuser") %}
+                        {% if is_superadmin %}
                         <li class="nav-item">
                             <a href="{{ url_for('usuarios') }}" class="nav-link">
                                 <i class="nav-icon fas fa-users"></i>
