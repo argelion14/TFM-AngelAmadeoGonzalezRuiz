@@ -197,7 +197,7 @@ def login():
         user = get_user(username)
         if user and password == user[1]:
             token = generar_jwt(user)
-            resp = make_response(redirect(url_for('index')))
+            resp = make_response(redirect(url_for('dashboard')))
             resp.set_cookie('token', token, httponly=True, samesite='Lax')
             return resp
         else:
@@ -213,33 +213,57 @@ def logout():
     return resp
 
 
-@app.before_request
-def cargar_usuario_desde_token():
-    token = request.headers.get('Authorization', '').replace('Bearer ', '')
-    g.user = None
-    if token:
-        try:
-            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            g.user = {
-                'username': data['username'],
-                'is_superuser': data.get('is_superuser', False),
-                # puedes añadir más campos si necesitas
-            }
-        except jwt.ExpiredSignatureError:
-            g.user = None
-        except jwt.InvalidTokenError:
-            g.user = None
+# @app.route('/logout')
+# def logout():
+#     session.pop('username', None)
+#     session.pop('cert', None)
+#     session.pop('is_superuser', None)
+#     return redirect(url_for('index'))
 
+
+# @app.before_request
+# def cargar_usuario_desde_token():
+#     token = request.headers.get('Authorization', '').replace('Bearer ', '')
+#     g.user = None
+#     if token:
+#         try:
+#             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+#             g.user = {
+#                 'username': data['username'],
+#                 'is_superuser': data.get('is_superuser', False),
+#                 # puedes añadir más campos si necesitas
+#             }
+#         except jwt.ExpiredSignatureError:
+#             g.user = None
+#         except jwt.InvalidTokenError:
+#             g.user = None
+
+
+# @app.context_processor
+# def inject_user_data():
+#     user = getattr(g, 'current_user', None)
+#     return {
+#         'is_superadmin': getattr(user, 'is_superadmin', False) if user else False
+#     }
+
+
+def decodificar_jwt(token):
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
 
 @app.context_processor
-def inject_user_data():
-    user = getattr(g, 'current_user', None)
-    return {
-        'is_superadmin': getattr(user, 'is_superadmin', False) if user else False
-    }
-
-
-
+def inyectar_datos_token():
+    token = request.cookies.get('token')
+    datos_token = {}
+    if token:
+        datos = decodificar_jwt(token)
+        if datos:
+            datos_token = datos  # Contiene username, cert, is_superuser, etc.
+    return {'token_data': datos_token}
 
 
 
@@ -282,12 +306,21 @@ def roles():
     return render_template("roles.html", roles=roles)
 
 
-@app.route("/usuarios")
+# @app.route("/usuarios")
+# def usuarios():
+#     if not session.get('is_superuser'):
+#         return render_template("acceso_denegado.html"), 403
+#     users = get_users()
+#     return render_template("usuarios.html", usuarios=users)
+
+
+@app.route('/usuarios')
 def usuarios():
-    if not session.get('is_superuser'):
-        return render_template("acceso_denegado.html"), 403
-    users = get_users()
-    return render_template("usuarios.html", usuarios=users)
+    user = verificar_jwt()
+    if user:
+        users = get_users()
+        return render_template('usuarios.html', usuarios=users)
+    return redirect(url_for('login'))
 
 
 @app.errorhandler(404)
