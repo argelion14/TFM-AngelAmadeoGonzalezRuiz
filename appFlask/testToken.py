@@ -9,6 +9,7 @@ app.secret_key = 'tu_clave_secreta'
 
 JWT_SECRET = 'clave_jwt_segura'  # cámbiala por algo fuerte
 JWT_EXPIRATION_MINUTES = 60
+SECRET_KEY = "tu_clave_secreta"
 
 # # Usuarios predefinidos (usuario: contraseña y su "certificado")
 # users = {
@@ -185,32 +186,6 @@ def verificar_jwt():
         flash("Token inválido.", "danger")
     return None
 
-SECRET_KEY = "tu_clave_secreta"
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-
-        user = get_user(username)
-        if user and password == user[1]:
-            token = generar_jwt(user)
-            resp = make_response(redirect(url_for('dashboard')))
-            resp.set_cookie('token', token, httponly=True, samesite='Lax')
-            return resp
-        else:
-            flash('Usuario o contraseña incorrectos', 'danger')
-
-    return render_template('login.html')
-
-
-@app.route('/logout')
-def logout():
-    resp = make_response(redirect(url_for('index')))
-    resp.set_cookie('token', '', expires=0)
-    return resp
 
 
 # @app.route('/logout')
@@ -277,7 +252,29 @@ def inyectar_datos_token():
 
 
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
 
+        user = get_user(username)
+        if user and password == user[1]:
+            token = generar_jwt(user)
+            resp = make_response(redirect(url_for('dashboard')))
+            resp.set_cookie('token', token, httponly=True, samesite='Lax')
+            return resp
+        else:
+            flash('Usuario o contraseña incorrectos', 'danger')
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    resp = make_response(redirect(url_for('index')))
+    resp.set_cookie('token', '', expires=0)
+    return resp
 
 
 @app.route('/')
