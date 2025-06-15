@@ -37,6 +37,26 @@ def create_tables():
         )
     ''')
 
+    # Crear tabla grantTemplate
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS grantTemplate (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            default_action TEXT CHECK(default_action IN ('ALLOW', 'DENY')),
+            role_id INT UNIQUE NOT NULL,
+            FOREIGN KEY (role_id) REFERENCES roles(id)
+        )
+    ''')
+
+
+
+# not_before TEXT,
+# not_after TEXT,
+# allow_rules TEXT, -- Podrías guardar el fragmento XML o JSON aquí
+
+
+
+
     # Insertar roles
     roles = [
         ('operator', 'Role operator: Domains 1-3, Topics: telemetry, Subscribe'),
