@@ -1,4 +1,5 @@
 import sqlite3
+import bcrypt
 from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response, g
 import jwt
 import datetime
@@ -252,14 +253,32 @@ def inyectar_datos_token():
 
 
 
+# @app.route('/login', methods=['GET', 'POST'])
+# def login():
+#     if request.method == 'POST':
+#         username = request.form.get('username')
+#         password = request.form.get('password')
+
+#         user = get_user(username)
+#         if user and password == user[1]:
+#             token = generar_jwt(user)
+#             resp = make_response(redirect(url_for('dashboard')))
+#             resp.set_cookie('token', token, httponly=True, samesite='Lax')
+#             return resp
+#         else:
+#             flash('Usuario o contraseña incorrectos', 'danger')
+
+#     return render_template('login.html')
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
 
-        user = get_user(username)
-        if user and password == user[1]:
+        user = get_user(username)  # Recupera el usuario de la base de datos
+
+        if user and bcrypt.checkpw(password.encode('utf-8'), user[1].encode('utf-8')):
             token = generar_jwt(user)
             resp = make_response(redirect(url_for('dashboard')))
             resp.set_cookie('token', token, httponly=True, samesite='Lax')
@@ -268,6 +287,7 @@ def login():
             flash('Usuario o contraseña incorrectos', 'danger')
 
     return render_template('login.html')
+
 
 
 @app.route('/logout')
