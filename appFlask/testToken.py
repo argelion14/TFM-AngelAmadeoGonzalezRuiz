@@ -1,13 +1,16 @@
+import random
 import sqlite3
+import string
 import bcrypt
 from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response, g
 import jwt
 import datetime
-
+import xml.etree.ElementTree as ET
+import os
 
 app = Flask(__name__)
 app.secret_key = 'tu_clave_secreta'
-
+app.config['UPLOAD_FOLDER'] = 'uploads'  # Crea este directorio
 JWT_SECRET = 'clave_jwt_segura'  # cámbiala por algo fuerte
 JWT_EXPIRATION_MINUTES = 60
 SECRET_KEY = "tu_clave_secreta"
@@ -396,6 +399,73 @@ def dashboard():
     if user:
         return render_template('dashboard.html', username=user['username'], cert=user['cert'])
     return redirect(url_for('login'))
+
+
+
+def insert_grant_from_xml(xml_path, db_path='roles.db'):
+    # Parse XML
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    default_elem = root.find('.//default')
+    if default_elem is None or default_elem.text is None:
+        raise ValueError("No se encontró elemento <default> en el XML")
+    default_action = default_elem.text.strip().upper()
+    if default_action not in ('ALLOW', 'DENY'):
+        raise ValueError(f"Valor de default inválido: {default_action}")
+
+    # Generar nombre aleatorio
+    random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    name = f"grant_{random_suffix}"
+
+    # Insertar en la base
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO grantTemplate (name, default_action, role_id)
+        VALUES (?, ?, ?)
+    ''', (name, default_action, None))  # role_id se asignará luego
+    grant_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return grant_id, name, default_action
+
+
+
+@app.route('/new_grant', methods=['GET', 'POST'])
+def new_grant():
+    conn = sqlite3.connect('roles.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM roles")
+    roles = [dict(id=row[0], name=row[1]) for row in cursor.fetchall()]
+
+    if request.method == 'POST':
+        f = request.files.get('xml_file')
+        role_id = request.form.get('role_id')
+        if not f or not role_id:
+            flash('Falta fichero o rol', 'danger')
+            return redirect(request.url)
+
+        # Guardar XML
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        path = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
+        f.save(path)
+
+        # Procesar e insertar
+        try:
+            grant_id, name, default_action = insert_grant_from_xml(path)
+            cursor.execute('''
+                UPDATE grantTemplate
+                SET role_id = ?
+                WHERE id = ?
+            ''', (role_id, grant_id))
+            conn.commit()
+            flash(f'Grant "{name}" creado con default="{default_action}" y rol asignado.', 'success')
+            return redirect(url_for('add_grant'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+
+    conn.close()
+    return render_template('new_grant.html', roles=roles)
 
 
 if __name__ == '__main__':

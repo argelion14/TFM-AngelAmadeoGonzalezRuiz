@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Roles{% endblock %}
+{% block header %}Roles disponibles{% endblock %}
+
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Index</a></li>
+<li class="breadcrumb-item active">roles</li>
+{% endblock %}
+
+{% block content %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+<form method="POST" enctype="multipart/form-data" action="{{ url_for('new_grant') }}">
+    <div class="card card-primary">
+        <div class="card-header">
+            <h3 class="card-title">Crear nuevo Grant Template</h3>
+        </div>
+        <div class="card-body">
+
+            <!-- Selector de archivo XML -->
+            <div class="form-group">
+                <label for="xml_file">Fichero XML</label>
+                <div class="input-group">
+                    <div class="custom-file">
+                        <input type="file" name="xml_file" class="custom-file-input" id="xml_file" required>
+                        <label class="custom-file-label" for="xml_file">Selecciona archivo</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selector de rol -->
+            <div class="form-group">
+                <label for="role_id">Rol a asociar</label>
+                <select name="role_id" class="form-control select2" style="width: 100%;" required>
+                    <option value="" disabled selected>Selecciona un rol...</option>
+                    {% for role in roles %}
+                    <option value="{{ role.id }}">{{ role.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+        </div>
+        <div class="card-footer">
+            <button type="submit" class="btn btn-primary">Guardar Grant</button>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
