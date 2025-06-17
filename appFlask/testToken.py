@@ -2,7 +2,7 @@ import random
 import sqlite3
 import string
 import bcrypt
-from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response, g
+from flask import Flask, render_template, request, redirect, url_for, flash, make_response, g
 import jwt
 import datetime
 import xml.etree.ElementTree as ET
@@ -191,6 +191,14 @@ def verificar_jwt():
     return None
 
 
+def decodificar_jwt(token):
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
 
 # @app.route('/logout')
 # def logout():
@@ -199,6 +207,29 @@ def verificar_jwt():
 #     session.pop('is_superuser', None)
 #     return redirect(url_for('index'))
 
+@app.context_processor
+def inyectar_datos_token():
+    token = request.cookies.get('token')
+    datos_token = {}
+    if token:
+        datos = decodificar_jwt(token)
+        if datos:
+            datos_token = datos  # Contiene username, cert, is_superuser, etc.
+    return {'token_data': datos_token}
+
+
+@app.before_request
+def cargar_usuario_desde_token():
+    token = request.cookies.get('token')
+    g.user = None
+    if token:
+        try:
+            data = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+            g.user = data
+        except jwt.ExpiredSignatureError:
+            g.user = None
+        except jwt.InvalidTokenError:
+            g.user = None
 
 # @app.before_request
 # def cargar_usuario_desde_token():
@@ -224,36 +255,6 @@ def verificar_jwt():
 #     return {
 #         'is_superadmin': getattr(user, 'is_superadmin', False) if user else False
 #     }
-
-
-def decodificar_jwt(token):
-    try:
-        return jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
-
-@app.context_processor
-def inyectar_datos_token():
-    token = request.cookies.get('token')
-    datos_token = {}
-    if token:
-        datos = decodificar_jwt(token)
-        if datos:
-            datos_token = datos  # Contiene username, cert, is_superuser, etc.
-    return {'token_data': datos_token}
-
-
-
-
-
-
-
-
-
-
-
 
 
 # @app.route('/login', methods=['GET', 'POST'])
@@ -290,7 +291,6 @@ def login():
             flash('Usuario o contraseña incorrectos', 'danger')
 
     return render_template('login.html')
-
 
 
 @app.route('/logout')
@@ -350,47 +350,107 @@ def page_not_found(e):
 
 @app.route('/mis_roles')
 def mis_roles():
-    if 'username' not in session:
-        return redirect(url_for('login'))
+    user = verificar_jwt()
+    if user:
+        username = user.get('username')
+        roles = get_roles_by_username(username)
+        return render_template('mis_roles.html', username=username, roles=roles)
+    return redirect(url_for('login'))
 
-    username = session['username']
-    roles = get_roles_by_username(username)
-    return render_template('mis_roles.html', username=username, roles=roles)
+    # if 'username' not in session:
+    #     return redirect(url_for('login'))
+
+    # username = session['username']
+    # roles = get_roles_by_username(username)
+    # return render_template('mis_roles.html', username=username, roles=roles)
+
+# @app.route('/dashboard')
+# def dashboard():
+#     user = verificar_jwt()
+#     if user:
+#         return render_template('dashboard.html', username=user['username'], cert=user['cert'])
+#     return redirect(url_for('login'))
 
 
 @app.route("/usuarios2")
 def usuarios2():
-    if not session.get('is_superuser'):
-        return render_template("acceso_denegado.html"), 403
-    users = get_users2()
-    # Usa la nueva plantilla
-    return render_template("usuarios_roles.html", usuarios=users)
+    user = verificar_jwt()
+
+    match user:
+        case None:
+            # No se encontró usuario, redirige al login
+            return redirect(url_for('login'))
+        case {"is_superuser": 1}:
+            # Usuario válido y es superusuario
+            users = get_users2()
+            return render_template("usuarios_roles.html", usuarios=users)
+        case _:
+            # Usuario válido pero no es superusuario
+            return render_template("acceso_denegado.html"), 403
+
+    # if not session.get('is_superuser'):
+    #     return render_template("acceso_denegado.html"), 403
+    # users = get_users2()
+    # # Usa la nueva plantilla
+    # return render_template("usuarios_roles.html", usuarios=users)
 
 
 @app.route("/asignar_rol", methods=["GET", "POST"])
 def asignar_rol():
-    if not session.get("is_superuser"):
-        return render_template("acceso_denegado.html"), 403
 
-    if request.method == "POST":
-        user_id = request.form.get("user_id")
-        role_id = request.form.get("role_id")
-        if user_id and role_id:
-            assign_role_to_user(user_id, role_id)
-            conn = sqlite3.connect('roles.db')
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT username FROM users WHERE id = ?", (user_id,))
-            username = cursor.fetchone()[0]
-            cursor.execute("SELECT name FROM roles WHERE id = ?", (role_id,))
-            role_name = cursor.fetchone()[0]
-            conn.close()
-            flash(
-                f"✅ Rol '{role_name}' asignado a '{username}' correctamente.", "success")
-        return redirect(url_for("asignar_rol"))
+    user = verificar_jwt()
 
-    users, roles = get_all_users_and_roles()
-    return render_template("asignar_rol.html", users=users, roles=roles)
+    match user:
+        case None:
+            # No se encontró usuario, redirige al login
+            return redirect(url_for('login'))
+        case {"is_superuser": 1}:
+            if request.method == "POST":
+                user_id = request.form.get("user_id")
+                role_id = request.form.get("role_id")
+                if user_id and role_id:
+                    assign_role_to_user(user_id, role_id)
+                    conn = sqlite3.connect('roles.db')
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT username FROM users WHERE id = ?", (user_id,))
+                    username = cursor.fetchone()[0]
+                    cursor.execute(
+                        "SELECT name FROM roles WHERE id = ?", (role_id,))
+                    role_name = cursor.fetchone()[0]
+                    conn.close()
+                    flash(
+                        f"✅ Rol '{role_name}' asignado a '{username}' correctamente.", "success")
+                    return redirect(url_for("asignar_rol"))
+
+                users, roles = get_all_users_and_roles()
+                return render_template("asignar_rol.html", users=users, roles=roles)
+        case _:
+            # Usuario válido pero no es superusuario
+            return render_template("acceso_denegado.html"), 403
+
+    # if not session.get("is_superuser"):
+    #     return render_template("acceso_denegado.html"), 403
+
+    # if request.method == "POST":
+    #     user_id = request.form.get("user_id")
+    #     role_id = request.form.get("role_id")
+    #     if user_id and role_id:
+    #         assign_role_to_user(user_id, role_id)
+    #         conn = sqlite3.connect('roles.db')
+    #         cursor = conn.cursor()
+    #         cursor.execute(
+    #             "SELECT username FROM users WHERE id = ?", (user_id,))
+    #         username = cursor.fetchone()[0]
+    #         cursor.execute("SELECT name FROM roles WHERE id = ?", (role_id,))
+    #         role_name = cursor.fetchone()[0]
+    #         conn.close()
+    #         flash(
+    #             f"✅ Rol '{role_name}' asignado a '{username}' correctamente.", "success")
+    #     return redirect(url_for("asignar_rol"))
+
+    # users, roles = get_all_users_and_roles()
+    # return render_template("asignar_rol.html", users=users, roles=roles)
 
 
 @app.route('/dashboard')
@@ -399,7 +459,6 @@ def dashboard():
     if user:
         return render_template('dashboard.html', username=user['username'], cert=user['cert'])
     return redirect(url_for('login'))
-
 
 
 def insert_grant_from_xml(xml_path, db_path='roles.db'):
@@ -414,7 +473,8 @@ def insert_grant_from_xml(xml_path, db_path='roles.db'):
         raise ValueError(f"Valor de default inválido: {default_action}")
 
     # Generar nombre aleatorio
-    random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    random_suffix = ''.join(random.choices(
+        string.ascii_letters + string.digits, k=8))
     name = f"grant_{random_suffix}"
 
     # Insertar en la base
@@ -428,7 +488,6 @@ def insert_grant_from_xml(xml_path, db_path='roles.db'):
     conn.commit()
     conn.close()
     return grant_id, name, default_action
-
 
 
 @app.route('/new_grant', methods=['GET', 'POST'])
@@ -459,7 +518,8 @@ def new_grant():
                 WHERE id = ?
             ''', (role_id, grant_id))
             conn.commit()
-            flash(f'Grant "{name}" creado con default="{default_action}" y rol asignado.', 'success')
+            flash(
+                f'Grant "{name}" creado con default="{default_action}" y rol asignado.', 'success')
             return redirect(url_for('add_grant'))
         except Exception as e:
             flash(f'Error: {e}', 'danger')
