@@ -612,8 +612,30 @@ def new_grant():
 
 
 
+# TODO: Añadir que solo los superuser puedan listar los grants
+@app.route('/list_grant_templates')
+def list_grant_templates():
+    conn = sqlite3.connect('roles.db')
+    cursor = conn.cursor()
+    query = '''
+        SELECT gt.id, gt.name, gt.default_action, r.name as role_name
+        FROM grantTemplate gt
+        JOIN roles r ON gt.role_id = r.id
+    '''
+    cursor.execute(query)
+    grant_templates = cursor.fetchall()  # Devuelve lista de tuplas
 
+    # Opcional: transformar a lista de dicts
+    grants = [
+        {
+            'id': row[0],
+            'name': row[1],
+            'default_action': row[2],
+            'role_name': row[3]
+        } for row in grant_templates
+    ]
 
+    return render_template('grant_templates.html', grants=grants)
 
 
 if __name__ == '__main__':
