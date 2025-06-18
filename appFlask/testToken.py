@@ -423,8 +423,8 @@ def asignar_rol():
                         f"✅ Rol '{role_name}' asignado a '{username}' correctamente.", "success")
                     return redirect(url_for("asignar_rol"))
 
-                users, roles = get_all_users_and_roles()
-                return render_template("asignar_rol.html", users=users, roles=roles)
+            users, roles = get_all_users_and_roles()
+            return render_template("asignar_rol.html", users=users, roles=roles)
         case _:
             # Usuario válido pero no es superusuario
             return render_template("acceso_denegado.html"), 403
