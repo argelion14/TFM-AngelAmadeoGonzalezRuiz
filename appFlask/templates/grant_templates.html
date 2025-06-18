@@ -20,6 +20,7 @@
                     <th>Nombre</th>
                     <th>Acción por defecto</th>
                     <th>Rol asociado</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -29,9 +30,20 @@
                     <td>{{ grant.name }}</td>
                     <td>{{ grant.default_action }}</td>
                     <td>{{ grant.role_name }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('delete_grant_template', grant_id=grant.id) }}"
+                            style="display:inline;"
+                            onsubmit="return confirm('¿Estás seguro de que quieres eliminar este grant?');">
+                            <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
+                                <i class="fas fa-trash-alt"></i> Eliminar
+                            </button>
+                        </form>
+                    </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="4">No hay grant templates disponibles.</td></tr>
+                <tr>
+                    <td colspan="4">No hay grant templates disponibles.</td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>

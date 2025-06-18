@@ -638,5 +638,23 @@ def list_grant_templates():
     return render_template('grant_templates.html', grants=grants)
 
 
+
+@app.route('/delete_grant/<int:grant_id>', methods=['POST'])
+def delete_grant_template(grant_id):
+    conn = sqlite3.connect('roles.db')
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM grantTemplate WHERE id = ?", (grant_id,))
+        conn.commit()
+        flash(f"Grant template con ID {grant_id} eliminado correctamente.", 'success')
+    except Exception as e:
+        flash(f"Error al eliminar: {e}", 'danger')
+    finally:
+        conn.close()
+    return redirect(url_for('list_grant_templates'))  # o donde esté tu lista
+
+
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
