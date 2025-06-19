@@ -543,15 +543,13 @@ from pathlib import Path
 
 
 def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
-    import os
-
     if not os.path.exists(xml_path):
         raise FileNotFoundError(f"El fichero {xml_path} no existe")
 
     tree = ET.parse(xml_path)
     root = tree.getroot()
-    default_elem = root.find('.//default')
 
+    default_elem = root.find('.//default')
     if default_elem is None or default_elem.text is None:
         raise ValueError("No se encontró elemento <default> en el XML")
 
@@ -559,29 +557,130 @@ def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
     if default_action not in ('ALLOW', 'DENY'):
         raise ValueError(f"Valor de default inválido: {default_action}")
 
-    filename = os.path.basename(xml_path)
-    name, _ = os.path.splitext(filename)
+    # filename = os.path.basename(xml_path)
+    # name, _ = os.path.splitext(filename)
+    grant_elem = root.find('.//grant')
+    name = grant_elem.attrib.get('name', 'unnamed_grant')
 
-    # Evitar conflicto de nombres en la base de datos
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
+
     try:
+        # 1. Insertar grantTemplate
         cursor.execute('''
             INSERT INTO grantTemplate (name, default_action, role_id)
             VALUES (?, ?, ?)
         ''', (name, default_action, role_id))
         grant_id = cursor.lastrowid
+
+        # 2. Procesar reglas allow_rule
+        for allow_rule in root.findall('.//grant/allow_rule'):
+            cursor.execute('INSERT INTO allow_rules (description) VALUES (NULL)')
+            allow_rule_id = cursor.lastrowid
+
+            # Insertar dominios
+            for domain in allow_rule.findall('./domains/id'):
+                domain_name = str(domain.text).strip()
+                cursor.execute('INSERT OR IGNORE INTO domains (name) VALUES (?)', (domain_name,))
+                cursor.execute('SELECT id FROM domains WHERE name = ?', (domain_name,))
+                domain_id = cursor.fetchone()[0]
+
+                cursor.execute('''
+                    INSERT INTO allow_rule_domains (allow_rule_id, domain_id)
+                    VALUES (?, ?)
+                ''', (allow_rule_id, domain_id))
+
+            # Insertar topics publish
+            for topic in allow_rule.findall('./publish/topics/topic'):
+                topic_name = topic.text.strip()
+                cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
+                cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
+                topic_id = cursor.fetchone()[0]
+
+                cursor.execute('''
+                    INSERT INTO allow_publish (allow_rule_id, topic_id)
+                    VALUES (?, ?)
+                ''', (allow_rule_id, topic_id))
+
+            # Insertar topics subscribe
+            for topic in allow_rule.findall('./subscribe/topics/topic'):
+                topic_name = topic.text.strip()
+                cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
+                cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
+                topic_id = cursor.fetchone()[0]
+
+                cursor.execute('''
+                    INSERT INTO allow_subscribe (allow_rule_id, topic_id)
+                    VALUES (?, ?)
+                ''', (allow_rule_id, topic_id))
+
+            # Asociar regla allow con el grant
+            cursor.execute('''
+                INSERT INTO grant_allow (grant_id, allow_id)
+                VALUES (?, ?)
+            ''', (grant_id, allow_rule_id))
+
+        # 3. Procesar reglas deny_rule
+        for deny_rule in root.findall('.//grant/deny_rule'):
+            cursor.execute('INSERT INTO deny_rules (description) VALUES (NULL)')
+            deny_rule_id = cursor.lastrowid
+
+            # Insertar dominios
+            for domain in deny_rule.findall('./domains/id'):
+                domain_name = str(domain.text).strip()
+                cursor.execute('INSERT OR IGNORE INTO domains (name) VALUES (?)', (domain_name,))
+                cursor.execute('SELECT id FROM domains WHERE name = ?', (domain_name,))
+                domain_id = cursor.fetchone()[0]
+
+                cursor.execute('''
+                    INSERT INTO deny_rule_domains (deny_rule_id, domain_id)
+                    VALUES (?, ?)
+                ''', (deny_rule_id, domain_id))
+
+            # Insertar topics publish
+            for topic in deny_rule.findall('./publish/topics/topic'):
+                topic_name = topic.text.strip()
+                cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
+                cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
+                topic_id = cursor.fetchone()[0]
+
+                cursor.execute('''
+                    INSERT INTO deny_publish (deny_rule_id, topic_id)
+                    VALUES (?, ?)
+                ''', (deny_rule_id, topic_id))
+
+            # Insertar topics subscribe
+            for topic in deny_rule.findall('./subscribe/topics/topic'):
+                topic_name = topic.text.strip()
+                cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
+                cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
+                topic_id = cursor.fetchone()[0]
+
+                cursor.execute('''
+                    INSERT INTO deny_subscribe (deny_rule_id, topic_id)
+                    VALUES (?, ?)
+                ''', (deny_rule_id, topic_id))
+
+            # Asociar regla deny con el grant
+            cursor.execute('''
+                INSERT INTO grant_deny (grant_id, deny_id)
+                VALUES (?, ?)
+            ''', (grant_id, deny_rule_id))
+
         conn.commit()
         return grant_id, name, default_action
+
     except sqlite3.IntegrityError as e:
+        conn.rollback()
         raise ValueError(f"Error al insertar en la base de datos: {e}")
     finally:
         conn.close()
 
 
-
 @app.route('/new_grant', methods=['GET', 'POST'])
 def new_grant():
+    import os
+    from flask import request, flash, redirect, url_for, render_template
     conn = sqlite3.connect('roles.db')
     cursor = conn.cursor()
     cursor.execute("SELECT id, name FROM roles")
@@ -608,6 +707,7 @@ def new_grant():
             flash(f'Error: {e}', 'danger')
 
     return render_template('new_grant.html', roles=roles)
+
 
 
 
@@ -642,6 +742,7 @@ def list_grant_templates():
 @app.route('/delete_grant/<int:grant_id>', methods=['POST'])
 def delete_grant_template(grant_id):
     conn = sqlite3.connect('roles.db')
+    conn.execute('PRAGMA foreign_keys = ON')  # ✅ Asegura que ON DELETE CASCADE funcione
     cursor = conn.cursor()
     try:
         cursor.execute("DELETE FROM grantTemplate WHERE id = ?", (grant_id,))
@@ -651,7 +752,7 @@ def delete_grant_template(grant_id):
         flash(f"Error al eliminar: {e}", 'danger')
     finally:
         conn.close()
-    return redirect(url_for('list_grant_templates'))  # o donde esté tu lista
+    return redirect(url_for('list_grant_templates'))
 
 
 

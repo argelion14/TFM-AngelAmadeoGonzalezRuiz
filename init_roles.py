@@ -1,21 +1,13 @@
 import sqlite3
 import bcrypt
 
-
 def create_tables():
     conn = sqlite3.connect('roles.db')
+    conn.execute('PRAGMA foreign_keys = ON')  # Activa el uso de claves foráneas
     cursor = conn.cursor()
 
-    # Crear tabla roles
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS roles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            description TEXT
-        )
-    ''')
+    # --- TABLAS PRINCIPALES ---
 
-    # Crear tabla usuarios
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,38 +18,150 @@ def create_tables():
         )
     ''')
 
-    # Crear tabla intermedia user_roles
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS roles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            description TEXT
+        )
+    ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_roles (
             user_id INTEGER,
             role_id INTEGER,
             PRIMARY KEY (user_id, role_id),
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (role_id) REFERENCES roles(id)
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
         )
     ''')
 
-    # Crear tabla grantTemplate
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS grantTemplate (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             default_action TEXT CHECK(default_action IN ('ALLOW', 'DENY')),
             role_id INT UNIQUE NOT NULL,
-            FOREIGN KEY (role_id) REFERENCES roles(id)
+            FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
         )
     ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS domains (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        )
+    ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS topics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        )
+    ''')
 
-# not_before TEXT,
-# not_after TEXT,
-# allow_rules TEXT, -- Podrías guardar el fragmento XML o JSON aquí
+    # --- ALLOW RULES ---
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS allow_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT
+        )
+    ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS allow_rule_domains (
+            allow_rule_id INTEGER,
+            domain_id INTEGER,
+            PRIMARY KEY (allow_rule_id, domain_id),
+            FOREIGN KEY (allow_rule_id) REFERENCES allow_rules(id) ON DELETE CASCADE,
+            FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
+        )
+    ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS allow_publish (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            allow_rule_id INTEGER,
+            topic_id INTEGER NOT NULL,
+            FOREIGN KEY (allow_rule_id) REFERENCES allow_rules(id) ON DELETE CASCADE,
+            FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+        )
+    ''')
 
-    # Insertar roles
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS allow_subscribe (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            allow_rule_id INTEGER,
+            topic_id INTEGER NOT NULL,
+            FOREIGN KEY (allow_rule_id) REFERENCES allow_rules(id) ON DELETE CASCADE,
+            FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+        )
+    ''')
+
+    # --- DENY RULES ---
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS deny_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS deny_rule_domains (
+            deny_rule_id INTEGER,
+            domain_id INTEGER,
+            PRIMARY KEY (deny_rule_id, domain_id),
+            FOREIGN KEY (deny_rule_id) REFERENCES deny_rules(id) ON DELETE CASCADE,
+            FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS deny_publish (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            deny_rule_id INTEGER,
+            topic_id INTEGER NOT NULL,
+            FOREIGN KEY (deny_rule_id) REFERENCES deny_rules(id) ON DELETE CASCADE,
+            FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS deny_subscribe (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            deny_rule_id INTEGER,
+            topic_id INTEGER NOT NULL,
+            FOREIGN KEY (deny_rule_id) REFERENCES deny_rules(id) ON DELETE CASCADE,
+            FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+        )
+    ''')
+
+    # --- RELACIONES ENTRE REGLAS Y PLANTILLAS ---
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS grant_allow (
+            grant_id INTEGER,
+            allow_id INTEGER,
+            PRIMARY KEY (grant_id, allow_id),
+            FOREIGN KEY (grant_id) REFERENCES grantTemplate(id) ON DELETE CASCADE,
+            FOREIGN KEY (allow_id) REFERENCES allow_rules(id) ON DELETE CASCADE
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS grant_deny (
+            grant_id INTEGER,
+            deny_id INTEGER,
+            PRIMARY KEY (grant_id, deny_id),
+            FOREIGN KEY (grant_id) REFERENCES grantTemplate(id) ON DELETE CASCADE,
+            FOREIGN KEY (deny_id) REFERENCES deny_rules(id) ON DELETE CASCADE
+        )
+    ''')
+
+    # --- DATOS DE EJEMPLO ---
+
     roles = [
         ('operator', 'Role operator: Domains 1-3, Topics: telemetry, Subscribe'),
         ('remote_driver', 'Remote driver: Truck publish'),
@@ -69,7 +173,6 @@ def create_tables():
         cursor.execute(
             'INSERT OR IGNORE INTO roles (name, description) VALUES (?, ?)', role)
 
-    # Insertar usuarios con contraseñas hasheadas
     users = [
         ('usuario1', 'pass1', 'C=US, ST=CA, O=Real Time Innovations, emailAddress=ecdsa01Peer01@rti.com, CN=RTI ECDSA01 (p256) PEER01', 1),
         ('usuario2', 'pass2', 'C=ES, ST=Madrid, O=Mi Empresa, emailAddress=usuario2@miempresa.com, CN=Certificado Usuario2', 0)
@@ -82,19 +185,17 @@ def create_tables():
             (username, hashed_password.decode('utf-8'), cert, is_superuser)
         )
 
-    # Obtener IDs de usuarios
+    # Asignación de roles a usuarios
     cursor.execute("SELECT id FROM users WHERE username = 'usuario1'")
     usuario1_id = cursor.fetchone()[0]
     cursor.execute("SELECT id FROM users WHERE username = 'usuario2'")
     usuario2_id = cursor.fetchone()[0]
 
-    # Obtener IDs de roles
     role_ids = {}
     for role_name in ['operator', 'remote_driver', 'trucks', 'drones', 'field']:
         cursor.execute("SELECT id FROM roles WHERE name = ?", (role_name,))
         role_ids[role_name] = cursor.fetchone()[0]
 
-    # Asociar múltiples roles a los usuarios
     usuario1_roles = ['operator', 'trucks']
     usuario2_roles = ['field', 'drones']
 
@@ -111,8 +212,7 @@ def create_tables():
 
     conn.commit()
     conn.close()
-    print("✅ Base de datos creada con contraseñas seguras.")
-
+    print("✅ Base de datos creada correctamente con claves foráneas y ON DELETE CASCADE.")
 
 if __name__ == "__main__":
     create_tables()
