@@ -557,8 +557,6 @@ def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
     if default_action not in ('ALLOW', 'DENY'):
         raise ValueError(f"Valor de default inválido: {default_action}")
 
-    # filename = os.path.basename(xml_path)
-    # name, _ = os.path.splitext(filename)
     grant_elem = root.find('.//grant')
     name = grant_elem.attrib.get('name', 'unnamed_grant')
 
@@ -573,99 +571,55 @@ def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
         ''', (name, default_action, role_id))
         grant_id = cursor.lastrowid
 
-        # 2. Procesar reglas allow_rule
-        for allow_rule in root.findall('.//grant/allow_rule'):
-            cursor.execute('INSERT INTO allow_rules (description) VALUES (NULL)')
-            allow_rule_id = cursor.lastrowid
+        # 2. Procesar reglas (allow_rule y deny_rule)
+        for rule_type in ['allow_rule', 'deny_rule']:
+            for rule in root.findall(f'.//grant/{rule_type}'):
+                permiso = rule_type  # 'allow_rule' o 'deny_rule'
 
-            # Insertar dominios
-            for domain in allow_rule.findall('./domains/id'):
-                domain_name = str(domain.text).strip()
-                cursor.execute('INSERT OR IGNORE INTO domains (name) VALUES (?)', (domain_name,))
-                cursor.execute('SELECT id FROM domains WHERE name = ?', (domain_name,))
-                domain_id = cursor.fetchone()[0]
+                cursor.execute('INSERT INTO rules (permiso, description) VALUES (?, NULL)', (permiso,))
+                rule_id = cursor.lastrowid
 
+                # Insertar dominios
+                for domain in rule.findall('./domains/id'):
+                    domain_name = domain.text.strip()
+                    cursor.execute('INSERT OR IGNORE INTO domains (name) VALUES (?)', (domain_name,))
+                    cursor.execute('SELECT id FROM domains WHERE name = ?', (domain_name,))
+                    domain_id = cursor.fetchone()[0]
+
+                    cursor.execute('''
+                        INSERT INTO rule_domains (rule_id, domain_id)
+                        VALUES (?, ?)
+                    ''', (rule_id, domain_id))
+
+                # Insertar topics publish
+                for topic in rule.findall('./publish/topics/topic'):
+                    topic_name = topic.text.strip()
+                    cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
+                    cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
+                    topic_id = cursor.fetchone()[0]
+
+                    cursor.execute('''
+                        INSERT INTO publish_topics (rule_id, topic_id)
+                        VALUES (?, ?)
+                    ''', (rule_id, topic_id))
+
+                # Insertar topics subscribe
+                for topic in rule.findall('./subscribe/topics/topic'):
+                    topic_name = topic.text.strip()
+                    cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
+                    cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
+                    topic_id = cursor.fetchone()[0]
+
+                    cursor.execute('''
+                        INSERT INTO subscribe_topics (rule_id, topic_id)
+                        VALUES (?, ?)
+                    ''', (rule_id, topic_id))
+
+                # Asociar regla con el grant
                 cursor.execute('''
-                    INSERT INTO allow_rule_domains (allow_rule_id, domain_id)
+                    INSERT INTO grant_rules (grant_id, rule_id)
                     VALUES (?, ?)
-                ''', (allow_rule_id, domain_id))
-
-            # Insertar topics publish
-            for topic in allow_rule.findall('./publish/topics/topic'):
-                topic_name = topic.text.strip()
-                cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
-                cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
-                topic_id = cursor.fetchone()[0]
-
-                cursor.execute('''
-                    INSERT INTO allow_publish (allow_rule_id, topic_id)
-                    VALUES (?, ?)
-                ''', (allow_rule_id, topic_id))
-
-            # Insertar topics subscribe
-            for topic in allow_rule.findall('./subscribe/topics/topic'):
-                topic_name = topic.text.strip()
-                cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
-                cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
-                topic_id = cursor.fetchone()[0]
-
-                cursor.execute('''
-                    INSERT INTO allow_subscribe (allow_rule_id, topic_id)
-                    VALUES (?, ?)
-                ''', (allow_rule_id, topic_id))
-
-            # Asociar regla allow con el grant
-            cursor.execute('''
-                INSERT INTO grant_allow (grant_id, allow_id)
-                VALUES (?, ?)
-            ''', (grant_id, allow_rule_id))
-
-        # 3. Procesar reglas deny_rule
-        for deny_rule in root.findall('.//grant/deny_rule'):
-            cursor.execute('INSERT INTO deny_rules (description) VALUES (NULL)')
-            deny_rule_id = cursor.lastrowid
-
-            # Insertar dominios
-            for domain in deny_rule.findall('./domains/id'):
-                domain_name = str(domain.text).strip()
-                cursor.execute('INSERT OR IGNORE INTO domains (name) VALUES (?)', (domain_name,))
-                cursor.execute('SELECT id FROM domains WHERE name = ?', (domain_name,))
-                domain_id = cursor.fetchone()[0]
-
-                cursor.execute('''
-                    INSERT INTO deny_rule_domains (deny_rule_id, domain_id)
-                    VALUES (?, ?)
-                ''', (deny_rule_id, domain_id))
-
-            # Insertar topics publish
-            for topic in deny_rule.findall('./publish/topics/topic'):
-                topic_name = topic.text.strip()
-                cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
-                cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
-                topic_id = cursor.fetchone()[0]
-
-                cursor.execute('''
-                    INSERT INTO deny_publish (deny_rule_id, topic_id)
-                    VALUES (?, ?)
-                ''', (deny_rule_id, topic_id))
-
-            # Insertar topics subscribe
-            for topic in deny_rule.findall('./subscribe/topics/topic'):
-                topic_name = topic.text.strip()
-                cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
-                cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
-                topic_id = cursor.fetchone()[0]
-
-                cursor.execute('''
-                    INSERT INTO deny_subscribe (deny_rule_id, topic_id)
-                    VALUES (?, ?)
-                ''', (deny_rule_id, topic_id))
-
-            # Asociar regla deny con el grant
-            cursor.execute('''
-                INSERT INTO grant_deny (grant_id, deny_id)
-                VALUES (?, ?)
-            ''', (grant_id, deny_rule_id))
+                ''', (grant_id, rule_id))
 
         conn.commit()
         return grant_id, name, default_action

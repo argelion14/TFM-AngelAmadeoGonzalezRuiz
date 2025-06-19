@@ -3,7 +3,7 @@ import bcrypt
 
 def create_tables():
     conn = sqlite3.connect('roles.db')
-    conn.execute('PRAGMA foreign_keys = ON')  # Activa el uso de claves foráneas
+    conn.execute('PRAGMA foreign_keys = ON')
     cursor = conn.cursor()
 
     # --- TABLAS PRINCIPALES ---
@@ -60,103 +60,53 @@ def create_tables():
         )
     ''')
 
-    # --- ALLOW RULES ---
+    # --- NUEVA TABLA DE REGLAS ---
 
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS allow_rules (
+        CREATE TABLE IF NOT EXISTS rules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            description TEXT
+            description TEXT,
+            permiso TEXT CHECK(permiso IN ('allow_rule', 'deny_rule')) NOT NULL
         )
     ''')
 
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS allow_rule_domains (
-            allow_rule_id INTEGER,
+        CREATE TABLE IF NOT EXISTS rule_domains (
+            rule_id INTEGER,
             domain_id INTEGER,
-            PRIMARY KEY (allow_rule_id, domain_id),
-            FOREIGN KEY (allow_rule_id) REFERENCES allow_rules(id) ON DELETE CASCADE,
+            PRIMARY KEY (rule_id, domain_id),
+            FOREIGN KEY (rule_id) REFERENCES rules(id) ON DELETE CASCADE,
             FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
         )
     ''')
 
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS allow_publish (
+        CREATE TABLE IF NOT EXISTS rule_publish (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            allow_rule_id INTEGER,
+            rule_id INTEGER NOT NULL,
             topic_id INTEGER NOT NULL,
-            FOREIGN KEY (allow_rule_id) REFERENCES allow_rules(id) ON DELETE CASCADE,
+            FOREIGN KEY (rule_id) REFERENCES rules(id) ON DELETE CASCADE,
             FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
         )
     ''')
 
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS allow_subscribe (
+        CREATE TABLE IF NOT EXISTS rule_subscribe (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            allow_rule_id INTEGER,
+            rule_id INTEGER NOT NULL,
             topic_id INTEGER NOT NULL,
-            FOREIGN KEY (allow_rule_id) REFERENCES allow_rules(id) ON DELETE CASCADE,
-            FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
-        )
-    ''')
-
-    # --- DENY RULES ---
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS deny_rules (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            description TEXT
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS deny_rule_domains (
-            deny_rule_id INTEGER,
-            domain_id INTEGER,
-            PRIMARY KEY (deny_rule_id, domain_id),
-            FOREIGN KEY (deny_rule_id) REFERENCES deny_rules(id) ON DELETE CASCADE,
-            FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS deny_publish (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            deny_rule_id INTEGER,
-            topic_id INTEGER NOT NULL,
-            FOREIGN KEY (deny_rule_id) REFERENCES deny_rules(id) ON DELETE CASCADE,
+            FOREIGN KEY (rule_id) REFERENCES rules(id) ON DELETE CASCADE,
             FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
         )
     ''')
 
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS deny_subscribe (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            deny_rule_id INTEGER,
-            topic_id INTEGER NOT NULL,
-            FOREIGN KEY (deny_rule_id) REFERENCES deny_rules(id) ON DELETE CASCADE,
-            FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
-        )
-    ''')
-
-    # --- RELACIONES ENTRE REGLAS Y PLANTILLAS ---
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS grant_allow (
+        CREATE TABLE IF NOT EXISTS grant_rules (
             grant_id INTEGER,
-            allow_id INTEGER,
-            PRIMARY KEY (grant_id, allow_id),
+            rule_id INTEGER,
+            PRIMARY KEY (grant_id, rule_id),
             FOREIGN KEY (grant_id) REFERENCES grantTemplate(id) ON DELETE CASCADE,
-            FOREIGN KEY (allow_id) REFERENCES allow_rules(id) ON DELETE CASCADE
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS grant_deny (
-            grant_id INTEGER,
-            deny_id INTEGER,
-            PRIMARY KEY (grant_id, deny_id),
-            FOREIGN KEY (grant_id) REFERENCES grantTemplate(id) ON DELETE CASCADE,
-            FOREIGN KEY (deny_id) REFERENCES deny_rules(id) ON DELETE CASCADE
+            FOREIGN KEY (rule_id) REFERENCES rules(id) ON DELETE CASCADE
         )
     ''')
 
@@ -185,7 +135,6 @@ def create_tables():
             (username, hashed_password.decode('utf-8'), cert, is_superuser)
         )
 
-    # Asignación de roles a usuarios
     cursor.execute("SELECT id FROM users WHERE username = 'usuario1'")
     usuario1_id = cursor.fetchone()[0]
     cursor.execute("SELECT id FROM users WHERE username = 'usuario2'")
@@ -212,7 +161,7 @@ def create_tables():
 
     conn.commit()
     conn.close()
-    print("✅ Base de datos creada correctamente con claves foráneas y ON DELETE CASCADE.")
+    print("✅ Base de datos creada correctamente con tablas unificadas de reglas.")
 
 if __name__ == "__main__":
     create_tables()
