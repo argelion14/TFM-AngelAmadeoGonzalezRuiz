@@ -23,6 +23,7 @@
         <publish>
           <topics>
             <topic>Example PatientMonitoring</topic>
+            <topic>Bombon de chocolate</topic>
           </topics>
         </publish>
       </allow_rule>

@@ -1,6 +1,9 @@
-import random
+from flask import request, redirect, url_for, flash, render_template
+import xmlschema
+import tempfile
+from pathlib import Path
+from werkzeug.utils import secure_filename
 import sqlite3
-import string
 import bcrypt
 from flask import Flask, render_template, request, redirect, url_for, flash, make_response, g
 import jwt
@@ -412,11 +415,13 @@ def asignar_rol():
                     cursor = conn.cursor()
 
                     # Validar que el user_id existe
-                    cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+                    cursor.execute(
+                        "SELECT username FROM users WHERE id = ?", (user_id,))
                     user_row = cursor.fetchone()
 
                     # Validar que el role_id existe
-                    cursor.execute("SELECT name FROM roles WHERE id = ?", (role_id,))
+                    cursor.execute(
+                        "SELECT name FROM roles WHERE id = ?", (role_id,))
                     role_row = cursor.fetchone()
 
                     if not user_row or not role_row:
@@ -430,14 +435,14 @@ def asignar_rol():
 
                     username = user_row[0]
                     role_name = role_row[0]
-                    flash(f"✅ Rol '{role_name}' asignado a '{username}' correctamente.", "success")
+                    flash(
+                        f"✅ Rol '{role_name}' asignado a '{username}' correctamente.", "success")
                     return redirect(url_for("asignar_rol"))
 
             users, roles = get_all_users_and_roles()
             return render_template("asignar_rol.html", users=users, roles=roles)
         case _:
             return render_template("acceso_denegado.html"), 403
-
 
     # if not session.get("is_superuser"):
     #     return render_template("acceso_denegado.html"), 403
@@ -538,14 +543,11 @@ def dashboard():
 #     return render_template('new_grant.html', roles=roles)
 
 
-from werkzeug.utils import secure_filename
-from pathlib import Path
-
-
 def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
     if not os.path.exists(xml_path):
         raise FileNotFoundError(f"El fichero {xml_path} no existe")
 
+    role_id = int(role_id)
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
@@ -571,49 +573,62 @@ def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
         ''', (name, default_action, role_id))
         grant_id = cursor.lastrowid
 
-        # 2. Procesar reglas (allow_rule y deny_rule)
+        # 2. Procesar reglas
         for rule_type in ['allow_rule', 'deny_rule']:
             for rule in root.findall(f'.//grant/{rule_type}'):
-                permiso = rule_type  # 'allow_rule' o 'deny_rule'
+                permiso = rule_type
 
-                cursor.execute('INSERT INTO rules (permiso, description) VALUES (?, NULL)', (permiso,))
+                cursor.execute(
+                    'INSERT INTO rules (permiso, description) VALUES (?, ?)', (permiso, '')
+                )
                 rule_id = cursor.lastrowid
 
-                # Insertar dominios
+                # Dominios
                 for domain in rule.findall('./domains/id'):
-                    domain_name = domain.text.strip()
-                    cursor.execute('INSERT OR IGNORE INTO domains (name) VALUES (?)', (domain_name,))
-                    cursor.execute('SELECT id FROM domains WHERE name = ?', (domain_name,))
-                    domain_id = cursor.fetchone()[0]
+                    if domain.text:
+                        domain_name = domain.text.strip()
+                        cursor.execute(
+                            'INSERT OR IGNORE INTO domains (name) VALUES (?)', (domain_name,))
+                        cursor.execute(
+                            'SELECT id FROM domains WHERE name = ?', (domain_name,))
+                        domain_id = cursor.fetchone()[0]
 
-                    cursor.execute('''
-                        INSERT INTO rule_domains (rule_id, domain_id)
-                        VALUES (?, ?)
-                    ''', (rule_id, domain_id))
+                        cursor.execute('''
+                            INSERT INTO rule_domains (rule_id, domain_id)
+                            VALUES (?, ?)
+                        ''', (rule_id, domain_id))
 
-                # Insertar topics publish
+                # Topics - Publish
                 for topic in rule.findall('./publish/topics/topic'):
-                    topic_name = topic.text.strip()
-                    cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
-                    cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
-                    topic_id = cursor.fetchone()[0]
+                    if topic.text:
+                        topic_name = topic.text.strip()
+                        cursor.execute(
+                            'INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
+                        cursor.execute(
+                            'SELECT id FROM topics WHERE name = ?', (topic_name,))
+                        topic_id = cursor.fetchone()[0]
 
-                    cursor.execute('''
-                        INSERT INTO publish_topics (rule_id, topic_id)
-                        VALUES (?, ?)
-                    ''', (rule_id, topic_id))
+                        # Insertar en rule_topics como publish
+                        cursor.execute('''
+                            INSERT INTO rule_topics (rule_id, topic_id, action)
+                            VALUES (?, ?, 'publish')
+                        ''', (rule_id, topic_id))
 
-                # Insertar topics subscribe
+                # Topics - Subscribe
                 for topic in rule.findall('./subscribe/topics/topic'):
-                    topic_name = topic.text.strip()
-                    cursor.execute('INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
-                    cursor.execute('SELECT id FROM topics WHERE name = ?', (topic_name,))
-                    topic_id = cursor.fetchone()[0]
+                    if topic.text:
+                        topic_name = topic.text.strip()
+                        cursor.execute(
+                            'INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
+                        cursor.execute(
+                            'SELECT id FROM topics WHERE name = ?', (topic_name,))
+                        topic_id = cursor.fetchone()[0]
 
-                    cursor.execute('''
-                        INSERT INTO subscribe_topics (rule_id, topic_id)
-                        VALUES (?, ?)
-                    ''', (rule_id, topic_id))
+                        # Insertar en rule_topics como subscribe
+                        cursor.execute('''
+                            INSERT INTO rule_topics (rule_id, topic_id, action)
+                            VALUES (?, ?, 'subscribe')
+                        ''', (rule_id, topic_id))
 
                 # Asociar regla con el grant
                 cursor.execute('''
@@ -624,7 +639,7 @@ def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
         conn.commit()
         return grant_id, name, default_action
 
-    except sqlite3.IntegrityError as e:
+    except (sqlite3.IntegrityError, sqlite3.OperationalError) as e:
         conn.rollback()
         raise ValueError(f"Error al insertar en la base de datos: {e}")
     finally:
@@ -654,16 +669,15 @@ def new_grant():
             path = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
             f.save(path)
 
-            grant_id, name, default_action = insert_grant_from_xml(path, role_id)
-            flash(f'Grant "{name}" creado con default="{default_action}" y rol asignado.', 'success')
+            grant_id, name, default_action = insert_grant_from_xml(
+                path, role_id)
+            flash(
+                f'Grant "{name}" creado con default="{default_action}" y rol asignado.', 'success')
             return redirect(url_for('new_grant'))
         except Exception as e:
             flash(f'Error: {e}', 'danger')
 
     return render_template('new_grant.html', roles=roles)
-
-
-
 
 
 # TODO: Añadir que solo los superuser puedan listar los grants
@@ -692,16 +706,17 @@ def list_grant_templates():
     return render_template('grant_templates.html', grants=grants)
 
 
-
 @app.route('/delete_grant/<int:grant_id>', methods=['POST'])
 def delete_grant_template(grant_id):
     conn = sqlite3.connect('roles.db')
-    conn.execute('PRAGMA foreign_keys = ON')  # ✅ Asegura que ON DELETE CASCADE funcione
+    # ✅ Asegura que ON DELETE CASCADE funcione
+    conn.execute('PRAGMA foreign_keys = ON')
     cursor = conn.cursor()
     try:
         cursor.execute("DELETE FROM grantTemplate WHERE id = ?", (grant_id,))
         conn.commit()
-        flash(f"Grant template con ID {grant_id} eliminado correctamente.", 'success')
+        flash(
+            f"Grant template con ID {grant_id} eliminado correctamente.", 'success')
     except Exception as e:
         flash(f"Error al eliminar: {e}", 'danger')
     finally:
@@ -709,6 +724,39 @@ def delete_grant_template(grant_id):
     return redirect(url_for('list_grant_templates'))
 
 
+@app.route('/validar-xml', methods=['GET', 'POST'])
+def validar_xml():
+    if request.method == 'POST':
+        xml_file = request.files.get('xml_file')
+        if not xml_file:
+            flash("❌ No se ha proporcionado un archivo XML.", "error")
+            return redirect(request.url)
+
+        # Guardar el archivo XML en un archivo temporal
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as tmp:
+            xml_path = tmp.name
+            xml_file.save(xml_path)
+
+        schema_url = "https://community.rti.com/schema/7.5.0/dds_security_permissions.xsd"
+
+        try:
+            schema = xmlschema.XMLSchema(schema_url)
+            if schema.is_valid(xml_path):
+                flash(
+                    "✅ El archivo XML es válido según el esquema DDS Permissions 7.5.0.", "success")
+            else:
+                errores = [f"- {e}" for e in schema.iter_errors(xml_path)]
+                for e in errores:
+                    flash(f"❌ Error: {e}", "error")
+        except Exception as e:
+            flash(f"❌ Error al validar: {e}", "error")
+        finally:
+            os.remove(xml_path)
+
+        return redirect(url_for('validar_xml'))
+
+    # Si es GET, simplemente muestra el formulario
+    return render_template('validar_xml.html')
 
 
 if __name__ == '__main__':

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Validar XML{% endblock %}
+{% block header %}Validar archivo XML de permisos RTI{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<form method="POST" enctype="multipart/form-data" action="{{ url_for('validar_xml') }}">
+    <div class="card card-info">
+        <div class="card-header">
+            <h3 class="card-title">Validar XML contra esquema DDS 7.5.0</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label for="xml_file">Archivo XML</label>
+                <div class="custom-file">
+                    <input type="file" name="xml_file" class="custom-file-input" id="xml_file" required>
+                    <label class="custom-file-label" for="xml_file">Selecciona archivo...</label>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <button type="submit" class="btn btn-info">Validar</button>
+        </div>
+    </div>
+</form>
+
+<script>
+  // Mostrar nombre del archivo seleccionado
+  document.getElementById("xml_file").addEventListener("change", function () {
+      const fileName = this.files[0]?.name || "Selecciona archivo...";
+      const label = this.nextElementSibling;
+      if (label) label.textContent = fileName;
+  });
+</script>
+{% endblock %}

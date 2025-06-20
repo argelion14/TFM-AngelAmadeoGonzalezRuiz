@@ -60,7 +60,7 @@ def create_tables():
         )
     ''')
 
-    # --- NUEVA TABLA DE REGLAS ---
+    # --- NUEVA TABLA DE REGLAS Y RELACIONES ---
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS rules (
@@ -81,20 +81,11 @@ def create_tables():
     ''')
 
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS rule_publish (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+        CREATE TABLE IF NOT EXISTS rule_topics (
             rule_id INTEGER NOT NULL,
             topic_id INTEGER NOT NULL,
-            FOREIGN KEY (rule_id) REFERENCES rules(id) ON DELETE CASCADE,
-            FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS rule_subscribe (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            rule_id INTEGER NOT NULL,
-            topic_id INTEGER NOT NULL,
+            action TEXT CHECK(action IN ('publish', 'subscribe')) NOT NULL,
+            PRIMARY KEY (rule_id, topic_id, action),
             FOREIGN KEY (rule_id) REFERENCES rules(id) ON DELETE CASCADE,
             FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
         )
@@ -161,7 +152,7 @@ def create_tables():
 
     conn.commit()
     conn.close()
-    print("✅ Base de datos creada correctamente con tablas unificadas de reglas.")
+    print("✅ Base de datos creada correctamente con estructura compacta (rule_topics unificado).")
 
 if __name__ == "__main__":
     create_tables()
