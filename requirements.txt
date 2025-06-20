@@ -4,3 +4,4 @@ bcrypt
 jwt
 PyJWT
 xmlschema
+flasgger
