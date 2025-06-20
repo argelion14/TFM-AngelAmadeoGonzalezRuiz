@@ -709,19 +709,44 @@ def list_grant_templates():
 @app.route('/delete_grant/<int:grant_id>', methods=['POST'])
 def delete_grant_template(grant_id):
     conn = sqlite3.connect('roles.db')
-    # ✅ Asegura que ON DELETE CASCADE funcione
     conn.execute('PRAGMA foreign_keys = ON')
     cursor = conn.cursor()
     try:
-        cursor.execute("DELETE FROM grantTemplate WHERE id = ?", (grant_id,))
+        # 1. Obtener todas las rule_ids asociadas al grant
+        cursor.execute('SELECT rule_id FROM grant_rules WHERE grant_id = ?', (grant_id,))
+        rule_ids = [row[0] for row in cursor.fetchall()]
+
+        # 2. Eliminar relaciones en grant_rules (esto puede ser opcional si ON DELETE CASCADE ya se encarga)
+        cursor.execute('DELETE FROM grant_rules WHERE grant_id = ?', (grant_id,))
+
+        # 3. Eliminar reglas (esto borrará también rule_domains y rule_topics por cascada)
+        for rule_id in rule_ids:
+            cursor.execute('DELETE FROM rules WHERE id = ?', (rule_id,))
+
+        # 4. Eliminar el grantTemplate
+        cursor.execute('DELETE FROM grantTemplate WHERE id = ?', (grant_id,))
+
+        # 5. Limpieza opcional: eliminar domains sin uso
+        cursor.execute('''
+            DELETE FROM domains
+            WHERE id NOT IN (SELECT domain_id FROM rule_domains)
+        ''')
+
+        # 6. Limpieza opcional: eliminar topics sin uso
+        cursor.execute('''
+            DELETE FROM topics
+            WHERE id NOT IN (SELECT topic_id FROM rule_topics)
+        ''')
+
         conn.commit()
-        flash(
-            f"Grant template con ID {grant_id} eliminado correctamente.", 'success')
+        flash(f"Grant template con ID {grant_id} y sus datos asociados fueron eliminados correctamente.", 'success')
     except Exception as e:
+        conn.rollback()
         flash(f"Error al eliminar: {e}", 'danger')
     finally:
         conn.close()
     return redirect(url_for('list_grant_templates'))
+
 
 
 @app.route('/validar-xml', methods=['GET', 'POST'])
