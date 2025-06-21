@@ -348,7 +348,7 @@ def delete_grant_api(grant_id):
 
 # TODO Que te devuelva tu XML pasandole tu un rol del cual tengas como usuario
 
-
+# TODO Mejorar la estructura de la base para que mande bien a los templates de forma correcta
 
 
 
