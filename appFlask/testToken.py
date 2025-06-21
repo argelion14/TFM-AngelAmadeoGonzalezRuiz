@@ -647,6 +647,77 @@ def actualizar_usuario(user_id):
         return jsonify({'message': 'Usuario actualizado'})
     return jsonify({'error': 'Usuario no encontrado'}), 404
 
+#########################
+# SECCIÓN DE XML
+# Funciones auxiliares para gestión de XML
+#########################
+
+@app.route('/api/validar-xml', methods=['POST'])
+@swag_from({
+    'tags': ['XML'],
+    'summary': 'Valida un archivo XML según el esquema DDS Permissions 7.5.0',
+    'consumes': ['multipart/form-data'],
+    'parameters': [
+        {
+            'name': 'xml_file',
+            'in': 'formData',
+            'type': 'file',
+            'required': True,
+            'description': 'Archivo XML a validar'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Resultado de la validación del XML',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'valid': {'type': 'boolean'},
+                    'message': {'type': 'string'},
+                    'errors': {
+                        'type': 'array',
+                        'items': {'type': 'string'}
+                    }
+                }
+            }
+        },
+        400: {
+            'description': 'Archivo no proporcionado o error de validación'
+        }
+    }
+})
+def validar_xml_api():
+    xml_file = request.files.get('xml_file')
+    if not xml_file:
+        return jsonify({"error": "No se ha proporcionado un archivo XML"}), 400
+
+    schema_url = "https://community.rti.com/schema/7.5.0/dds_security_permissions.xsd"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as tmp:
+        xml_path = tmp.name
+        xml_file.save(xml_path)
+
+    try:
+        schema = xmlschema.XMLSchema(schema_url)
+        if schema.is_valid(xml_path):
+            resultado = {
+                "valid": True,
+                "message": "✅ El archivo XML es válido según el esquema DDS Permissions 7.5.0.",
+                "errors": []
+            }
+        else:
+            errores = [str(e) for e in schema.iter_errors(xml_path)]
+            resultado = {
+                "valid": False,
+                "message": "❌ El archivo XML no es válido.",
+                "errors": errores
+            }
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({"error": f"❌ Error al validar: {str(e)}"}), 400
+    finally:
+        os.remove(xml_path)
+
+
 
 #########################
 # SECCIÓN DE HTML
