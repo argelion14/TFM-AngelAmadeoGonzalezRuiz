@@ -132,7 +132,14 @@ def superadmin_required(f):
         return f(*args, **kwargs)
     return wrapper
 
-
+def user_required(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        user = verificar_jwt_api()
+        if not user or not user.get("username"):
+            abort(403, "Token inválido o usuario no autorizado")
+        return f(*args, **kwargs)
+    return wrapper
 
 #########################
 # SECCIÓN DE GrantTemplate
@@ -140,11 +147,13 @@ def superadmin_required(f):
 #########################
 
 # TODO Pensar si tiene que ser algo protegido
+
 @app.route('/api/grant-templates', methods=['GET'])
 @swag_from({
     'tags': ['Grant Templates'],
     'summary': 'Lista todas las plantillas de permisos (grant templates)',
-    'description': 'Obtiene una lista de plantillas de permisos junto con su acción por defecto y el nombre del rol asociado.',
+    'description': 'Obtiene una lista de plantillas de permisos junto con su acción por defecto y el nombre del rol asociado. Requiere autenticación con JWT.',
+    'security': [{'BearerAuth': []}],
     'responses': {
         200: {
             'description': 'Lista de plantillas de permisos',
@@ -160,9 +169,11 @@ def superadmin_required(f):
                     }
                 }
             }
-        }
+        },
+        403: {'description': 'Token inválido o no autorizado'}
     }
 })
+@user_required
 def list_grant_templates_api():
     conn = sqlite3.connect('roles.db')
     cursor = conn.cursor()
@@ -185,6 +196,7 @@ def list_grant_templates_api():
     ]
 
     return jsonify(grants)
+
 
 # TODO Pensar si tiene que ser algo protegido
 @app.route('/api/grants', methods=['POST'])
@@ -343,25 +355,205 @@ def delete_grant_api(grant_id):
     finally:
         conn.close()
 
+
+
+
+# TODO Mejorar la estructura de la base.html
+
+
+
+
+
+
 # TODO Hacer el endpoint de solicitar JWT de un rol en concreto, al cual por tu usuario tengas dicho rol
+@app.route('/api/auth-role', methods=['POST'])
+@user_required
+@swag_from({
+    'tags': ['Auth'],
+    'summary': 'Autenticar un rol específico para un usuario ya autenticado',
+    'description': 'Devuelve un JWT si el usuario autenticado posee el rol solicitado y este está asignado a un único grantTemplate.',
+    'security': [{'BearerAuth': []}],
+    'parameters': [
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'role_id': {'type': 'integer'}
+                },
+                'required': ['role_id']
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'JWT emitido correctamente',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'token': {'type': 'string'}
+                }
+            }
+        },
+        401: {
+            'description': 'No autorizado',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                }
+            }
+        }
+    }
+})
+def auth_role():
+    data = request.get_json()
+    role_id = data.get('role_id')
+
+    user_data = verificar_jwt_api()
+    username = user_data.get('username')
+    if not username:
+        return jsonify({'error': 'Token inválido'}), 401
+
+    conn = sqlite3.connect('roles.db')
+    cursor = conn.cursor()
+
+    # 1. Obtener user_id desde username
+    cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
+    user = cursor.fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'error': 'Usuario no encontrado'}), 401
+
+    user_id = user[0]
+
+    # 2. Verificar que el usuario tiene el rol
+    cursor.execute('SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+    if cursor.fetchone() is None:
+        conn.close()
+        return jsonify({'error': 'El usuario no tiene ese rol'}), 401
+
+    # 3. Verificar que el rol está asociado a un único grantTemplate
+    cursor.execute('SELECT id FROM grantTemplate WHERE role_id = ?', (role_id,))
+    templates = cursor.fetchall()
+    if len(templates) != 1:
+        conn.close()
+        return jsonify({'error': 'El rol no está vinculado a un único grantTemplate'}), 401
+
+    # 4. Emitir nuevo JWT para ese rol
+    payload = {
+        'user_id': user_id,
+        'role_id': role_id,
+        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=JWT_EXPIRATION_MINUTES)
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+
+    conn.close()
+    return jsonify({'token': token})
 
 
-# TODO Que te devuelva tu XML pasandole tu un rol del cual tengas como usuario
-
-# TODO Mejorar la estructura de la base para que mande bien a los templates de forma correcta
 
 
+# TODO Hacer que compruebe que un JWT es válido para tu usuario con dicho rol
+@app.route('/api/verify-role-token', methods=['POST'])
+@swag_from({
+    'tags': ['Auth'],
+    'summary': 'Verifica un token de rol JWT',
+    'description': 'Verifica si el token JWT proporcionado es válido y si el usuario tiene asignado el rol indicado en el token.',
+    'parameters': [
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'token': {
+                        'type': 'string',
+                        'description': 'JWT que contiene user_id y role_id',
+                        'example': 'eyJhbGciOiJIUzI1NiIsInR5cCI6...'
+                    }
+                },
+                'required': ['token']
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Token válido',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'valid': {'type': 'boolean'},
+                    'user_id': {'type': 'integer'},
+                    'role_id': {'type': 'integer'}
+                }
+            }
+        },
+        400: {
+            'description': 'Falta el token o formato inválido',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'valid': {'type': 'boolean'},
+                    'error': {'type': 'string'}
+                }
+            }
+        },
+        401: {
+            'description': 'Token inválido o usuario/rol no coinciden',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'valid': {'type': 'boolean'},
+                    'error': {'type': 'string'}
+                }
+            }
+        }
+    }
+})
+def verify_role_token():
+    data = request.get_json()
+    token = data.get('token')
 
+    if not token:
+        return jsonify({'valid': False, 'error': 'Token no proporcionado'}), 400
 
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+    except jwt.ExpiredSignatureError:
+        return jsonify({'valid': False, 'error': 'Token expirado'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'valid': False, 'error': 'Token inválido'}), 401
 
+    user_id = payload.get('user_id')
+    role_id = payload.get('role_id')
 
+    if not user_id or not role_id:
+        return jsonify({'valid': False, 'error': 'Token incompleto'}), 400
 
+    conn = sqlite3.connect('roles.db')
+    cursor = conn.cursor()
 
+    cursor.execute('SELECT 1 FROM users WHERE id = ?', (user_id,))
+    if cursor.fetchone() is None:
+        conn.close()
+        return jsonify({'valid': False, 'error': 'Usuario no existe'}), 401
 
+    cursor.execute('SELECT 1 FROM roles WHERE id = ?', (role_id,))
+    if cursor.fetchone() is None:
+        conn.close()
+        return jsonify({'valid': False, 'error': 'Rol no existe'}), 401
 
+    cursor.execute('SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+    if cursor.fetchone() is None:
+        conn.close()
+        return jsonify({'valid': False, 'error': 'Usuario no tiene ese rol'}), 401
 
-
-
+    conn.close()
+    return jsonify({'valid': True, 'user_id': user_id, 'role_id': role_id})
 
 
 
@@ -554,7 +746,7 @@ def add_role():
     conn.close()
     return jsonify({"message": "Rol creado", "id": new_id}), 201
 
-
+# TODO Mejorar para que borre todo lo que depende del rol, como la tabla de usuarios rol, y la de grantTemplate
 @app.route('/api/roles/<int:role_id>', methods=['DELETE'])
 @superadmin_required
 @swag_from({
@@ -803,7 +995,7 @@ def crear_usuario():
     finally:
         conn.close()
 
-
+# TODO Mejorar que borre todo lo que dependa del user como el user-roles
 @app.route('/api/users/<int:user_id>', methods=['DELETE'])
 @superadmin_required
 @swag_from({
@@ -958,6 +1150,11 @@ def validar_xml_api():
         return jsonify({"error": f"❌ Error al validar: {str(e)}"}), 400
     finally:
         os.remove(xml_path)
+
+
+# TODO Que te devuelva tu XML pasandole tu un rol del cual tengas como usuario
+
+
 
 
 #########################
