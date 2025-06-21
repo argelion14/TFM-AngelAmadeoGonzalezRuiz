@@ -13,7 +13,7 @@ from flask import (
     Flask, abort, render_template, request, redirect, url_for,
     flash, make_response, g, jsonify
 )
-
+from werkzeug.utils import secure_filename
 from flasgger import Swagger, swag_from
 
 app = Flask(__name__)
@@ -57,49 +57,10 @@ JWT_SECRET = 'clave_jwt_segura'
 JWT_EXPIRATION_MINUTES = 60
 
 
-def get_db_connection():
-    conn = sqlite3.connect('roles.db')
-    conn.row_factory = sqlite3.Row  # Para acceder a columnas por nombre
-    return conn
-
-
-@app.route('/listGrantTemplates', methods=['GET'])
-def listar_grant_templates():
-    """
-    Lista todos los grantTemplates (requiere autenticación JWT)
-    ---
-    security:
-      - BearerAuth: []
-    responses:
-      200:
-        description: Lista de plantillas
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: integer
-              name:
-                type: string
-              default_action:
-                type: string
-              role_id:
-                type: integer
-      401:
-        description: No autorizado
-    """
-    user = verificar_jwt()
-    if not user:
-        return jsonify({'error': 'No autorizado'}), 401
-
-    conn = get_db_connection()
-    cursor = conn.execute('SELECT * FROM grantTemplate')
-    filas = cursor.fetchall()
-    conn.close()
-
-    resultado = [dict(fila) for fila in filas]
-    return jsonify(resultado)
+#########################
+# SECCIÓN DE AUTENTICACION JWT PARA LA API
+# Funciones auxiliares para gestión de seguridad
+#########################
 
 
 @app.route('/api/login', methods=['POST'])
@@ -161,6 +122,7 @@ def verificar_jwt_api():
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     return decodificar_jwt(token)
 
+# TODO Hacer que todos los endpoint que necesiten de esto, lo usan en el swag_from de la misma manera
 def superadmin_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
@@ -169,6 +131,282 @@ def superadmin_required(f):
             abort(403, "Solo superadmin puede realizar esta acción")
         return f(*args, **kwargs)
     return wrapper
+
+
+
+#########################
+# SECCIÓN DE GrantTemplate
+# Funciones auxiliares para gestión de GrantTemplate
+#########################
+
+# TODO Pensar si tiene que ser algo protegido
+@app.route('/api/grant-templates', methods=['GET'])
+@swag_from({
+    'tags': ['Grant Templates'],
+    'summary': 'Lista todas las plantillas de permisos (grant templates)',
+    'description': 'Obtiene una lista de plantillas de permisos junto con su acción por defecto y el nombre del rol asociado.',
+    'responses': {
+        200: {
+            'description': 'Lista de plantillas de permisos',
+            'schema': {
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'integer'},
+                        'name': {'type': 'string'},
+                        'default_action': {'type': 'string'},
+                        'role_name': {'type': 'string'}
+                    }
+                }
+            }
+        }
+    }
+})
+def list_grant_templates_api():
+    conn = sqlite3.connect('roles.db')
+    cursor = conn.cursor()
+    query = '''
+        SELECT gt.id, gt.name, gt.default_action, r.name as role_name
+        FROM grantTemplate gt
+        JOIN roles r ON gt.role_id = r.id
+    '''
+    cursor.execute(query)
+    grant_templates = cursor.fetchall()
+    conn.close()
+
+    grants = [
+        {
+            'id': row[0],
+            'name': row[1],
+            'default_action': row[2],
+            'role_name': row[3]
+        } for row in grant_templates
+    ]
+
+    return jsonify(grants)
+
+# TODO Pensar si tiene que ser algo protegido
+@app.route('/api/grants', methods=['POST'])
+@swag_from({
+    'tags': ['Grant Templates'],
+    'summary': 'Crear un nuevo grant desde un fichero XML DDS Permissions',
+    'description': 'Permite subir un fichero XML y un role_id para crear un grant y sus reglas asociadas.',
+    'consumes': ['multipart/form-data'],
+    'parameters': [
+        {
+            'name': 'xml_file',
+            'in': 'formData',
+            'type': 'file',
+            'required': True,
+            'description': 'Fichero XML DDS Permissions'
+        },
+        {
+            'name': 'role_id',
+            'in': 'formData',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID del rol al que se asigna el grant'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Grant creado con éxito',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'grant_id': {'type': 'integer'},
+                    'name': {'type': 'string'},
+                    'default_action': {'type': 'string'}
+                }
+            }
+        },
+        400: {
+            'description': 'Error en la creación del grant',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                }
+            }
+        }
+    }
+})
+def create_grant_api():
+    f = request.files.get('xml_file')
+    role_id = request.form.get('role_id')
+
+    if not f or not role_id:
+        return jsonify({'error': 'Falta fichero o role_id'}), 400
+
+    try:
+        filename = secure_filename(f.filename)
+        path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        f.save(path)
+
+        grant_id, name, default_action = insert_grant_from_xml(path, role_id)
+        return jsonify({
+            'grant_id': grant_id,
+            'name': name,
+            'default_action': default_action
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/grants/<int:grant_id>', methods=['DELETE'])
+@superadmin_required
+@swag_from({
+    'tags': ['Grant Templates'],
+    'security': [{'BearerAuth': []}],
+    'summary': 'Eliminar una plantilla de permisos (grant template) por su ID',
+    'description': 'Elimina un grant template y todos sus datos asociados, incluyendo reglas, dominios y topics no usados.',
+    'parameters': [
+        {
+            'name': 'grant_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID del grant template a eliminar'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Grant template eliminado correctamente',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string'}
+                }
+            }
+        },
+        404: {
+            'description': 'Grant template no encontrado',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                }
+            }
+        },
+        500: {
+            'description': 'Error interno del servidor',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                }
+            }
+        }
+    }
+})
+def delete_grant_api(grant_id):
+    conn = sqlite3.connect('roles.db')
+    conn.execute('PRAGMA foreign_keys = ON')
+    cursor = conn.cursor()
+    try:
+        # Verificar si el grant existe
+        cursor.execute('SELECT id FROM grantTemplate WHERE id = ?', (grant_id,))
+        if cursor.fetchone() is None:
+            return jsonify({'error': f'Grant template con ID {grant_id} no encontrado.'}), 404
+
+        # Obtener rule_ids asociados
+        cursor.execute('SELECT rule_id FROM grant_rules WHERE grant_id = ?', (grant_id,))
+        rule_ids = [row[0] for row in cursor.fetchall()]
+
+        # Eliminar relaciones grant_rules
+        cursor.execute('DELETE FROM grant_rules WHERE grant_id = ?', (grant_id,))
+
+        # Eliminar reglas asociadas
+        for rule_id in rule_ids:
+            cursor.execute('DELETE FROM rules WHERE id = ?', (rule_id,))
+
+        # Eliminar grantTemplate
+        cursor.execute('DELETE FROM grantTemplate WHERE id = ?', (grant_id,))
+
+        # Limpieza de domains sin uso
+        cursor.execute('''
+            DELETE FROM domains
+            WHERE id NOT IN (SELECT domain_id FROM rule_domains)
+        ''')
+
+        # Limpieza de topics sin uso
+        cursor.execute('''
+            DELETE FROM topics
+            WHERE id NOT IN (SELECT topic_id FROM rule_topics)
+        ''')
+
+        conn.commit()
+        return jsonify({'message': f'Grant template con ID {grant_id} eliminado correctamente.'}), 200
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': f'Error al eliminar: {str(e)}'}), 500
+    finally:
+        conn.close()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #########################
@@ -652,6 +890,7 @@ def actualizar_usuario(user_id):
 # Funciones auxiliares para gestión de XML
 #########################
 
+
 @app.route('/api/validar-xml', methods=['POST'])
 @swag_from({
     'tags': ['XML'],
@@ -716,7 +955,6 @@ def validar_xml_api():
         return jsonify({"error": f"❌ Error al validar: {str(e)}"}), 400
     finally:
         os.remove(xml_path)
-
 
 
 #########################
@@ -790,12 +1028,6 @@ def assign_role_to_user(user_id, role_id):
     conn.close()
 
 
-
-
-
-
-
-
 #########################
 # SECCIÓN DE HTML AUTENTICACIÓN JWT
 #########################
@@ -864,6 +1096,7 @@ def get_user(username):
     conn.close()
     return user  # Será una tupla (username, password, cert, is_superuser)
 
+
 def get_users2():
     conn = sqlite3.connect('roles.db')
     conn.row_factory = sqlite3.Row
@@ -892,7 +1125,6 @@ def get_users2():
         })
 
     return usuarios
-
 
 
 def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
