@@ -151,14 +151,30 @@ def login_api():
         return jsonify({'error': 'Usuario o contraseña incorrectos'}), 401
 
 
+def verificar_jwt_api():
+    """
+    Verifica el JWT enviado en el encabezado Authorization de una solicitud API.
+
+    Returns:
+        dict | None: Los datos del token si es válido, o None si es inválido o no existe.
+    """
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    return decodificar_jwt(token)
+
 def superadmin_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        user = verificar_jwt()
+        user = verificar_jwt_api()
         if not user or not user.get("is_superuser", False):
             abort(403, "Solo superadmin puede realizar esta acción")
         return f(*args, **kwargs)
     return wrapper
+
+
+#########################
+# SECCIÓN DE ROLES
+# Funciones auxiliares para gestión de roles
+#########################
 
 
 @app.route('/api/roles', methods=['GET'])
@@ -434,6 +450,12 @@ def update_role(role_id):
     return jsonify({"message": "Rol actualizado correctamente"})
 
 
+#########################
+# SECCIÓN DE USERS
+# Funciones auxiliares para gestión de usuarios
+#########################
+
+
 @app.route('/api/users', methods=['GET'])
 @swag_from({
     'tags': ['Usuarios'],
@@ -626,7 +648,25 @@ def actualizar_usuario(user_id):
     return jsonify({'error': 'Usuario no encontrado'}), 404
 
 
+#########################
+# SECCIÓN DE HTML
+#########################
+
+#########################
+# SECCIÓN DE HTML ROLES
+#########################
+
 def get_roles():
+    """
+    Recupera todos los roles almacenados en la base de datos.
+
+    Conecta con la base de datos SQLite 'roles.db', realiza una consulta
+    para obtener todos los registros de la tabla 'roles' y devuelve los resultados
+    como una lista de objetos `sqlite3.Row`.
+
+    Returns:
+        list[sqlite3.Row]: Lista de filas que representan los roles existentes en la base de datos.
+    """
     conn = sqlite3.connect('roles.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -634,6 +674,104 @@ def get_roles():
     rows = cursor.fetchall()
     conn.close()
     return rows
+
+
+def get_roles_by_username(username):
+    conn = sqlite3.connect('roles.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT r.name, r.description
+        FROM users u
+        JOIN user_roles ur ON u.id = ur.user_id
+        JOIN roles r ON ur.role_id = r.id
+        WHERE u.username = ?
+    ''', (username,))
+    roles = cursor.fetchall()
+    conn.close()
+    return roles
+
+
+def get_all_users_and_roles():
+    conn = sqlite3.connect('roles.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username FROM users")
+    users = cursor.fetchall()
+
+    cursor.execute("SELECT id, name FROM roles")
+    roles = cursor.fetchall()
+
+    conn.close()
+    return users, roles
+
+
+def assign_role_to_user(user_id, role_id):
+    conn = sqlite3.connect('roles.db')
+    cursor = conn.cursor()
+    # Comprobamos si ya está asignado
+    cursor.execute(
+        "SELECT * FROM user_roles WHERE user_id = ? AND role_id = ?", (user_id, role_id))
+    if not cursor.fetchone():
+        cursor.execute(
+            "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
+        conn.commit()
+    conn.close()
+
+
+
+
+
+
+
+
+#########################
+# SECCIÓN DE HTML AUTENTICACIÓN JWT
+#########################
+
+def generar_jwt(user):
+    payload = {
+        'username': user[0],
+        'cert': user[2],
+        'is_superuser': user[3] == 1,
+        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=JWT_EXPIRATION_MINUTES)
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+    return token
+
+
+def verificar_jwt():
+    """
+    Verifica el JWT almacenado en la cookie 'token' de una solicitud HTML.
+
+    Returns:
+        dict | None: Los datos del token si es válido, o None si es inválido o no existe.
+    """
+    token = request.cookies.get("token")
+    return decodificar_jwt(token)
+
+
+def decodificar_jwt(token):
+    """
+    Intenta decodificar un token JWT.
+
+    Args:
+        token (str): El token JWT a decodificar.
+
+    Returns:
+        dict | None: Datos decodificados o None si el token es inválido o expirado.
+    """
+    if not token:
+        return None
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        return None
+
+
+#########################
+# SECCIÓN DE HTML OTROS
+#########################
 
 
 def get_users():
@@ -654,23 +792,6 @@ def get_user(username):
     user = cursor.fetchone()
     conn.close()
     return user  # Será una tupla (username, password, cert, is_superuser)
-
-
-def get_roles_by_username(username):
-    conn = sqlite3.connect('roles.db')
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT r.name, r.description
-        FROM users u
-        JOIN user_roles ur ON u.id = ur.user_id
-        JOIN roles r ON ur.role_id = r.id
-        WHERE u.username = ?
-    ''', (username,))
-    roles = cursor.fetchall()
-    conn.close()
-    return roles
-
 
 def get_users2():
     conn = sqlite3.connect('roles.db')
@@ -701,67 +822,6 @@ def get_users2():
 
     return usuarios
 
-
-def get_all_users_and_roles():
-    conn = sqlite3.connect('roles.db')
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username FROM users")
-    users = cursor.fetchall()
-
-    cursor.execute("SELECT id, name FROM roles")
-    roles = cursor.fetchall()
-
-    conn.close()
-    return users, roles
-
-
-def assign_role_to_user(user_id, role_id):
-    conn = sqlite3.connect('roles.db')
-    cursor = conn.cursor()
-    # Comprobamos si ya está asignado
-    cursor.execute(
-        "SELECT * FROM user_roles WHERE user_id = ? AND role_id = ?", (user_id, role_id))
-    if not cursor.fetchone():
-        cursor.execute(
-            "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
-        conn.commit()
-    conn.close()
-
-
-def generar_jwt(user):
-    payload = {
-        'username': user[0],
-        'cert': user[2],
-        'is_superuser': user[3] == 1,
-        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=JWT_EXPIRATION_MINUTES)
-    }
-    token = jwt.encode(payload, JWT_SECRET, algorithm='HS256')
-    return token
-
-
-def verificar_jwt():
-    token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    if not token:
-        token = request.cookies.get("token")
-    if not token:
-        return None
-    try:
-        datos = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        return datos
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
-
-
-def decodificar_jwt(token):
-    try:
-        return jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
 
 
 def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
@@ -867,7 +927,9 @@ def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
         conn.close()
 
 
-# ROUTES
+#########################
+# SECCIÓN DE RUTAS
+#########################
 
 @app.route('/swagger-json')
 def redirigir_a_swagger_json():
