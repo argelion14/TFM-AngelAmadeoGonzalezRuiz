@@ -14,7 +14,7 @@ from flask import (
     flash, make_response, g, jsonify
 )
 
-from flasgger import Swagger
+from flasgger import Swagger, swag_from
 
 app = Flask(__name__)
 
@@ -62,6 +62,7 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row  # Para acceder a columnas por nombre
     return conn
 
+
 @app.route('/listGrantTemplates', methods=['GET'])
 def listar_grant_templates():
     """
@@ -100,7 +101,8 @@ def listar_grant_templates():
     resultado = [dict(fila) for fila in filas]
     return jsonify(resultado)
 
-@app.route('/login', methods=['POST'])
+
+@app.route('/api/login', methods=['POST'])
 def login_api():
     """
     Autenticación de usuario y obtención de JWT
@@ -143,9 +145,11 @@ def login_api():
 
     if user and bcrypt.checkpw(password.encode('utf-8'), user[1].encode('utf-8')):
         token = generar_jwt(user)
-        return jsonify({'token': token})  # Aquí devuelves el token usable en Swagger
+        # Aquí devuelves el token usable en Swagger
+        return jsonify({'token': token})
     else:
         return jsonify({'error': 'Usuario o contraseña incorrectos'}), 401
+
 
 def superadmin_required(f):
     @functools.wraps(f)
@@ -157,29 +161,29 @@ def superadmin_required(f):
     return wrapper
 
 
-# Listar todos los roles
 @app.route('/api/roles', methods=['GET'])
+@swag_from({
+    'tags': ['Roles'],
+    'summary': 'Obtiene todos los roles',
+    'description': 'Devuelve los detalles de todos los roles que existen',
+    'responses': {
+        200: {
+            'description': 'Lista de roles',
+            'schema': {
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'integer'},
+                        'name': {'type': 'string'},
+                        'description': {'type': 'string'}
+                    }
+                }
+            }
+        }
+    }
+})
 def get_roles():
-    """
-    Lista todos los roles
-    ---
-    tags:
-      - Roles
-    responses:
-      200:
-        description: Lista de roles
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: integer
-              name:
-                type: string
-              description:
-                type: string
-    """
     conn = sqlite3.connect('roles.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -189,35 +193,39 @@ def get_roles():
     roles = [dict(row) for row in rows]
     return jsonify(roles)
 
-# Obtener un solo rol por ID
+
 @app.route('/api/roles/<int:role_id>', methods=['GET'])
+@swag_from({
+    'tags': ['Roles'],
+    'summary': 'Obtiene un rol por ID',
+    'description': 'Devuelve los detalles del rol si existe, en caso contrario devuelve un error 404.',
+    'parameters': [
+        {
+            'name': 'role_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID del rol a obtener'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Detalles del rol',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'id': {'type': 'integer'},
+                    'name': {'type': 'string'},
+                    'description': {'type': 'string'}
+                }
+            }
+        },
+        404: {
+            'description': 'Rol no encontrado'
+        }
+    }
+})
 def get_role(role_id):
-    """
-    Obtiene un rol por ID
-    ---
-    tags:
-      - Roles
-    parameters:
-      - name: role_id
-        in: path
-        type: integer
-        required: true
-        description: ID del rol a obtener
-    responses:
-      200:
-        description: Detalles del rol
-        schema:
-          type: object
-          properties:
-            id:
-              type: integer
-            name:
-              type: string
-            description:
-              type: string
-      404:
-        description: Rol no encontrado
-    """
     conn = sqlite3.connect('roles.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -228,39 +236,50 @@ def get_role(role_id):
         return jsonify({"error": "Rol no encontrado"}), 404
     return jsonify(dict(row))
 
-# Añadir un rol (solo superadmin)
+
 @app.route('/api/roles', methods=['POST'])
 @superadmin_required
+@swag_from({
+    'tags': ['Roles'],
+    'summary': 'Añade un nuevo rol (solo superadmin)',
+    'description': 'Permite a un superadmin crear un nuevo rol proporcionando nombre y descripción.',
+    'parameters': [
+        {
+            'in': 'body',
+            'name': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'required': ['name'],
+                'properties': {
+                    'name': {
+                        'type': 'string',
+                        'description': 'Nombre único del rol'
+                    },
+                    'description': {
+                        'type': 'string',
+                        'description': 'Descripción del rol'
+                    }
+                }
+            }
+        }
+    ],
+    'responses': {
+        201: {
+            'description': 'Rol creado correctamente'
+        },
+        400: {
+            'description': 'Datos inválidos o rol duplicado'
+        },
+        403: {
+            'description': 'Acceso denegado'
+        }
+    },
+    'security': [
+        {'BearerAuth': []}
+    ]
+})
 def add_role():
-    """
-    Añade un nuevo rol (solo superadmin)
-    ---
-    tags:
-      - Roles
-    parameters:
-      - in: body
-        name: body
-        schema:
-          type: object
-          required:
-            - name
-          properties:
-            name:
-              type: string
-              description: Nombre único del rol
-            description:
-              type: string
-              description: Descripción del rol
-    responses:
-      201:
-        description: Rol creado correctamente
-      400:
-        description: Datos inválidos o rol duplicado
-      403:
-        description: Acceso denegado
-    security:
-      - BearerAuth: []
-    """
     data = request.get_json()
     if not data or not data.get('name'):
         return jsonify({"error": "El campo 'name' es obligatorio"}), 400
@@ -279,31 +298,37 @@ def add_role():
     return jsonify({"message": "Rol creado", "id": new_id}), 201
 
 
-# Eliminar un rol por ID (solo superadmin)
 @app.route('/api/roles/<int:role_id>', methods=['DELETE'])
 @superadmin_required
+@swag_from({
+    'tags': ['Roles'],
+    'summary': 'Eliminar un rol por ID (solo superadmin)',
+    'description': 'Permite a un superadmin eliminar un rol existente utilizando su ID.',
+    'parameters': [
+        {
+            'name': 'role_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID del rol a eliminar'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Rol eliminado correctamente'
+        },
+        404: {
+            'description': 'Rol no encontrado'
+        },
+        403: {
+            'description': 'Acceso denegado'
+        }
+    },
+    'security': [
+        {'BearerAuth': []}
+    ]
+})
 def delete_role(role_id):
-    """
-    Elimina un rol por ID (solo superadmin)
-    ---
-    tags:
-      - Roles
-    parameters:
-      - name: role_id
-        in: path
-        type: integer
-        required: true
-        description: ID del rol a eliminar
-    responses:
-      200:
-        description: Rol eliminado correctamente
-      404:
-        description: Rol no encontrado
-      403:
-        description: Acceso denegado
-    security:
-      - BearerAuth: []
-    """
     conn = sqlite3.connect('roles.db')
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM roles WHERE id=?", (role_id,))
@@ -315,43 +340,59 @@ def delete_role(role_id):
     conn.close()
     return jsonify({"message": "Rol eliminado correctamente"})
 
+
 @app.route('/api/roles/<int:role_id>', methods=['PUT'])
 @superadmin_required
+@swag_from({
+    'tags': ['Roles'],
+    'summary': 'Actualizar un rol por ID (solo superadmin)',
+    'description': 'Permite actualizar el nombre o la descripción de un rol existente mediante su ID.',
+    'parameters': [
+        {
+            'name': 'role_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID del rol a actualizar'
+        },
+        {
+            'in': 'body',
+            'name': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'name': {
+                        'type': 'string',
+                        'description': 'Nuevo nombre del rol'
+                    },
+                    'description': {
+                        'type': 'string',
+                        'description': 'Nueva descripción del rol'
+                    }
+                }
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Rol actualizado correctamente'
+        },
+        400: {
+            'description': 'Datos inválidos o nombre duplicado'
+        },
+        404: {
+            'description': 'Rol no encontrado'
+        },
+        403: {
+            'description': 'Acceso denegado'
+        }
+    },
+    'security': [
+        {'BearerAuth': []}
+    ]
+})
 def update_role(role_id):
-    """
-    Actualiza un rol existente por ID (solo superadmin)
-    ---
-    tags:
-      - Roles
-    parameters:
-      - name: role_id
-        in: path
-        type: integer
-        required: true
-        description: ID del rol a actualizar
-      - in: body
-        name: body
-        schema:
-          type: object
-          properties:
-            name:
-              type: string
-              description: Nuevo nombre del rol
-            description:
-              type: string
-              description: Nueva descripción del rol
-    responses:
-      200:
-        description: Rol actualizado correctamente
-      400:
-        description: Datos inválidos
-      404:
-        description: Rol no encontrado
-      403:
-        description: Acceso denegado
-    security:
-      - BearerAuth: []
-    """
     data = request.get_json()
     if not data:
         return jsonify({"error": "Se requiere un cuerpo JSON"}), 400
@@ -382,7 +423,8 @@ def update_role(role_id):
     valores.append(role_id)
 
     try:
-        cursor.execute(f"UPDATE roles SET {', '.join(campos)} WHERE id = ?", valores)
+        cursor.execute(
+            f"UPDATE roles SET {', '.join(campos)} WHERE id = ?", valores)
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
@@ -391,6 +433,197 @@ def update_role(role_id):
     conn.close()
     return jsonify({"message": "Rol actualizado correctamente"})
 
+
+@app.route('/api/users', methods=['GET'])
+@swag_from({
+    'tags': ['Usuarios'],
+    'responses': {
+        200: {
+            'description': 'Lista de usuarios',
+            'schema': {
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'integer'},
+                        'username': {'type': 'string'},
+                        'cert': {'type': 'string'},
+                        'is_superuser': {'type': 'boolean'}
+                    }
+                }
+            }
+        }
+    }
+})
+def listar_usuarios():
+    conn = sqlite3.connect('roles.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.execute("SELECT id, username, cert, is_superuser FROM users")
+    users = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(users)
+
+
+@app.route('/api/users/<int:user_id>', methods=['GET'])
+@swag_from({
+    'tags': ['Usuarios'],
+    'parameters': [
+        {'name': 'user_id', 'in': 'path', 'type': 'integer', 'required': True}
+    ],
+    'responses': {
+        200: {'description': 'Usuario encontrado'},
+        404: {'description': 'Usuario no encontrado'}
+    }
+})
+def obtener_usuario(user_id):
+    conn = sqlite3.connect('roles.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.execute(
+        "SELECT id, username, cert, is_superuser FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return jsonify(dict(row))
+    return jsonify({'error': 'Usuario no encontrado'}), 404
+
+
+@app.route('/api/users', methods=['POST'])
+@superadmin_required
+@swag_from({
+    'tags': ['Usuarios'],
+    'security': [{'BearerAuth': []}],
+    'parameters': [
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'username': {'type': 'string'},
+                    'password': {'type': 'string'},
+                    'cert': {'type': 'string'},
+                    'is_superuser': {'type': 'boolean'}
+                },
+                'required': ['username', 'password']
+            }
+        }
+    ],
+    'responses': {
+        201: {'description': 'Usuario creado'},
+        400: {'description': 'Error al crear usuario'}
+    }
+})
+def crear_usuario():
+    datos = request.json
+    username = datos.get('username')
+    password = datos.get('password')
+    cert = datos.get('cert', '')
+    is_superuser = 1 if datos.get('is_superuser', False) else 0
+
+    if not username or not password:
+        return jsonify({'error': 'Faltan campos requeridos'}), 400
+
+    hashed_pw = bcrypt.hashpw(password.encode(
+        'utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    conn = sqlite3.connect('roles.db')
+    try:
+        conn.execute(
+            "INSERT INTO users (username, password, cert, is_superuser) VALUES (?, ?, ?, ?)",
+            (username, hashed_pw, cert, is_superuser)
+        )
+        conn.commit()
+        return jsonify({'message': 'Usuario creado'}), 201
+    except sqlite3.IntegrityError:
+        return jsonify({'error': 'Nombre de usuario ya existe'}), 400
+    finally:
+        conn.close()
+
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@superadmin_required
+@swag_from({
+    'tags': ['Usuarios'],
+    'security': [{'BearerAuth': []}],
+    'parameters': [
+        {'name': 'user_id', 'in': 'path', 'type': 'integer', 'required': True}
+    ],
+    'responses': {
+        200: {'description': 'Usuario eliminado'},
+        404: {'description': 'Usuario no encontrado'}
+    }
+})
+def eliminar_usuario(user_id):
+    conn = sqlite3.connect('roles.db')
+    cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    if cursor.rowcount:
+        return jsonify({'message': 'Usuario eliminado'})
+    return jsonify({'error': 'Usuario no encontrado'}), 404
+
+
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+@superadmin_required
+@swag_from({
+    'tags': ['Usuarios'],
+    'security': [{'BearerAuth': []}],
+    'parameters': [
+        {'name': 'user_id', 'in': 'path', 'type': 'integer', 'required': True},
+        {
+            'name': 'body',
+            'in': 'body',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'username': {'type': 'string'},
+                    'password': {'type': 'string'},
+                    'cert': {'type': 'string'},
+                    'is_superuser': {'type': 'boolean'}
+                }
+            }
+        }
+    ],
+    'responses': {
+        200: {'description': 'Usuario actualizado'},
+        404: {'description': 'Usuario no encontrado'}
+    }
+})
+def actualizar_usuario(user_id):
+    datos = request.json
+    campos = []
+    valores = []
+
+    if 'username' in datos:
+        campos.append("username = ?")
+        valores.append(datos['username'])
+    if 'password' in datos:
+        hashed_pw = bcrypt.hashpw(datos['password'].encode(
+            'utf-8'), bcrypt.gensalt()).decode('utf-8')
+        campos.append("password = ?")
+        valores.append(hashed_pw)
+    if 'cert' in datos:
+        campos.append("cert = ?")
+        valores.append(datos['cert'])
+    if 'is_superuser' in datos:
+        campos.append("is_superuser = ?")
+        valores.append(1 if datos['is_superuser'] else 0)
+
+    if not campos:
+        return jsonify({'error': 'No se proporcionaron campos para actualizar'}), 400
+
+    valores.append(user_id)
+
+    conn = sqlite3.connect('roles.db')
+    cursor = conn.execute(
+        f"UPDATE users SET {', '.join(campos)} WHERE id = ?", valores)
+    conn.commit()
+    conn.close()
+
+    if cursor.rowcount:
+        return jsonify({'message': 'Usuario actualizado'})
+    return jsonify({'error': 'Usuario no encontrado'}), 404
 
 
 def get_roles():
@@ -635,6 +868,11 @@ def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
 
 
 # ROUTES
+
+@app.route('/swagger-json')
+def redirigir_a_swagger_json():
+    return redirect('/api-docs.json')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
