@@ -343,7 +343,10 @@ def delete_grant_api(grant_id):
     finally:
         conn.close()
 
+# TODO Hacer el endpoint de solicitar JWT de un rol en concreto, al cual por tu usuario tengas dicho rol
 
+
+# TODO Que te devuelva tu XML pasandole tu un rol del cual tengas como usuario
 
 
 
