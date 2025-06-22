@@ -58,6 +58,8 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 JWT_SECRET = 'clave_jwt_segura'
 JWT_EXPIRATION_MINUTES = 60
 
+# TODO Mejorar la estructura de la base.html
+
 
 #########################
 # SECCIÓN DE AUTENTICACION JWT PARA LA API
@@ -66,37 +68,55 @@ JWT_EXPIRATION_MINUTES = 60
 
 
 @app.route('/api/login', methods=['POST'])
+@swag_from({
+    'tags': ['Authentication'],
+    'summary': 'User Login',
+    'description': 'Authenticates a user with their username and password. Returns a JWT token if the credentials are valid.',
+    'consumes': ['application/json'],
+    'parameters': [
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'required': ['username', 'password'],
+                'properties': {
+                    'username': {
+                        'type': 'string',
+                        'example': 'admin'
+                    },
+                    'password': {
+                        'type': 'string',
+                        'example': 'yourpassword123'
+                    }
+                }
+            },
+            'description': 'User credentials'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Successful authentication. Returns a JWT token.',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'token': {
+                        'type': 'string',
+                        'example': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'
+                    }
+                }
+            }
+        },
+        400: {
+            'description': 'Missing username or password in request body.'
+        },
+        401: {
+            'description': 'Invalid username or password.'
+        }
+    }
+})
 def login_api():
-    """
-    Autenticación de usuario y obtención de JWT
-    ---
-    consumes:
-      - application/json
-    parameters:
-      - name: body
-        in: body
-        required: true
-        schema:
-          type: object
-          required:
-            - username
-            - password
-          properties:
-            username:
-              type: string
-            password:
-              type: string
-    responses:
-      200:
-        description: Autenticación exitosa
-        schema:
-          type: object
-          properties:
-            token:
-              type: string
-      401:
-        description: Credenciales inválidas
-    """
     data = request.get_json()
     if not data or 'username' not in data or 'password' not in data:
         return jsonify({'error': 'Faltan datos'}), 400
@@ -108,7 +128,6 @@ def login_api():
 
     if user and bcrypt.checkpw(password.encode('utf-8'), user[1].encode('utf-8')):
         token = generar_jwt(user)
-        # Aquí devuelves el token usable en Swagger
         return jsonify({'token': token})
     else:
         return jsonify({'error': 'Usuario o contraseña incorrectos'}), 401
@@ -146,6 +165,11 @@ def user_required(f):
         return f(*args, **kwargs)
     return wrapper
 
+def get_db_connection():
+    conn = sqlite3.connect('roles.db')
+    conn.execute('PRAGMA foreign_keys = ON')
+    return conn
+
 #########################
 # SECCIÓN DE GrantTemplate
 # Funciones auxiliares para gestión de GrantTemplate
@@ -155,6 +179,7 @@ def user_required(f):
 
 
 @app.route('/api/grant-templates', methods=['GET'])
+@user_required
 @swag_from({
     'tags': ['Grant Templates'],
     'summary': 'Lista todas las plantillas de permisos (grant templates)',
@@ -179,18 +204,16 @@ def user_required(f):
         403: {'description': 'Token inválido o no autorizado'}
     }
 })
-@user_required
 def list_grant_templates_api():
-    conn = sqlite3.connect('roles.db')
-    cursor = conn.cursor()
-    query = '''
-        SELECT gt.id, gt.name, gt.default_action, r.name as role_name
-        FROM grantTemplate gt
-        JOIN roles r ON gt.role_id = r.id
-    '''
-    cursor.execute(query)
-    grant_templates = cursor.fetchall()
-    conn.close()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        query = '''
+            SELECT gt.id, gt.name, gt.default_action, r.name as role_name
+            FROM grantTemplate gt
+            JOIN roles r ON gt.role_id = r.id
+        '''
+        cursor.execute(query)
+        grant_templates = cursor.fetchall()
 
     grants = [
         {
@@ -200,15 +223,15 @@ def list_grant_templates_api():
             'role_name': row[3]
         } for row in grant_templates
     ]
-
     return jsonify(grants)
 
 
-# TODO Pensar si tiene que ser algo protegido
 @app.route('/api/grants', methods=['POST'])
+@superadmin_required
 @swag_from({
     'tags': ['Grant Templates'],
     'summary': 'Crear un nuevo grant desde un fichero XML DDS Permissions',
+    'security': [{'BearerAuth': []}],
     'description': 'Permite subir un fichero XML y un role_id para crear un grant y sus reglas asociadas.',
     'consumes': ['multipart/form-data'],
     'parameters': [
@@ -364,9 +387,6 @@ def delete_grant_api(grant_id):
         return jsonify({'error': f'Error al eliminar: {str(e)}'}), 500
     finally:
         conn.close()
-
-
-# TODO Mejorar la estructura de la base.html
 
 
 # TODO Hacer el endpoint de solicitar JWT de un rol en concreto, al cual por tu usuario tengas dicho rol

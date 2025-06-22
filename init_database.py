@@ -2,7 +2,7 @@ import sqlite3
 import bcrypt
 
 def create_tables():
-    conn = sqlite3.connect('roles.db')
+    conn = sqlite3.connect('TFM.db')
     conn.execute('PRAGMA foreign_keys = ON')
     cursor = conn.cursor()
 
@@ -22,7 +22,8 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS roles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
-            description TEXT
+            description TEXT,
+            exp_time INTEGER NOT NULL DEFAULT 60
         )
     ''')
 
@@ -60,12 +61,10 @@ def create_tables():
         )
     ''')
 
-    # --- NUEVA TABLA DE REGLAS Y RELACIONES ---
-
+    # --- TABLA DE REGLAS (sin description) ---
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS rules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            description TEXT,
             permiso TEXT CHECK(permiso IN ('allow_rule', 'deny_rule')) NOT NULL
         )
     ''')
@@ -104,15 +103,15 @@ def create_tables():
     # --- DATOS DE EJEMPLO ---
 
     roles = [
-        ('operator', 'Role operator: Domains 1-3, Topics: telemetry, Subscribe'),
-        ('remote_driver', 'Remote driver: Truck publish'),
-        ('trucks', 'Trucks (3): Topics: Telemetry, Remote Control'),
-        ('drones', 'Drones (1): Topics: Telemetry, Video feed'),
-        ('field', 'Field (2): Telemetry')
+        ('operator', 'Role operator: Domains 1-3, Topics: telemetry, Subscribe', 60),
+        ('remote_driver', 'Remote driver: Truck publish', 30),
+        ('trucks', 'Trucks (3): Topics: Telemetry, Remote Control', 45),
+        ('drones', 'Drones (1): Topics: Telemetry, Video feed', 25),
+        ('field', 'Field (2): Telemetry', 20)
     ]
     for role in roles:
         cursor.execute(
-            'INSERT OR IGNORE INTO roles (name, description) VALUES (?, ?)', role)
+            'INSERT OR IGNORE INTO roles (name, description, exp_time) VALUES (?, ?, ?)', role)
 
     users = [
         ('usuario1', 'pass1', 'C=US, ST=CA, O=Real Time Innovations, emailAddress=ecdsa01Peer01@rti.com, CN=RTI ECDSA01 (p256) PEER01', 1),
@@ -152,7 +151,7 @@ def create_tables():
 
     conn.commit()
     conn.close()
-    print("✅ Base de datos creada correctamente con estructura compacta (rule_topics unificado).")
+    print("Base de datos creada correctamente")
 
 if __name__ == "__main__":
     create_tables()
