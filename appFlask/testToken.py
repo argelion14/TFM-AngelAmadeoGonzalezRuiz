@@ -1132,7 +1132,6 @@ def validate_xml_api():
         os.remove(xml_path)
 
 
-# TODO Que te devuelva tu XML pasandole tu un rol del cual tengas como usuario
 @app.route('/export_grant/<int:grant_id>', methods=['GET'])
 @swag_from({
     'tags': ['XML'],
@@ -1588,7 +1587,7 @@ def get_users2():
 
 def insert_grant_from_xml(xml_path, role_id):
     if not os.path.exists(xml_path):
-        raise FileNotFoundError(f"El fichero {xml_path} no existe")
+        raise FileNotFoundError(f"The file {xml_path} does not exist")
 
     role_id = int(role_id)
     tree = ET.parse(xml_path)
@@ -1596,11 +1595,11 @@ def insert_grant_from_xml(xml_path, role_id):
 
     default_elem = root.find('.//default')
     if default_elem is None or default_elem.text is None:
-        raise ValueError("No se encontró elemento <default> en el XML")
+        raise ValueError("Element <default> not found in the XML")
 
     default_action = default_elem.text.strip().upper()
     if default_action not in ('ALLOW', 'DENY'):
-        raise ValueError(f"Valor de default inválido: {default_action}")
+        raise ValueError(f"Invalid default value: {default_action}")
 
     grant_elem = root.find('.//grant')
     name = grant_elem.attrib.get('name', 'unnamed_grant')
@@ -1609,24 +1608,30 @@ def insert_grant_from_xml(xml_path, role_id):
     cursor = conn.cursor()
 
     try:
-        # 1. Insertar grantTemplate
+        # Check if the role exists
+        cursor.execute("SELECT id FROM roles WHERE id = ?", (role_id,))
+        if cursor.fetchone() is None:
+            raise ValueError(f"Role with ID {role_id} does not exist")
+
+        # 1. Insert into grantTemplate
         cursor.execute('''
             INSERT INTO grantTemplate (name, default_action, role_id)
             VALUES (?, ?, ?)
         ''', (name, default_action, role_id))
         grant_id = cursor.lastrowid
 
-        # 2. Procesar reglas
+        # 2. Process rules
         for rule_type in ['allow_rule', 'deny_rule']:
             for rule in root.findall(f'.//grant/{rule_type}'):
-                permiso = rule_type
+                permiso = rule_type  # Either 'allow_rule' or 'deny_rule'
 
+                # Insert into rules table (permiso is required)
                 cursor.execute(
-                    'INSERT INTO rules (permiso, description) VALUES (?, ?)', (permiso, '')
+                    'INSERT INTO rules (permiso) VALUES (?)', (permiso,)
                 )
                 rule_id = cursor.lastrowid
 
-                # Dominios
+                # Domains
                 for domain in rule.findall('./domains/id'):
                     if domain.text:
                         domain_name = domain.text.strip()
@@ -1651,7 +1656,6 @@ def insert_grant_from_xml(xml_path, role_id):
                             'SELECT id FROM topics WHERE name = ?', (topic_name,))
                         topic_id = cursor.fetchone()[0]
 
-                        # Insertar en rule_topics como publish
                         cursor.execute('''
                             INSERT INTO rule_topics (rule_id, topic_id, action)
                             VALUES (?, ?, 'publish')
@@ -1667,13 +1671,12 @@ def insert_grant_from_xml(xml_path, role_id):
                             'SELECT id FROM topics WHERE name = ?', (topic_name,))
                         topic_id = cursor.fetchone()[0]
 
-                        # Insertar en rule_topics como subscribe
                         cursor.execute('''
                             INSERT INTO rule_topics (rule_id, topic_id, action)
                             VALUES (?, ?, 'subscribe')
                         ''', (rule_id, topic_id))
 
-                # Asociar regla con el grant
+                # Link rule with grant
                 cursor.execute('''
                     INSERT INTO grant_rules (grant_id, rule_id)
                     VALUES (?, ?)
@@ -1684,7 +1687,7 @@ def insert_grant_from_xml(xml_path, role_id):
 
     except (sqlite3.IntegrityError, sqlite3.OperationalError) as e:
         conn.rollback()
-        raise ValueError(f"Error al insertar en la base de datos: {e}")
+        raise ValueError(f"Database error: {e}")
     finally:
         conn.close()
 
