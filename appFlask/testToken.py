@@ -59,7 +59,7 @@ JWT_SECRET = 'clave_jwt_segura'
 JWT_EXPIRATION_MINUTES = 60
 
 # TODO Mejorar la estructura de la base.html
-
+# TODO Hacer que todos los endpoint que necesiten de esto, lo usan en el swag_from de la misma manera, le tengo que añadir el bearer en el security
 
 #########################
 # SECCIÓN DE AUTENTICACION JWT PARA LA API
@@ -128,7 +128,7 @@ def verificar_jwt_api():
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     return decodificar_jwt(token)
 
-# TODO Hacer que todos los endpoint que necesiten de esto, lo usan en el swag_from de la misma manera, le tengo que añadir el bearer en el security
+
 
 
 def superadmin_required(f):
@@ -162,8 +162,6 @@ def get_db_connection():
 #########################
 
 # TODO Pensar si tiene que ser algo protegido
-
-
 @app.route('/api/grant-templates', methods=['GET'])
 @user_required
 @swag_from({
@@ -332,45 +330,12 @@ def delete_grant_api(grant_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # Check if the grant exists
-        cursor.execute(
-            'SELECT id FROM grantTemplate WHERE id = ?', (grant_id,))
-        if cursor.fetchone() is None:
-            return jsonify({'error': f'Grant template with ID {grant_id} not found.'}), 404
-
-        # Get associated rule_ids
-        cursor.execute(
-            'SELECT rule_id FROM grant_rules WHERE grant_id = ?', (grant_id,))
-        rule_ids = [row[0] for row in cursor.fetchall()]
-
-        # Delete grant_rules relationships
-        cursor.execute(
-            'DELETE FROM grant_rules WHERE grant_id = ?', (grant_id,))
-
-        # Delete associated rules
-        for rule_id in rule_ids:
-            cursor.execute('DELETE FROM rules WHERE id = ?', (rule_id,))
-
-        # Delete grantTemplate
-        cursor.execute('DELETE FROM grantTemplate WHERE id = ?', (grant_id,))
-
-        # Clean up unused domains
-        cursor.execute('''
-            DELETE FROM domains
-            WHERE id NOT IN (SELECT domain_id FROM rule_domains)
-        ''')
-
-        # Clean up unused topics
-        cursor.execute('''
-            DELETE FROM topics
-            WHERE id NOT IN (SELECT topic_id FROM rule_topics)
-        ''')
-
+        delete_grant_template_by_id(grant_id, conn)
         conn.commit()
-        return jsonify({'message': f'Grant template with ID {grant_id} successfully deleted.'}), 200
+        return jsonify({"message": f"Grant template {grant_id} eliminado correctamente"}), 200
     except Exception as e:
         conn.rollback()
-        return jsonify({'error': f'Error while deleting: {str(e)}'}), 500
+        return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
@@ -378,7 +343,7 @@ def delete_grant_api(grant_id):
 @app.route('/api/auth-role', methods=['POST'])
 @user_required
 @swag_from({
-    'tags': ['Auth'],
+    'tags': ['Auth_role_JWT'],
     'summary': 'Authenticate a specific role for an already authenticated user',
     'description': 'Returns a JWT if the authenticated user has the requested role and it is assigned to a single grantTemplate.',
     'security': [{'BearerAuth': []}],
@@ -467,7 +432,7 @@ def auth_role():
 
 @app.route('/api/verify-role-token', methods=['POST'])
 @swag_from({
-    'tags': ['Auth'],
+    'tags': ['Auth_role_JWT'],
     'summary': 'Verify a role JWT token',
     'description': 'Checks whether the provided JWT token is valid and whether the user has the role specified in the token.',
     'parameters': [
@@ -707,7 +672,6 @@ def add_role():
     conn.close()
     return jsonify({"message": "Role created", "id": new_id}), 201
 
-# TODO Mejorar para que borre todo lo que depende del rol, como la tabla de usuarios rol, y la de grantTemplate
 @app.route('/api/roles/<int:role_id>', methods=['DELETE'])
 @superadmin_required
 @swag_from({
@@ -741,14 +705,35 @@ def add_role():
 def delete_role(role_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id FROM roles WHERE id=?", (role_id,))
-    if cursor.fetchone() is None:
+    cursor.execute('PRAGMA foreign_keys = ON')
+
+    try:
+        # Verificar que el rol existe
+        cursor.execute("SELECT id FROM roles WHERE id=?", (role_id,))
+        if cursor.fetchone() is None:
+            conn.close()
+            return jsonify({"error": "Role not found"}), 404
+
+        # Buscar si hay un grantTemplate asociado a este rol
+        cursor.execute("SELECT id FROM grantTemplate WHERE role_id = ?", (role_id,))
+        grant_row = cursor.fetchone()
+
+        if grant_row:
+            grant_id = grant_row[0]
+            delete_grant_template_by_id(grant_id, conn)
+
+        # Eliminar el rol (esto también elimina user_roles por ON DELETE CASCADE)
+        cursor.execute("DELETE FROM roles WHERE id=?", (role_id,))
+
+        conn.commit()
+        return jsonify({"message": "Role and associated grantTemplate (if any) deleted successfully"}), 200
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
         conn.close()
-        return jsonify({"error": "Rol not found"}), 404
-    cursor.execute("DELETE FROM roles WHERE id=?", (role_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({"message": "Role deleted successfully"})
 
 
 @app.route('/api/roles/<int:role_id>', methods=['PUT'])
@@ -888,7 +873,8 @@ def list_users():
     'summary': 'Get user by ID',
     'description': 'Retrieves the details of a specific user identified by their user ID.',
     'parameters': [
-        {'name': 'user_id', 'in': 'path', 'type': 'integer', 'required': True, 'description': 'ID of the user to retrieve'}
+        {'name': 'user_id', 'in': 'path', 'type': 'integer',
+            'required': True, 'description': 'ID of the user to retrieve'}
     ],
     'responses': {
         200: {'description': 'User found'},
@@ -946,7 +932,8 @@ def create_user():
     if not username or not password:
         return jsonify({'error': 'Missing required fields'}), 400
 
-    hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    hashed_pw = bcrypt.hashpw(password.encode(
+        'utf-8'), bcrypt.gensalt()).decode('utf-8')
 
     conn = get_db_connection()
     try:
@@ -972,7 +959,8 @@ def create_user():
     'description': 'Deletes the user identified by the provided user ID. Requires superadmin privileges.',
     'security': [{'BearerAuth': []}],
     'parameters': [
-        {'name': 'user_id', 'in': 'path', 'type': 'integer', 'required': True, 'description': 'ID of the user to delete'}
+        {'name': 'user_id', 'in': 'path', 'type': 'integer',
+            'required': True, 'description': 'ID of the user to delete'}
     ],
     'responses': {
         200: {'description': 'User deleted successfully'},
@@ -1034,7 +1022,8 @@ def update_user(user_id):
         fields.append("username = ?")
         values.append(data['username'])
     if 'password' in data:
-        hashed_pw = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        hashed_pw = bcrypt.hashpw(data['password'].encode(
+            'utf-8'), bcrypt.gensalt()).decode('utf-8')
         fields.append("password = ?")
         values.append(hashed_pw)
     if 'cert' in data:
@@ -1050,7 +1039,8 @@ def update_user(user_id):
     values.append(user_id)
 
     conn = get_db_connection()
-    cursor = conn.execute(f"UPDATE users SET {', '.join(fields)} WHERE id = ?", values)
+    cursor = conn.execute(
+        f"UPDATE users SET {', '.join(fields)} WHERE id = ?", values)
     conn.commit()
     conn.close()
 
@@ -1132,7 +1122,7 @@ def validate_xml_api():
         os.remove(xml_path)
 
 
-@app.route('/export_grant/<int:grant_id>', methods=['GET'])
+@app.route('/api/export_grant/<int:grant_id>', methods=['GET'])
 @swag_from({
     'tags': ['XML'],
     'summary': 'Export a grant as an XML file',
@@ -1872,7 +1862,8 @@ def new_grant():
             path = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
             f.save(path)
 
-            grant_id, name, default_action = insert_grant_from_xml(path, role_id)
+            grant_id, name, default_action = insert_grant_from_xml(
+                path, role_id)
             flash(
                 f'Grant "{name}", con id {grant_id}, creado con default="{default_action}" y rol asignado.', 'success')
             return redirect(url_for('new_grant'))
@@ -1908,43 +1899,46 @@ def list_grant_templates():
     return render_template('grant_templates.html', grants=grants)
 
 
+def delete_grant_template_by_id(grant_id, conn):
+    cursor = conn.cursor()
+
+    # Activar claves foráneas
+    cursor.execute('PRAGMA foreign_keys = ON')
+
+    # 1. Obtener todas las rule_ids asociadas al grant
+    cursor.execute(
+        'SELECT rule_id FROM grant_rules WHERE grant_id = ?', (grant_id,))
+    rule_ids = [row[0] for row in cursor.fetchall()]
+
+    # 2. Eliminar relaciones en grant_rules (por si no hay ON DELETE CASCADE)
+    cursor.execute('DELETE FROM grant_rules WHERE grant_id = ?', (grant_id,))
+
+    # 3. Eliminar reglas (esto borrará también rule_domains y rule_topics por cascada)
+    for rule_id in rule_ids:
+        cursor.execute('DELETE FROM rules WHERE id = ?', (rule_id,))
+
+    # 4. Eliminar el grantTemplate
+    cursor.execute('DELETE FROM grantTemplate WHERE id = ?', (grant_id,))
+
+    # 5. Limpieza opcional de domains sin uso
+    cursor.execute('''
+        DELETE FROM domains
+        WHERE id NOT IN (SELECT domain_id FROM rule_domains)
+    ''')
+
+    # 6. Limpieza opcional de topics sin uso
+    cursor.execute('''
+        DELETE FROM topics
+        WHERE id NOT IN (SELECT topic_id FROM rule_topics)
+    ''')
+
 @app.route('/delete_grant/<int:grant_id>', methods=['POST'])
 def delete_grant_template(grant_id):
     conn = get_db_connection()
-    conn.execute('PRAGMA foreign_keys = ON')
-    cursor = conn.cursor()
     try:
-        # 1. Obtener todas las rule_ids asociadas al grant
-        cursor.execute(
-            'SELECT rule_id FROM grant_rules WHERE grant_id = ?', (grant_id,))
-        rule_ids = [row[0] for row in cursor.fetchall()]
-
-        # 2. Eliminar relaciones en grant_rules (esto puede ser opcional si ON DELETE CASCADE ya se encarga)
-        cursor.execute(
-            'DELETE FROM grant_rules WHERE grant_id = ?', (grant_id,))
-
-        # 3. Eliminar reglas (esto borrará también rule_domains y rule_topics por cascada)
-        for rule_id in rule_ids:
-            cursor.execute('DELETE FROM rules WHERE id = ?', (rule_id,))
-
-        # 4. Eliminar el grantTemplate
-        cursor.execute('DELETE FROM grantTemplate WHERE id = ?', (grant_id,))
-
-        # 5. Limpieza opcional: eliminar domains sin uso
-        cursor.execute('''
-            DELETE FROM domains
-            WHERE id NOT IN (SELECT domain_id FROM rule_domains)
-        ''')
-
-        # 6. Limpieza opcional: eliminar topics sin uso
-        cursor.execute('''
-            DELETE FROM topics
-            WHERE id NOT IN (SELECT topic_id FROM rule_topics)
-        ''')
-
+        delete_grant_template_by_id(grant_id, conn)
         conn.commit()
-        flash(
-            f"Grant template con ID {grant_id} y sus datos asociados fueron eliminados correctamente.", 'success')
+        flash(f"Grant template con ID {grant_id} y sus datos asociados fueron eliminados correctamente.", 'success')
     except Exception as e:
         conn.rollback()
         flash(f"Error al eliminar: {e}", 'danger')
