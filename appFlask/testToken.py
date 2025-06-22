@@ -71,49 +71,34 @@ JWT_EXPIRATION_MINUTES = 60
 @swag_from({
     'tags': ['Authentication'],
     'summary': 'User Login',
-    'description': 'Authenticates a user with their username and password. Returns a JWT token if the credentials are valid.',
+    'description': 'Authenticates a user with username and password. Returns a JWT token if successful.',
     'consumes': ['application/json'],
-    'parameters': [
-        {
-            'name': 'body',
-            'in': 'body',
-            'required': True,
-            'schema': {
-                'type': 'object',
-                'required': ['username', 'password'],
-                'properties': {
-                    'username': {
-                        'type': 'string',
-                        'example': 'admin'
-                    },
-                    'password': {
-                        'type': 'string',
-                        'example': 'yourpassword123'
-                    }
-                }
-            },
-            'description': 'User credentials'
-        }
-    ],
+    'parameters': [{
+        'name': 'body',
+        'in': 'body',
+        'required': True,
+        'schema': {
+            'type': 'object',
+            'required': ['username', 'password'],
+            'properties': {
+                'username': {'type': 'string', 'example': 'admin'},
+                'password': {'type': 'string', 'example': 'yourpassword123'}
+            }
+        },
+        'description': 'User credentials'
+    }],
     'responses': {
         200: {
             'description': 'Successful authentication. Returns a JWT token.',
             'schema': {
                 'type': 'object',
                 'properties': {
-                    'token': {
-                        'type': 'string',
-                        'example': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'
-                    }
+                    'token': {'type': 'string', 'example': 'eyJ0eXAiOiJKV1QiLCJhbGci...'}
                 }
             }
         },
-        400: {
-            'description': 'Missing username or password in request body.'
-        },
-        401: {
-            'description': 'Invalid username or password.'
-        }
+        400: {'description': 'Missing username or password.'},
+        401: {'description': 'Invalid credentials.'}
     }
 })
 def login_api():
@@ -135,10 +120,10 @@ def login_api():
 
 def verificar_jwt_api():
     """
-    Verifica el JWT enviado en el encabezado Authorization de una solicitud API.
+    Verifies the JWT sent in the Authorization header of an API request.
 
     Returns:
-        dict | None: Los datos del token si es válido, o None si es inválido o no existe.
+        dict | None: The token data if valid, or None if invalid or missing.
     """
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     return decodificar_jwt(token)
@@ -151,7 +136,7 @@ def superadmin_required(f):
     def wrapper(*args, **kwargs):
         user = verificar_jwt_api()
         if not user or not user.get("is_superuser", False):
-            abort(403, "Solo superadmin puede realizar esta acción")
+            abort(403, "Only superadmin can perform this action")
         return f(*args, **kwargs)
     return wrapper
 
@@ -161,12 +146,13 @@ def user_required(f):
     def wrapper(*args, **kwargs):
         user = verificar_jwt_api()
         if not user or not user.get("username"):
-            abort(403, "Token inválido o usuario no autorizado")
+            abort(403, "Invalid token or unauthorized user")
         return f(*args, **kwargs)
     return wrapper
 
+
 def get_db_connection():
-    conn = sqlite3.connect('roles.db')
+    conn = sqlite3.connect('TFM.db')
     conn.execute('PRAGMA foreign_keys = ON')
     return conn
 
@@ -182,12 +168,12 @@ def get_db_connection():
 @user_required
 @swag_from({
     'tags': ['Grant Templates'],
-    'summary': 'Lista todas las plantillas de permisos (grant templates)',
-    'description': 'Obtiene una lista de plantillas de permisos junto con su acción por defecto y el nombre del rol asociado. Requiere autenticación con JWT.',
+    'summary': 'Lists all grant templates',
+    'description': 'Retrieves a list of grant templates along with their default action and associated role name. Requires JWT authentication.',
     'security': [{'BearerAuth': []}],
     'responses': {
         200: {
-            'description': 'Lista de plantillas de permisos',
+            'description': 'List of grant templates',
             'schema': {
                 'type': 'array',
                 'items': {
@@ -201,19 +187,20 @@ def get_db_connection():
                 }
             }
         },
-        403: {'description': 'Token inválido o no autorizado'}
+        403: {'description': 'Invalid or unauthorized token'}
     }
 })
 def list_grant_templates_api():
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        query = '''
-            SELECT gt.id, gt.name, gt.default_action, r.name as role_name
-            FROM grantTemplate gt
-            JOIN roles r ON gt.role_id = r.id
-        '''
-        cursor.execute(query)
-        grant_templates = cursor.fetchall()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    query = '''
+        SELECT gt.id, gt.name, gt.default_action, r.name as role_name
+        FROM grantTemplate gt
+        JOIN roles r ON gt.role_id = r.id
+    '''
+    cursor.execute(query)
+    grant_templates = cursor.fetchall()
+    conn.close()
 
     grants = [
         {
@@ -230,9 +217,9 @@ def list_grant_templates_api():
 @superadmin_required
 @swag_from({
     'tags': ['Grant Templates'],
-    'summary': 'Crear un nuevo grant desde un fichero XML DDS Permissions',
+    'summary': 'Create a new grant from an XML DDS Permissions file',
     'security': [{'BearerAuth': []}],
-    'description': 'Permite subir un fichero XML y un role_id para crear un grant y sus reglas asociadas.',
+    'description': 'Allows uploading an XML file and a role_id to create a grant and its associated rules.',
     'consumes': ['multipart/form-data'],
     'parameters': [
         {
@@ -240,19 +227,19 @@ def list_grant_templates_api():
             'in': 'formData',
             'type': 'file',
             'required': True,
-            'description': 'Fichero XML DDS Permissions'
+            'description': 'XML DDS Permissions file'
         },
         {
             'name': 'role_id',
             'in': 'formData',
             'type': 'integer',
             'required': True,
-            'description': 'ID del rol al que se asigna el grant'
+            'description': 'ID of the role to which the grant will be assigned'
         }
     ],
     'responses': {
         200: {
-            'description': 'Grant creado con éxito',
+            'description': 'Grant successfully created',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -263,7 +250,7 @@ def list_grant_templates_api():
             }
         },
         400: {
-            'description': 'Error en la creación del grant',
+            'description': 'Error while creating the grant',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -278,7 +265,7 @@ def create_grant_api():
     role_id = request.form.get('role_id')
 
     if not f or not role_id:
-        return jsonify({'error': 'Falta fichero o role_id'}), 400
+        return jsonify({'error': 'Missing file or role_id'}), 400
 
     try:
         filename = secure_filename(f.filename)
@@ -300,20 +287,20 @@ def create_grant_api():
 @swag_from({
     'tags': ['Grant Templates'],
     'security': [{'BearerAuth': []}],
-    'summary': 'Eliminar una plantilla de permisos (grant template) por su ID',
-    'description': 'Elimina un grant template y todos sus datos asociados, incluyendo reglas, dominios y topics no usados.',
+    'summary': 'Delete a grant template by its ID',
+    'description': 'Deletes a grant template and all its associated data, including rules, unused domains, and topics.',
     'parameters': [
         {
             'name': 'grant_id',
             'in': 'path',
             'type': 'integer',
             'required': True,
-            'description': 'ID del grant template a eliminar'
+            'description': 'ID of the grant template to delete'
         }
     ],
     'responses': {
         200: {
-            'description': 'Grant template eliminado correctamente',
+            'description': 'Grant template successfully deleted',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -322,7 +309,7 @@ def create_grant_api():
             }
         },
         404: {
-            'description': 'Grant template no encontrado',
+            'description': 'Grant template not found',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -331,7 +318,7 @@ def create_grant_api():
             }
         },
         500: {
-            'description': 'Error interno del servidor',
+            'description': 'Internal server error',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -342,60 +329,58 @@ def create_grant_api():
     }
 })
 def delete_grant_api(grant_id):
-    conn = sqlite3.connect('roles.db')
-    conn.execute('PRAGMA foreign_keys = ON')
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # Verificar si el grant existe
+        # Check if the grant exists
         cursor.execute(
             'SELECT id FROM grantTemplate WHERE id = ?', (grant_id,))
         if cursor.fetchone() is None:
-            return jsonify({'error': f'Grant template con ID {grant_id} no encontrado.'}), 404
+            return jsonify({'error': f'Grant template with ID {grant_id} not found.'}), 404
 
-        # Obtener rule_ids asociados
+        # Get associated rule_ids
         cursor.execute(
             'SELECT rule_id FROM grant_rules WHERE grant_id = ?', (grant_id,))
         rule_ids = [row[0] for row in cursor.fetchall()]
 
-        # Eliminar relaciones grant_rules
+        # Delete grant_rules relationships
         cursor.execute(
             'DELETE FROM grant_rules WHERE grant_id = ?', (grant_id,))
 
-        # Eliminar reglas asociadas
+        # Delete associated rules
         for rule_id in rule_ids:
             cursor.execute('DELETE FROM rules WHERE id = ?', (rule_id,))
 
-        # Eliminar grantTemplate
+        # Delete grantTemplate
         cursor.execute('DELETE FROM grantTemplate WHERE id = ?', (grant_id,))
 
-        # Limpieza de domains sin uso
+        # Clean up unused domains
         cursor.execute('''
             DELETE FROM domains
             WHERE id NOT IN (SELECT domain_id FROM rule_domains)
         ''')
 
-        # Limpieza de topics sin uso
+        # Clean up unused topics
         cursor.execute('''
             DELETE FROM topics
             WHERE id NOT IN (SELECT topic_id FROM rule_topics)
         ''')
 
         conn.commit()
-        return jsonify({'message': f'Grant template con ID {grant_id} eliminado correctamente.'}), 200
+        return jsonify({'message': f'Grant template with ID {grant_id} successfully deleted.'}), 200
     except Exception as e:
         conn.rollback()
-        return jsonify({'error': f'Error al eliminar: {str(e)}'}), 500
+        return jsonify({'error': f'Error while deleting: {str(e)}'}), 500
     finally:
         conn.close()
 
 
-# TODO Hacer el endpoint de solicitar JWT de un rol en concreto, al cual por tu usuario tengas dicho rol
 @app.route('/api/auth-role', methods=['POST'])
 @user_required
 @swag_from({
     'tags': ['Auth'],
-    'summary': 'Autenticar un rol específico para un usuario ya autenticado',
-    'description': 'Devuelve un JWT si el usuario autenticado posee el rol solicitado y este está asignado a un único grantTemplate.',
+    'summary': 'Authenticate a specific role for an already authenticated user',
+    'description': 'Returns a JWT if the authenticated user has the requested role and it is assigned to a single grantTemplate.',
     'security': [{'BearerAuth': []}],
     'parameters': [
         {
@@ -413,7 +398,7 @@ def delete_grant_api(grant_id):
     ],
     'responses': {
         200: {
-            'description': 'JWT emitido correctamente',
+            'description': 'JWT successfully issued',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -422,7 +407,7 @@ def delete_grant_api(grant_id):
             }
         },
         401: {
-            'description': 'No autorizado',
+            'description': 'Unauthorized',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -439,36 +424,36 @@ def auth_role():
     user_data = verificar_jwt_api()
     username = user_data.get('username')
     if not username:
-        return jsonify({'error': 'Token inválido'}), 401
+        return jsonify({'error': 'Invalid token'}), 401
 
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
 
-    # 1. Obtener user_id desde username
+    # 1. Get user_id from username
     cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
     user = cursor.fetchone()
     if not user:
         conn.close()
-        return jsonify({'error': 'Usuario no encontrado'}), 401
+        return jsonify({'error': 'User not found'}), 401
 
     user_id = user[0]
 
-    # 2. Verificar que el usuario tiene el rol
+    # 2. Verify that the user has the role
     cursor.execute(
         'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
     if cursor.fetchone() is None:
         conn.close()
-        return jsonify({'error': 'El usuario no tiene ese rol'}), 401
+        return jsonify({'error': 'User does not have the specified role'}), 401
 
-    # 3. Verificar que el rol está asociado a un único grantTemplate
+    # 3. Verify that the role is linked to a single grantTemplate
     cursor.execute(
         'SELECT id FROM grantTemplate WHERE role_id = ?', (role_id,))
     templates = cursor.fetchall()
     if len(templates) != 1:
         conn.close()
-        return jsonify({'error': 'El rol no está vinculado a un único grantTemplate'}), 401
+        return jsonify({'error': 'Role is not linked to a single grantTemplate'}), 401
 
-    # 4. Emitir nuevo JWT para ese rol
+    # 4. Issue new JWT for this role
     payload = {
         'user_id': user_id,
         'role_id': role_id,
@@ -480,12 +465,11 @@ def auth_role():
     return jsonify({'token': token})
 
 
-# TODO Hacer que compruebe que un JWT es válido para tu usuario con dicho rol
 @app.route('/api/verify-role-token', methods=['POST'])
 @swag_from({
     'tags': ['Auth'],
-    'summary': 'Verifica un token de rol JWT',
-    'description': 'Verifica si el token JWT proporcionado es válido y si el usuario tiene asignado el rol indicado en el token.',
+    'summary': 'Verify a role JWT token',
+    'description': 'Checks whether the provided JWT token is valid and whether the user has the role specified in the token.',
     'parameters': [
         {
             'name': 'body',
@@ -496,7 +480,7 @@ def auth_role():
                 'properties': {
                     'token': {
                         'type': 'string',
-                        'description': 'JWT que contiene user_id y role_id',
+                        'description': 'JWT containing user_id and role_id',
                         'example': 'eyJhbGciOiJIUzI1NiIsInR5cCI6...'
                     }
                 },
@@ -506,7 +490,7 @@ def auth_role():
     ],
     'responses': {
         200: {
-            'description': 'Token válido',
+            'description': 'Valid token',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -517,7 +501,7 @@ def auth_role():
             }
         },
         400: {
-            'description': 'Falta el token o formato inválido',
+            'description': 'Missing token or invalid format',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -527,7 +511,7 @@ def auth_role():
             }
         },
         401: {
-            'description': 'Token inválido o usuario/rol no coinciden',
+            'description': 'Invalid token or mismatched user/role',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -543,39 +527,39 @@ def verify_role_token():
     token = data.get('token')
 
     if not token:
-        return jsonify({'valid': False, 'error': 'Token no proporcionado'}), 400
+        return jsonify({'valid': False, 'error': 'Token not provided'}), 400
 
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
     except jwt.ExpiredSignatureError:
-        return jsonify({'valid': False, 'error': 'Token expirado'}), 401
+        return jsonify({'valid': False, 'error': 'Token expired'}), 401
     except jwt.InvalidTokenError:
-        return jsonify({'valid': False, 'error': 'Token inválido'}), 401
+        return jsonify({'valid': False, 'error': 'Invalid token'}), 401
 
     user_id = payload.get('user_id')
     role_id = payload.get('role_id')
 
     if not user_id or not role_id:
-        return jsonify({'valid': False, 'error': 'Token incompleto'}), 400
+        return jsonify({'valid': False, 'error': 'Incomplete token'}), 400
 
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     cursor.execute('SELECT 1 FROM users WHERE id = ?', (user_id,))
     if cursor.fetchone() is None:
         conn.close()
-        return jsonify({'valid': False, 'error': 'Usuario no existe'}), 401
+        return jsonify({'valid': False, 'error': 'User does not exist'}), 401
 
     cursor.execute('SELECT 1 FROM roles WHERE id = ?', (role_id,))
     if cursor.fetchone() is None:
         conn.close()
-        return jsonify({'valid': False, 'error': 'Rol no existe'}), 401
+        return jsonify({'valid': False, 'error': 'Role does not exist'}), 401
 
     cursor.execute(
         'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
     if cursor.fetchone() is None:
         conn.close()
-        return jsonify({'valid': False, 'error': 'Usuario no tiene ese rol'}), 401
+        return jsonify({'valid': False, 'error': 'User does not have this role'}), 401
 
     conn.close()
     return jsonify({'valid': True, 'user_id': user_id, 'role_id': role_id})
@@ -590,11 +574,11 @@ def verify_role_token():
 @app.route('/api/roles', methods=['GET'])
 @swag_from({
     'tags': ['Roles'],
-    'summary': 'Obtiene todos los roles',
-    'description': 'Devuelve los detalles de todos los roles que existen',
+    'summary': 'Get all roles',
+    'description': 'Returns the details of all existing roles',
     'responses': {
         200: {
-            'description': 'Lista de roles',
+            'description': 'List of roles',
             'schema': {
                 'type': 'array',
                 'items': {
@@ -610,7 +594,7 @@ def verify_role_token():
     }
 })
 def get_roles():
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM roles")
@@ -623,20 +607,20 @@ def get_roles():
 @app.route('/api/roles/<int:role_id>', methods=['GET'])
 @swag_from({
     'tags': ['Roles'],
-    'summary': 'Obtiene un rol por ID',
-    'description': 'Devuelve los detalles del rol si existe, en caso contrario devuelve un error 404.',
+    'summary': 'Get role by ID',
+    'description': 'Returns role details if it exists, otherwise returns a 404 error.',
     'parameters': [
         {
             'name': 'role_id',
             'in': 'path',
             'type': 'integer',
             'required': True,
-            'description': 'ID del rol a obtener'
+            'description': 'ID of the role to retrieve'
         }
     ],
     'responses': {
         200: {
-            'description': 'Detalles del rol',
+            'description': 'Role details',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -647,19 +631,19 @@ def get_roles():
             }
         },
         404: {
-            'description': 'Rol no encontrado'
+            'description': 'Role not found'
         }
     }
 })
 def get_role(role_id):
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM roles WHERE id=?", (role_id,))
     row = cursor.fetchone()
     conn.close()
     if row is None:
-        return jsonify({"error": "Rol no encontrado"}), 404
+        return jsonify({"error": "Role not found"}), 404
     return jsonify(dict(row))
 
 
@@ -667,8 +651,8 @@ def get_role(role_id):
 @superadmin_required
 @swag_from({
     'tags': ['Roles'],
-    'summary': 'Añade un nuevo rol (solo superadmin)',
-    'description': 'Permite a un superadmin crear un nuevo rol proporcionando nombre y descripción.',
+    'summary': 'Add a new role (superadmin only)',
+    'description': 'Allows a superadmin to create a new role by providing a name and optional description.',
     'parameters': [
         {
             'in': 'body',
@@ -680,11 +664,11 @@ def get_role(role_id):
                 'properties': {
                     'name': {
                         'type': 'string',
-                        'description': 'Nombre único del rol'
+                        'description': 'Unique name of the role'
                     },
                     'description': {
                         'type': 'string',
-                        'description': 'Descripción del rol'
+                        'description': 'Description of the role'
                     }
                 }
             }
@@ -692,13 +676,13 @@ def get_role(role_id):
     ],
     'responses': {
         201: {
-            'description': 'Rol creado correctamente'
+            'description': 'Role successfully created'
         },
         400: {
-            'description': 'Datos inválidos o rol duplicado'
+            'description': 'Invalid data or duplicate role'
         },
         403: {
-            'description': 'Acceso denegado'
+            'description': 'Access denied'
         }
     },
     'security': [
@@ -708,9 +692,9 @@ def get_role(role_id):
 def add_role():
     data = request.get_json()
     if not data or not data.get('name'):
-        return jsonify({"error": "El campo 'name' es obligatorio"}), 400
+        return jsonify({"error": "The 'name' field is required"}), 400
 
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("INSERT INTO roles (name, description) VALUES (?, ?)",
@@ -719,37 +703,35 @@ def add_role():
         new_id = cursor.lastrowid
     except sqlite3.IntegrityError:
         conn.close()
-        return jsonify({"error": "Rol con ese nombre ya existe"}), 400
+        return jsonify({"error": "Role with that name already exists"}), 400
     conn.close()
-    return jsonify({"message": "Rol creado", "id": new_id}), 201
+    return jsonify({"message": "Role created", "id": new_id}), 201
 
 # TODO Mejorar para que borre todo lo que depende del rol, como la tabla de usuarios rol, y la de grantTemplate
-
-
 @app.route('/api/roles/<int:role_id>', methods=['DELETE'])
 @superadmin_required
 @swag_from({
     'tags': ['Roles'],
-    'summary': 'Eliminar un rol por ID (solo superadmin)',
-    'description': 'Permite a un superadmin eliminar un rol existente utilizando su ID.',
+    'summary': 'Delete a role by ID (superadmin only)',
+    'description': 'Allows a superadmin to delete an existing role by its ID.',
     'parameters': [
         {
             'name': 'role_id',
             'in': 'path',
             'type': 'integer',
             'required': True,
-            'description': 'ID del rol a eliminar'
+            'description': 'ID of the role to delete'
         }
     ],
     'responses': {
         200: {
-            'description': 'Rol eliminado correctamente'
+            'description': 'Role deleted successfully'
         },
         404: {
-            'description': 'Rol no encontrado'
+            'description': 'Role not found'
         },
         403: {
-            'description': 'Acceso denegado'
+            'description': 'Access denied'
         }
     },
     'security': [
@@ -757,31 +739,31 @@ def add_role():
     ]
 })
 def delete_role(role_id):
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM roles WHERE id=?", (role_id,))
     if cursor.fetchone() is None:
         conn.close()
-        return jsonify({"error": "Rol no encontrado"}), 404
+        return jsonify({"error": "Rol not found"}), 404
     cursor.execute("DELETE FROM roles WHERE id=?", (role_id,))
     conn.commit()
     conn.close()
-    return jsonify({"message": "Rol eliminado correctamente"})
+    return jsonify({"message": "Role deleted successfully"})
 
 
 @app.route('/api/roles/<int:role_id>', methods=['PUT'])
 @superadmin_required
 @swag_from({
     'tags': ['Roles'],
-    'summary': 'Actualizar un rol por ID (solo superadmin)',
-    'description': 'Permite actualizar el nombre o la descripción de un rol existente mediante su ID.',
+    'summary': 'Update a role by ID (superadmin only)',
+    'description': 'Allows a superadmin to update the name or description of an existing role by its ID.',
     'parameters': [
         {
             'name': 'role_id',
             'in': 'path',
             'type': 'integer',
             'required': True,
-            'description': 'ID del rol a actualizar'
+            'description': 'ID of the role to update'
         },
         {
             'in': 'body',
@@ -792,11 +774,11 @@ def delete_role(role_id):
                 'properties': {
                     'name': {
                         'type': 'string',
-                        'description': 'Nuevo nombre del rol'
+                        'description': 'New name for the role'
                     },
                     'description': {
                         'type': 'string',
-                        'description': 'Nueva descripción del rol'
+                        'description': 'New description for the role'
                     }
                 }
             }
@@ -804,16 +786,16 @@ def delete_role(role_id):
     ],
     'responses': {
         200: {
-            'description': 'Rol actualizado correctamente'
+            'description': 'Role successfully updated'
         },
         400: {
-            'description': 'Datos inválidos o nombre duplicado'
+            'description': 'Invalid data or duplicate role name'
         },
         404: {
-            'description': 'Rol no encontrado'
+            'description': 'Role not found'
         },
         403: {
-            'description': 'Acceso denegado'
+            'description': 'Access denied'
         }
     },
     'security': [
@@ -823,43 +805,43 @@ def delete_role(role_id):
 def update_role(role_id):
     data = request.get_json()
     if not data:
-        return jsonify({"error": "Se requiere un cuerpo JSON"}), 400
+        return jsonify({"error": "A JSON body is required"}), 400
 
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Verificar si el rol existe
+    # Check if role exists
     cursor.execute("SELECT id FROM roles WHERE id=?", (role_id,))
     if cursor.fetchone() is None:
         conn.close()
-        return jsonify({"error": "Rol no encontrado"}), 404
+        return jsonify({"error": "Role not found"}), 404
 
-    # Construir actualización dinámica
-    campos = []
-    valores = []
+    # Build dynamic update
+    fields = []
+    values = []
     if 'name' in data:
-        campos.append("name = ?")
-        valores.append(data['name'])
+        fields.append("name = ?")
+        values.append(data['name'])
     if 'description' in data:
-        campos.append("description = ?")
-        valores.append(data['description'])
+        fields.append("description = ?")
+        values.append(data['description'])
 
-    if not campos:
+    if not fields:
         conn.close()
-        return jsonify({"error": "No se especificó ningún campo a actualizar"}), 400
+        return jsonify({"error": "No fields specified to update"}), 400
 
-    valores.append(role_id)
+    values.append(role_id)
 
     try:
         cursor.execute(
-            f"UPDATE roles SET {', '.join(campos)} WHERE id = ?", valores)
+            f"UPDATE roles SET {', '.join(fields)} WHERE id = ?", values)
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
-        return jsonify({"error": "Ya existe un rol con ese nombre"}), 400
+        return jsonify({"error": "A role with that name already exists"}), 400
 
     conn.close()
-    return jsonify({"message": "Rol actualizado correctamente"})
+    return jsonify({"message": "Role successfully updated"})
 
 
 #########################
@@ -870,10 +852,12 @@ def update_role(role_id):
 
 @app.route('/api/users', methods=['GET'])
 @swag_from({
-    'tags': ['Usuarios'],
+    'tags': ['Users'],
+    'summary': 'Retrieve all users',
+    'description': 'Returns a list of all users with their ID, username, certificate, and superuser status.',
     'responses': {
         200: {
-            'description': 'Lista de usuarios',
+            'description': 'List of users',
             'schema': {
                 'type': 'array',
                 'items': {
@@ -889,8 +873,8 @@ def update_role(role_id):
         }
     }
 })
-def listar_usuarios():
-    conn = sqlite3.connect('roles.db')
+def list_users():
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.execute("SELECT id, username, cert, is_superuser FROM users")
     users = [dict(row) for row in cursor.fetchall()]
@@ -900,17 +884,19 @@ def listar_usuarios():
 
 @app.route('/api/users/<int:user_id>', methods=['GET'])
 @swag_from({
-    'tags': ['Usuarios'],
+    'tags': ['Users'],
+    'summary': 'Get user by ID',
+    'description': 'Retrieves the details of a specific user identified by their user ID.',
     'parameters': [
-        {'name': 'user_id', 'in': 'path', 'type': 'integer', 'required': True}
+        {'name': 'user_id', 'in': 'path', 'type': 'integer', 'required': True, 'description': 'ID of the user to retrieve'}
     ],
     'responses': {
-        200: {'description': 'Usuario encontrado'},
-        404: {'description': 'Usuario no encontrado'}
+        200: {'description': 'User found'},
+        404: {'description': 'User not found'}
     }
 })
-def obtener_usuario(user_id):
-    conn = sqlite3.connect('roles.db')
+def get_user(user_id):
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.execute(
         "SELECT id, username, cert, is_superuser FROM users WHERE id = ?", (user_id,))
@@ -918,13 +904,15 @@ def obtener_usuario(user_id):
     conn.close()
     if row:
         return jsonify(dict(row))
-    return jsonify({'error': 'Usuario no encontrado'}), 404
+    return jsonify({'error': 'User not found'}), 404
 
 
 @app.route('/api/users', methods=['POST'])
 @superadmin_required
 @swag_from({
-    'tags': ['Usuarios'],
+    'tags': ['Users'],
+    'summary': 'Create a new user',
+    'description': 'Creates a new user with the provided username, password, certificate, and superuser status. Requires superadmin privileges.',
     'security': [{'BearerAuth': []}],
     'parameters': [
         {
@@ -944,33 +932,32 @@ def obtener_usuario(user_id):
         }
     ],
     'responses': {
-        201: {'description': 'Usuario creado'},
-        400: {'description': 'Error al crear usuario'}
+        201: {'description': 'User created successfully'},
+        400: {'description': 'Error creating user, e.g., username already exists or missing required fields'}
     }
 })
-def crear_usuario():
-    datos = request.json
-    username = datos.get('username')
-    password = datos.get('password')
-    cert = datos.get('cert', '')
-    is_superuser = 1 if datos.get('is_superuser', False) else 0
+def create_user():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    cert = data.get('cert', '')
+    is_superuser = 1 if data.get('is_superuser', False) else 0
 
     if not username or not password:
-        return jsonify({'error': 'Faltan campos requeridos'}), 400
+        return jsonify({'error': 'Missing required fields'}), 400
 
-    hashed_pw = bcrypt.hashpw(password.encode(
-        'utf-8'), bcrypt.gensalt()).decode('utf-8')
+    hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     try:
         conn.execute(
             "INSERT INTO users (username, password, cert, is_superuser) VALUES (?, ?, ?, ?)",
             (username, hashed_pw, cert, is_superuser)
         )
         conn.commit()
-        return jsonify({'message': 'Usuario creado'}), 201
+        return jsonify({'message': 'User created successfully'}), 201
     except sqlite3.IntegrityError:
-        return jsonify({'error': 'Nombre de usuario ya existe'}), 400
+        return jsonify({'error': 'Username already exists'}), 400
     finally:
         conn.close()
 
@@ -980,86 +967,96 @@ def crear_usuario():
 @app.route('/api/users/<int:user_id>', methods=['DELETE'])
 @superadmin_required
 @swag_from({
-    'tags': ['Usuarios'],
+    'tags': ['Users'],
+    'summary': 'Delete a user',
+    'description': 'Deletes the user identified by the provided user ID. Requires superadmin privileges.',
     'security': [{'BearerAuth': []}],
     'parameters': [
-        {'name': 'user_id', 'in': 'path', 'type': 'integer', 'required': True}
+        {'name': 'user_id', 'in': 'path', 'type': 'integer', 'required': True, 'description': 'ID of the user to delete'}
     ],
     'responses': {
-        200: {'description': 'Usuario eliminado'},
-        404: {'description': 'Usuario no encontrado'}
+        200: {'description': 'User deleted successfully'},
+        404: {'description': 'User not found'}
     }
 })
-def eliminar_usuario(user_id):
-    conn = sqlite3.connect('roles.db')
+def delete_user(user_id):
+    conn = get_db_connection()
     cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
     conn.commit()
     conn.close()
     if cursor.rowcount:
-        return jsonify({'message': 'Usuario eliminado'})
-    return jsonify({'error': 'Usuario no encontrado'}), 404
+        return jsonify({'message': 'User deleted successfully'})
+    return jsonify({'error': 'User not found'}), 404
 
 
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 @superadmin_required
 @swag_from({
-    'tags': ['Usuarios'],
+    'tags': ['Users'],
+    'summary': 'Update a user',
+    'description': 'Updates the details of the user identified by the given user ID. Requires superadmin privileges.',
     'security': [{'BearerAuth': []}],
     'parameters': [
-        {'name': 'user_id', 'in': 'path', 'type': 'integer', 'required': True},
+        {
+            'name': 'user_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID of the user to update'
+        },
         {
             'name': 'body',
             'in': 'body',
+            'required': True,
             'schema': {
                 'type': 'object',
                 'properties': {
-                    'username': {'type': 'string'},
-                    'password': {'type': 'string'},
-                    'cert': {'type': 'string'},
-                    'is_superuser': {'type': 'boolean'}
+                    'username': {'type': 'string', 'description': 'New username'},
+                    'password': {'type': 'string', 'description': 'New password'},
+                    'cert': {'type': 'string', 'description': 'Certificate info'},
+                    'is_superuser': {'type': 'boolean', 'description': 'Superuser status'}
                 }
             }
         }
     ],
     'responses': {
-        200: {'description': 'Usuario actualizado'},
-        404: {'description': 'Usuario no encontrado'}
+        200: {'description': 'User updated successfully'},
+        400: {'description': 'No fields provided for update'},
+        404: {'description': 'User not found'}
     }
 })
-def actualizar_usuario(user_id):
-    datos = request.json
-    campos = []
-    valores = []
+def update_user(user_id):
+    data = request.json
+    fields = []
+    values = []
 
-    if 'username' in datos:
-        campos.append("username = ?")
-        valores.append(datos['username'])
-    if 'password' in datos:
-        hashed_pw = bcrypt.hashpw(datos['password'].encode(
-            'utf-8'), bcrypt.gensalt()).decode('utf-8')
-        campos.append("password = ?")
-        valores.append(hashed_pw)
-    if 'cert' in datos:
-        campos.append("cert = ?")
-        valores.append(datos['cert'])
-    if 'is_superuser' in datos:
-        campos.append("is_superuser = ?")
-        valores.append(1 if datos['is_superuser'] else 0)
+    if 'username' in data:
+        fields.append("username = ?")
+        values.append(data['username'])
+    if 'password' in data:
+        hashed_pw = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        fields.append("password = ?")
+        values.append(hashed_pw)
+    if 'cert' in data:
+        fields.append("cert = ?")
+        values.append(data['cert'])
+    if 'is_superuser' in data:
+        fields.append("is_superuser = ?")
+        values.append(1 if data['is_superuser'] else 0)
 
-    if not campos:
-        return jsonify({'error': 'No se proporcionaron campos para actualizar'}), 400
+    if not fields:
+        return jsonify({'error': 'No fields provided for update'}), 400
 
-    valores.append(user_id)
+    values.append(user_id)
 
-    conn = sqlite3.connect('roles.db')
-    cursor = conn.execute(
-        f"UPDATE users SET {', '.join(campos)} WHERE id = ?", valores)
+    conn = get_db_connection()
+    cursor = conn.execute(f"UPDATE users SET {', '.join(fields)} WHERE id = ?", values)
     conn.commit()
     conn.close()
 
     if cursor.rowcount:
-        return jsonify({'message': 'Usuario actualizado'})
-    return jsonify({'error': 'Usuario no encontrado'}), 404
+        return jsonify({'message': 'User updated successfully'})
+    return jsonify({'error': 'User not found'}), 404
 
 #########################
 # SECCIÓN DE XML
@@ -1067,10 +1064,11 @@ def actualizar_usuario(user_id):
 #########################
 
 
-@app.route('/api/validar-xml', methods=['POST'])
+@app.route('/api/validate-xml', methods=['POST'])
 @swag_from({
     'tags': ['XML'],
-    'summary': 'Valida un archivo XML según el esquema DDS Permissions 7.5.0',
+    'summary': 'Validate an XML file against the DDS Permissions 7.5.0 schema',
+    'description': 'Uploads and validates an XML file using the DDS Permissions 7.5.0 XSD schema, returning validation results.',
     'consumes': ['multipart/form-data'],
     'parameters': [
         {
@@ -1078,33 +1076,34 @@ def actualizar_usuario(user_id):
             'in': 'formData',
             'type': 'file',
             'required': True,
-            'description': 'Archivo XML a validar'
+            'description': 'XML file to be validated'
         }
     ],
     'responses': {
         200: {
-            'description': 'Resultado de la validación del XML',
+            'description': 'Result of the XML validation',
             'schema': {
                 'type': 'object',
                 'properties': {
-                    'valid': {'type': 'boolean'},
-                    'message': {'type': 'string'},
+                    'valid': {'type': 'boolean', 'description': 'Whether the XML is valid'},
+                    'message': {'type': 'string', 'description': 'Validation message'},
                     'errors': {
                         'type': 'array',
-                        'items': {'type': 'string'}
+                        'items': {'type': 'string'},
+                        'description': 'List of validation errors if any'
                     }
                 }
             }
         },
         400: {
-            'description': 'Archivo no proporcionado o error de validación'
+            'description': 'No file provided or validation error'
         }
     }
 })
-def validar_xml_api():
+def validate_xml_api():
     xml_file = request.files.get('xml_file')
     if not xml_file:
-        return jsonify({"error": "No se ha proporcionado un archivo XML"}), 400
+        return jsonify({"error": "No XML file provided"}), 400
 
     schema_url = "https://community.rti.com/schema/7.5.0/dds_security_permissions.xsd"
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as tmp:
@@ -1114,21 +1113,21 @@ def validar_xml_api():
     try:
         schema = xmlschema.XMLSchema(schema_url)
         if schema.is_valid(xml_path):
-            resultado = {
+            result = {
                 "valid": True,
-                "message": "✅ El archivo XML es válido según el esquema DDS Permissions 7.5.0.",
+                "message": "✅ The XML file is valid according to the DDS Permissions 7.5.0 schema.",
                 "errors": []
             }
         else:
-            errores = [str(e) for e in schema.iter_errors(xml_path)]
-            resultado = {
+            errors = [str(e) for e in schema.iter_errors(xml_path)]
+            result = {
                 "valid": False,
-                "message": "❌ El archivo XML no es válido.",
-                "errors": errores
+                "message": "❌ The XML file is not valid.",
+                "errors": errors
             }
-        return jsonify(resultado)
+        return jsonify(result)
     except Exception as e:
-        return jsonify({"error": f"❌ Error al validar: {str(e)}"}), 400
+        return jsonify({"error": f"❌ Validation error: {str(e)}"}), 400
     finally:
         os.remove(xml_path)
 
@@ -1137,18 +1136,20 @@ def validar_xml_api():
 @app.route('/export_grant/<int:grant_id>', methods=['GET'])
 @swag_from({
     'tags': ['XML'],
+    'summary': 'Export a grant as an XML file',
+    'description': 'Generates and exports an XML file for a specific grant ID, including associated domains and topic rules, following the DDS Permissions 7.3.0 schema.',
     'parameters': [
         {
             'name': 'grant_id',
             'in': 'path',
             'type': 'integer',
             'required': True,
-            'description': 'ID del grant a exportar'
+            'description': 'ID of the grant to export'
         }
     ],
     'responses': {
         200: {
-            'description': 'XML generado correctamente',
+            'description': 'XML file generated successfully',
             'content': {
                 'application/xml': {
                     'schema': {
@@ -1158,24 +1159,24 @@ def validar_xml_api():
             }
         },
         404: {
-            'description': 'Grant no encontrado'
+            'description': 'Grant not found'
         }
     }
 })
 def export_grant(grant_id):
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Obtener el grant
+    # Retrieve grant data
     cursor.execute(
         'SELECT name, default_action FROM grantTemplate WHERE id = ?', (grant_id,))
     row = cursor.fetchone()
     if not row:
-        return {"error": "Grant no encontrado"}, 404
+        return {"error": "Grant not found"}, 404
 
     grant_name, default_action = row
 
-    # Crear estructura XML
+    # Build XML structure
     dds = ET.Element('dds', {
         'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
         'xsi:noNamespaceSchemaLocation': "http://community.rti.com/schema/7.3.0/dds_security_permissions.xsd"
@@ -1183,25 +1184,17 @@ def export_grant(grant_id):
     permissions = ET.SubElement(dds, 'permissions')
     grant_elem = ET.SubElement(permissions, 'grant', {'name': grant_name})
 
-    # Valores inventados para subject_name y validity
+    # Sample subject_name and validity (hardcoded for now)
     subject = ET.SubElement(grant_elem, 'subject_name')
     subject.text = "C=ES, ST=CLM, O=JCCM, emailAddress=argel@arge.site, CN=FlaskExported"
 
-    # validity = ET.SubElement(grant_elem, 'validity')
-    # now = datetime.now(datetime.timezone.utc)
-    # not_before = ET.SubElement(validity, 'not_before')
-    # not_before.text = now.strftime('%Y-%m-%dT%H:%M:%S')
-    # not_after = ET.SubElement(validity, 'not_after')
-    # not_after.text = (now + timedelta(days=3650)).strftime('%Y-%m-%dT%H:%M:%S')
     validity = ET.SubElement(grant_elem, 'validity')
-
     not_before = ET.SubElement(validity, 'not_before')
     not_before.text = '2019-10-31T13:00:00'
-
     not_after = ET.SubElement(validity, 'not_after')
     not_after.text = '2029-10-31T13:00:00'
 
-    # Obtener reglas asociadas
+    # Retrieve associated rules
     cursor.execute('''
         SELECT rules.id, rules.permiso
         FROM rules
@@ -1213,7 +1206,7 @@ def export_grant(grant_id):
     for rule_id, permiso in rules:
         rule_tag = ET.SubElement(grant_elem, permiso)
 
-        # Dominios
+        # Domains
         cursor.execute('''
             SELECT domains.name
             FROM rule_domains
@@ -1254,11 +1247,11 @@ def export_grant(grant_id):
             for (topic,) in subscribe_rows:
                 ET.SubElement(topics_elem, 'topic').text = topic
 
-    # Acción por defecto
+    # Default action
     default_elem = ET.SubElement(grant_elem, 'default')
     default_elem.text = default_action
 
-    # Generar XML en memoria
+    # Generate XML in memory
     xml_io = io.BytesIO()
     tree = ET.ElementTree(dds)
     tree.write(xml_io, encoding='utf-8', xml_declaration=True)
@@ -1270,56 +1263,12 @@ def export_grant(grant_id):
     return response
 
 
-def role_required(role_id_arg_name='role_id'):
-    def decorator(f):
-        @functools.wraps(f)
-        def wrapper(*args, **kwargs):
-            user_data = verificar_jwt_api()
-            if not user_data or 'username' not in user_data:
-                abort(403, "Token inválido o usuario no autorizado")
-
-            username = user_data['username']
-
-            role_id = None
-            # Obtener el role_id desde JSON del body o kwargs
-            if request.is_json:
-                role_id = request.get_json().get(role_id_arg_name)
-            if role_id is None and role_id_arg_name in kwargs:
-                role_id = kwargs[role_id_arg_name]
-            if role_id is None:
-                abort(400, f"Falta el parámetro '{role_id_arg_name}'")
-
-            conn = sqlite3.connect('roles.db')
-            cursor = conn.cursor()
-
-            # Obtener user_id
-            cursor.execute(
-                'SELECT id FROM users WHERE username = ?', (username,))
-            row = cursor.fetchone()
-            if not row:
-                conn.close()
-                abort(403, "Usuario no encontrado")
-            user_id = row[0]
-
-            # Verificar que tiene ese rol
-            cursor.execute(
-                'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
-            if cursor.fetchone() is None:
-                conn.close()
-                abort(403, "El usuario no tiene asignado ese rol")
-
-            conn.close()
-            return f(*args, **kwargs)
-        return wrapper
-    return decorator
-
-
 @app.route('/api/export-grantbyrole/<int:role_id>', methods=['GET'])
 @user_required
 @swag_from({
     'tags': ['XML'],
-    'summary': 'Exportar un grantTemplate en formato XML asociado a un rol',
-    'description': 'Solo usuarios autenticados con el rol solicitado pueden exportar el XML correspondiente.',
+    'summary': 'Export a grantTemplate in XML format associated with a role',
+    'description': 'Authenticated users who have access to the requested role can export the corresponding XML grant definition. The XML contains permission rules, domains, topics (publish/subscribe), and default actions.',
     'security': [{'BearerAuth': []}],
     'parameters': [
         {
@@ -1327,14 +1276,14 @@ def role_required(role_id_arg_name='role_id'):
             'in': 'path',
             'required': True,
             'type': 'integer',
-            'description': 'ID del rol cuyo grant se desea exportar'
+            'description': 'ID of the role for which the grant should be exported'
         }
     ],
     'responses': {
-        200: {'description': 'Archivo XML generado correctamente'},
-        401: {'description': 'Token inválido o usuario no autorizado'},
-        403: {'description': 'El usuario no tiene acceso a este rol'},
-        404: {'description': 'Rol o grant no encontrado'}
+        200: {'description': 'XML file generated successfully'},
+        401: {'description': 'Invalid token or unauthorized user'},
+        403: {'description': 'User does not have access to this role'},
+        404: {'description': 'Role or grant not found'}
     }
 })
 def export_grant_by_role(role_id):
@@ -1342,9 +1291,9 @@ def export_grant_by_role(role_id):
     username = user_data.get('username')
 
     if not username:
-        return jsonify({'error': 'Token inválido'}), 401
+        return jsonify({'error': 'Invalid token'}), 401
 
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     # Obtener user_id desde el username
@@ -1352,7 +1301,7 @@ def export_grant_by_role(role_id):
     user = cursor.fetchone()
     if not user:
         conn.close()
-        return jsonify({'error': 'Usuario no encontrado'}), 401
+        return jsonify({'error': 'User not found'}), 401
 
     user_id = user[0]
 
@@ -1361,13 +1310,13 @@ def export_grant_by_role(role_id):
         'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
     if cursor.fetchone() is None:
         conn.close()
-        return jsonify({'error': 'El rol no pertenece al usuario'}), 403
+        return jsonify({'error': 'Role does not belong to user'}), 403
 
     # Comprobar que el rol existe
     cursor.execute('SELECT id FROM roles WHERE id = ?', (role_id,))
     if not cursor.fetchone():
         conn.close()
-        return jsonify({'error': 'Rol no encontrado'}), 404
+        return jsonify({'error': 'Role not found'}), 404
 
     # Obtener el grant asociado al role_id
     cursor.execute(
@@ -1375,7 +1324,7 @@ def export_grant_by_role(role_id):
     row = cursor.fetchone()
     if not row:
         conn.close()
-        return jsonify({'error': 'No hay grant asociado a este rol'}), 404
+        return jsonify({'error': 'No grant associated with this role'}), 404
 
     grant_id, grant_name, default_action = row
 
@@ -1486,7 +1435,7 @@ def get_roles():
     Returns:
         list[sqlite3.Row]: Lista de filas que representan los roles existentes en la base de datos.
     """
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM roles")
@@ -1496,7 +1445,7 @@ def get_roles():
 
 
 def get_roles_by_username(username):
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
@@ -1512,7 +1461,7 @@ def get_roles_by_username(username):
 
 
 def get_all_users_and_roles():
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("SELECT id, username FROM users")
@@ -1526,7 +1475,7 @@ def get_all_users_and_roles():
 
 
 def assign_role_to_user(user_id, role_id):
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     # Comprobamos si ya está asignado
     cursor.execute(
@@ -1588,7 +1537,7 @@ def decodificar_jwt(token):
 
 
 def get_users():
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("SELECT id, username, cert FROM users")
@@ -1598,7 +1547,7 @@ def get_users():
 
 
 def get_user(username):
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
         "SELECT username, password, cert, is_superuser FROM users WHERE username = ?", (username,))
@@ -1608,7 +1557,7 @@ def get_user(username):
 
 
 def get_users2():
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -1637,7 +1586,7 @@ def get_users2():
     return usuarios
 
 
-def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
+def insert_grant_from_xml(xml_path, role_id):
     if not os.path.exists(xml_path):
         raise FileNotFoundError(f"El fichero {xml_path} no existe")
 
@@ -1656,7 +1605,7 @@ def insert_grant_from_xml(xml_path, role_id, db_path='roles.db'):
     grant_elem = root.find('.//grant')
     name = grant_elem.attrib.get('name', 'unnamed_grant')
 
-    conn = sqlite3.connect(db_path)
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
@@ -1855,7 +1804,7 @@ def asignar_rol():
                 user_id = request.form.get("user_id")
                 role_id = request.form.get("role_id")
                 if user_id and role_id:
-                    conn = sqlite3.connect('roles.db')
+                    conn = get_db_connection()
                     cursor = conn.cursor()
 
                     # Validar que el user_id existe
@@ -1901,7 +1850,7 @@ def dashboard():
 def new_grant():
     import os
     from flask import request, flash, redirect, url_for, render_template
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, name FROM roles")
     roles = [dict(id=row[0], name=row[1]) for row in cursor.fetchall()]
@@ -1920,10 +1869,9 @@ def new_grant():
             path = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
             f.save(path)
 
-            grant_id, name, default_action = insert_grant_from_xml(
-                path, role_id)
+            grant_id, name, default_action = insert_grant_from_xml(path, role_id)
             flash(
-                f'Grant "{name}" creado con default="{default_action}" y rol asignado.', 'success')
+                f'Grant "{name}", con id {grant_id}, creado con default="{default_action}" y rol asignado.', 'success')
             return redirect(url_for('new_grant'))
         except Exception as e:
             flash(f'Error: {e}', 'danger')
@@ -1934,7 +1882,7 @@ def new_grant():
 # TODO: Añadir que solo los superuser puedan listar los grants
 @app.route('/list_grant_templates')
 def list_grant_templates():
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     query = '''
         SELECT gt.id, gt.name, gt.default_action, r.name as role_name
@@ -1959,7 +1907,7 @@ def list_grant_templates():
 
 @app.route('/delete_grant/<int:grant_id>', methods=['POST'])
 def delete_grant_template(grant_id):
-    conn = sqlite3.connect('roles.db')
+    conn = get_db_connection()
     conn.execute('PRAGMA foreign_keys = ON')
     cursor = conn.cursor()
     try:
