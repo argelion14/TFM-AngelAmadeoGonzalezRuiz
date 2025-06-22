@@ -129,8 +129,6 @@ def verificar_jwt_api():
     return decodificar_jwt(token)
 
 
-
-
 def superadmin_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
@@ -162,6 +160,8 @@ def get_db_connection():
 #########################
 
 # TODO Pensar si tiene que ser algo protegido
+
+
 @app.route('/api/grant-templates', methods=['GET'])
 @user_required
 @swag_from({
@@ -672,6 +672,7 @@ def add_role():
     conn.close()
     return jsonify({"message": "Role created", "id": new_id}), 201
 
+
 @app.route('/api/roles/<int:role_id>', methods=['DELETE'])
 @superadmin_required
 @swag_from({
@@ -715,7 +716,8 @@ def delete_role(role_id):
             return jsonify({"error": "Role not found"}), 404
 
         # Buscar si hay un grantTemplate asociado a este rol
-        cursor.execute("SELECT id FROM grantTemplate WHERE role_id = ?", (role_id,))
+        cursor.execute(
+            "SELECT id FROM grantTemplate WHERE role_id = ?", (role_id,))
         grant_row = cursor.fetchone()
 
         if grant_row:
@@ -947,8 +949,6 @@ def create_user():
         return jsonify({'error': 'Username already exists'}), 400
     finally:
         conn.close()
-
-# TODO Mejorar que borre todo lo que dependa del user como el user-roles
 
 
 @app.route('/api/users/<int:user_id>', methods=['DELETE'])
@@ -1932,13 +1932,15 @@ def delete_grant_template_by_id(grant_id, conn):
         WHERE id NOT IN (SELECT topic_id FROM rule_topics)
     ''')
 
+
 @app.route('/delete_grant/<int:grant_id>', methods=['POST'])
 def delete_grant_template(grant_id):
     conn = get_db_connection()
     try:
         delete_grant_template_by_id(grant_id, conn)
         conn.commit()
-        flash(f"Grant template con ID {grant_id} y sus datos asociados fueron eliminados correctamente.", 'success')
+        flash(
+            f"Grant template con ID {grant_id} y sus datos asociados fueron eliminados correctamente.", 'success')
     except Exception as e:
         conn.rollback()
         flash(f"Error al eliminar: {e}", 'danger')
