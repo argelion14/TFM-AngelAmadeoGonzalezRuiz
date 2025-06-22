@@ -124,7 +124,9 @@ def verificar_jwt_api():
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     return decodificar_jwt(token)
 
-# TODO Hacer que todos los endpoint que necesiten de esto, lo usan en el swag_from de la misma manera
+# TODO Hacer que todos los endpoint que necesiten de esto, lo usan en el swag_from de la misma manera, le tengo que añadir el bearer en el security
+
+
 def superadmin_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
@@ -133,6 +135,7 @@ def superadmin_required(f):
             abort(403, "Solo superadmin puede realizar esta acción")
         return f(*args, **kwargs)
     return wrapper
+
 
 def user_required(f):
     @functools.wraps(f)
@@ -149,6 +152,7 @@ def user_required(f):
 #########################
 
 # TODO Pensar si tiene que ser algo protegido
+
 
 @app.route('/api/grant-templates', methods=['GET'])
 @swag_from({
@@ -267,6 +271,7 @@ def create_grant_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+
 @app.route('/api/grants/<int:grant_id>', methods=['DELETE'])
 @superadmin_required
 @swag_from({
@@ -319,16 +324,19 @@ def delete_grant_api(grant_id):
     cursor = conn.cursor()
     try:
         # Verificar si el grant existe
-        cursor.execute('SELECT id FROM grantTemplate WHERE id = ?', (grant_id,))
+        cursor.execute(
+            'SELECT id FROM grantTemplate WHERE id = ?', (grant_id,))
         if cursor.fetchone() is None:
             return jsonify({'error': f'Grant template con ID {grant_id} no encontrado.'}), 404
 
         # Obtener rule_ids asociados
-        cursor.execute('SELECT rule_id FROM grant_rules WHERE grant_id = ?', (grant_id,))
+        cursor.execute(
+            'SELECT rule_id FROM grant_rules WHERE grant_id = ?', (grant_id,))
         rule_ids = [row[0] for row in cursor.fetchall()]
 
         # Eliminar relaciones grant_rules
-        cursor.execute('DELETE FROM grant_rules WHERE grant_id = ?', (grant_id,))
+        cursor.execute(
+            'DELETE FROM grant_rules WHERE grant_id = ?', (grant_id,))
 
         # Eliminar reglas asociadas
         for rule_id in rule_ids:
@@ -358,13 +366,7 @@ def delete_grant_api(grant_id):
         conn.close()
 
 
-
-
 # TODO Mejorar la estructura de la base.html
-
-
-
-
 
 
 # TODO Hacer el endpoint de solicitar JWT de un rol en concreto, al cual por tu usuario tengas dicho rol
@@ -432,13 +434,15 @@ def auth_role():
     user_id = user[0]
 
     # 2. Verificar que el usuario tiene el rol
-    cursor.execute('SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+    cursor.execute(
+        'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
     if cursor.fetchone() is None:
         conn.close()
         return jsonify({'error': 'El usuario no tiene ese rol'}), 401
 
     # 3. Verificar que el rol está asociado a un único grantTemplate
-    cursor.execute('SELECT id FROM grantTemplate WHERE role_id = ?', (role_id,))
+    cursor.execute(
+        'SELECT id FROM grantTemplate WHERE role_id = ?', (role_id,))
     templates = cursor.fetchall()
     if len(templates) != 1:
         conn.close()
@@ -454,8 +458,6 @@ def auth_role():
 
     conn.close()
     return jsonify({'token': token})
-
-
 
 
 # TODO Hacer que compruebe que un JWT es válido para tu usuario con dicho rol
@@ -549,61 +551,14 @@ def verify_role_token():
         conn.close()
         return jsonify({'valid': False, 'error': 'Rol no existe'}), 401
 
-    cursor.execute('SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+    cursor.execute(
+        'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
     if cursor.fetchone() is None:
         conn.close()
         return jsonify({'valid': False, 'error': 'Usuario no tiene ese rol'}), 401
 
     conn.close()
     return jsonify({'valid': True, 'user_id': user_id, 'role_id': role_id})
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #########################
@@ -749,6 +704,8 @@ def add_role():
     return jsonify({"message": "Rol creado", "id": new_id}), 201
 
 # TODO Mejorar para que borre todo lo que depende del rol, como la tabla de usuarios rol, y la de grantTemplate
+
+
 @app.route('/api/roles/<int:role_id>', methods=['DELETE'])
 @superadmin_required
 @swag_from({
@@ -998,6 +955,8 @@ def crear_usuario():
         conn.close()
 
 # TODO Mejorar que borre todo lo que dependa del user como el user-roles
+
+
 @app.route('/api/users/<int:user_id>', methods=['DELETE'])
 @superadmin_required
 @swag_from({
@@ -1188,7 +1147,8 @@ def export_grant(grant_id):
     cursor = conn.cursor()
 
     # Obtener el grant
-    cursor.execute('SELECT name, default_action FROM grantTemplate WHERE id = ?', (grant_id,))
+    cursor.execute(
+        'SELECT name, default_action FROM grantTemplate WHERE id = ?', (grant_id,))
     row = cursor.fetchone()
     if not row:
         return {"error": "Grant no encontrado"}, 404
@@ -1290,52 +1250,116 @@ def export_grant(grant_id):
     return response
 
 
-@app.route('/export_grant/by_role/<int:role_id>', methods=['GET'])
+def role_required(role_id_arg_name='role_id'):
+    def decorator(f):
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            user_data = verificar_jwt_api()
+            if not user_data or 'username' not in user_data:
+                abort(403, "Token inválido o usuario no autorizado")
+
+            username = user_data['username']
+
+            role_id = None
+            # Obtener el role_id desde JSON del body o kwargs
+            if request.is_json:
+                role_id = request.get_json().get(role_id_arg_name)
+            if role_id is None and role_id_arg_name in kwargs:
+                role_id = kwargs[role_id_arg_name]
+            if role_id is None:
+                abort(400, f"Falta el parámetro '{role_id_arg_name}'")
+
+            conn = sqlite3.connect('roles.db')
+            cursor = conn.cursor()
+
+            # Obtener user_id
+            cursor.execute(
+                'SELECT id FROM users WHERE username = ?', (username,))
+            row = cursor.fetchone()
+            if not row:
+                conn.close()
+                abort(403, "Usuario no encontrado")
+            user_id = row[0]
+
+            # Verificar que tiene ese rol
+            cursor.execute(
+                'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+            if cursor.fetchone() is None:
+                conn.close()
+                abort(403, "El usuario no tiene asignado ese rol")
+
+            conn.close()
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+@app.route('/api/export-grantbyrole/<int:role_id>', methods=['GET'])
+@user_required
 @swag_from({
     'tags': ['XML'],
+    'summary': 'Exportar un grantTemplate en formato XML asociado a un rol',
+    'description': 'Solo usuarios autenticados con el rol solicitado pueden exportar el XML correspondiente.',
+    'security': [{'BearerAuth': []}],
     'parameters': [
         {
             'name': 'role_id',
             'in': 'path',
-            'type': 'integer',
             'required': True,
+            'type': 'integer',
             'description': 'ID del rol cuyo grant se desea exportar'
         }
     ],
     'responses': {
-        200: {
-            'description': 'XML generado correctamente',
-            'content': {
-                'application/xml': {
-                    'schema': {
-                        'type': 'string'
-                    }
-                }
-            }
-        },
-        404: {
-            'description': 'Rol o grant no encontrado'
-        }
+        200: {'description': 'Archivo XML generado correctamente'},
+        401: {'description': 'Token inválido o usuario no autorizado'},
+        403: {'description': 'El usuario no tiene acceso a este rol'},
+        404: {'description': 'Rol o grant no encontrado'}
     }
 })
 def export_grant_by_role(role_id):
+    user_data = verificar_jwt_api()
+    username = user_data.get('username')
+
+    if not username:
+        return jsonify({'error': 'Token inválido'}), 401
+
     conn = sqlite3.connect('roles.db')
     cursor = conn.cursor()
+
+    # Obtener user_id desde el username
+    cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
+    user = cursor.fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'error': 'Usuario no encontrado'}), 401
+
+    user_id = user[0]
+
+    # Comprobar si el rol pertenece al usuario
+    cursor.execute(
+        'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+    if cursor.fetchone() is None:
+        conn.close()
+        return jsonify({'error': 'El rol no pertenece al usuario'}), 403
 
     # Comprobar que el rol existe
     cursor.execute('SELECT id FROM roles WHERE id = ?', (role_id,))
     if not cursor.fetchone():
-        return {"error": "Rol no encontrado"}, 404
+        conn.close()
+        return jsonify({'error': 'Rol no encontrado'}), 404
 
     # Obtener el grant asociado al role_id
-    cursor.execute('SELECT id, name, default_action FROM grantTemplate WHERE role_id = ?', (role_id,))
+    cursor.execute(
+        'SELECT id, name, default_action FROM grantTemplate WHERE role_id = ?', (role_id,))
     row = cursor.fetchone()
     if not row:
-        return {"error": "No hay grant asociado a este rol"}, 404
+        conn.close()
+        return jsonify({'error': 'No hay grant asociado a este rol'}), 404
 
     grant_id, grant_name, default_action = row
 
-    # Resto del código se mantiene igual, reemplazando uso de grant_name, default_action y grant_id
+    # Construir el XML
     dds = ET.Element('dds', {
         'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
         'xsi:noNamespaceSchemaLocation': "http://community.rti.com/schema/7.3.0/dds_security_permissions.xsd"
@@ -1352,7 +1376,7 @@ def export_grant_by_role(role_id):
     not_after = ET.SubElement(validity, 'not_after')
     not_after.text = '2029-10-31T13:00:00'
 
-    # Obtener reglas asociadas al grant
+    # Reglas del grant
     cursor.execute('''
         SELECT rules.id, rules.permiso
         FROM rules
@@ -1415,12 +1439,12 @@ def export_grant_by_role(role_id):
     tree.write(xml_io, encoding='utf-8', xml_declaration=True)
     xml_io.seek(0)
 
+    conn.close()
     response = make_response(xml_io.read())
     response.headers['Content-Type'] = 'application/xml'
-    response.headers['Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
+    response.headers[
+        'Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
     return response
-
-
 
 
 #########################
