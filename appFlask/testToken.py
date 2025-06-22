@@ -1290,6 +1290,138 @@ def export_grant(grant_id):
     return response
 
 
+@app.route('/export_grant/by_role/<int:role_id>', methods=['GET'])
+@swag_from({
+    'tags': ['XML'],
+    'parameters': [
+        {
+            'name': 'role_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID del rol cuyo grant se desea exportar'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'XML generado correctamente',
+            'content': {
+                'application/xml': {
+                    'schema': {
+                        'type': 'string'
+                    }
+                }
+            }
+        },
+        404: {
+            'description': 'Rol o grant no encontrado'
+        }
+    }
+})
+def export_grant_by_role(role_id):
+    conn = sqlite3.connect('roles.db')
+    cursor = conn.cursor()
+
+    # Comprobar que el rol existe
+    cursor.execute('SELECT id FROM roles WHERE id = ?', (role_id,))
+    if not cursor.fetchone():
+        return {"error": "Rol no encontrado"}, 404
+
+    # Obtener el grant asociado al role_id
+    cursor.execute('SELECT id, name, default_action FROM grantTemplate WHERE role_id = ?', (role_id,))
+    row = cursor.fetchone()
+    if not row:
+        return {"error": "No hay grant asociado a este rol"}, 404
+
+    grant_id, grant_name, default_action = row
+
+    # Resto del código se mantiene igual, reemplazando uso de grant_name, default_action y grant_id
+    dds = ET.Element('dds', {
+        'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
+        'xsi:noNamespaceSchemaLocation': "http://community.rti.com/schema/7.3.0/dds_security_permissions.xsd"
+    })
+    permissions = ET.SubElement(dds, 'permissions')
+    grant_elem = ET.SubElement(permissions, 'grant', {'name': grant_name})
+
+    subject = ET.SubElement(grant_elem, 'subject_name')
+    subject.text = "C=ES, ST=CLM, O=JCCM, emailAddress=argel@arge.site, CN=FlaskExported"
+
+    validity = ET.SubElement(grant_elem, 'validity')
+    not_before = ET.SubElement(validity, 'not_before')
+    not_before.text = '2019-10-31T13:00:00'
+    not_after = ET.SubElement(validity, 'not_after')
+    not_after.text = '2029-10-31T13:00:00'
+
+    # Obtener reglas asociadas al grant
+    cursor.execute('''
+        SELECT rules.id, rules.permiso
+        FROM rules
+        JOIN grant_rules ON rules.id = grant_rules.rule_id
+        WHERE grant_rules.grant_id = ?
+    ''', (grant_id,))
+    rules = cursor.fetchall()
+
+    for rule_id, permiso in rules:
+        rule_tag = ET.SubElement(grant_elem, permiso)
+
+        # Dominios
+        cursor.execute('''
+            SELECT domains.name
+            FROM rule_domains
+            JOIN domains ON rule_domains.domain_id = domains.id
+            WHERE rule_domains.rule_id = ?
+        ''', (rule_id,))
+        domain_rows = cursor.fetchall()
+        if domain_rows:
+            domains_elem = ET.SubElement(rule_tag, 'domains')
+            for (domain,) in domain_rows:
+                ET.SubElement(domains_elem, 'id').text = domain
+
+        # Topics - publish
+        cursor.execute('''
+            SELECT topics.name
+            FROM rule_topics
+            JOIN topics ON rule_topics.topic_id = topics.id
+            WHERE rule_topics.rule_id = ? AND rule_topics.action = 'publish'
+        ''', (rule_id,))
+        publish_rows = cursor.fetchall()
+        if publish_rows:
+            publish_elem = ET.SubElement(rule_tag, 'publish')
+            topics_elem = ET.SubElement(publish_elem, 'topics')
+            for (topic,) in publish_rows:
+                ET.SubElement(topics_elem, 'topic').text = topic
+
+        # Topics - subscribe
+        cursor.execute('''
+            SELECT topics.name
+            FROM rule_topics
+            JOIN topics ON rule_topics.topic_id = topics.id
+            WHERE rule_topics.rule_id = ? AND rule_topics.action = 'subscribe'
+        ''', (rule_id,))
+        subscribe_rows = cursor.fetchall()
+        if subscribe_rows:
+            subscribe_elem = ET.SubElement(rule_tag, 'subscribe')
+            topics_elem = ET.SubElement(subscribe_elem, 'topics')
+            for (topic,) in subscribe_rows:
+                ET.SubElement(topics_elem, 'topic').text = topic
+
+    # Acción por defecto
+    default_elem = ET.SubElement(grant_elem, 'default')
+    default_elem.text = default_action
+
+    # Generar XML
+    xml_io = io.BytesIO()
+    tree = ET.ElementTree(dds)
+    tree.write(xml_io, encoding='utf-8', xml_declaration=True)
+    xml_io.seek(0)
+
+    response = make_response(xml_io.read())
+    response.headers['Content-Type'] = 'application/xml'
+    response.headers['Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
+    return response
+
+
+
 
 #########################
 ########## HTML #########
