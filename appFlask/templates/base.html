@@ -178,15 +178,15 @@
                             </a>
                             <ul class="nav nav-treeview">
                                 <li class="nav-item">
-                                    <a title="Users list" href="{{ url_for('usuarios') }}"
+                                    <a title="Users list" href="{{ url_for('user_list') }}"
                                         class="nav-link {% block active_users %}{% endblock %}">
                                         <i class="nav-icon fas fa-solid fa-people-group"></i>
                                         <p>Users</p>
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a title="New users" href="{{ url_for('informacion') }}"
-                                        class="nav-link {% block active_nuevo_participante %}{% endblock %}">
+                                    <a title="New users" href="{{ url_for('user_create') }}"
+                                        class="nav-link {% block active_new_user %}{% endblock %}">
                                         <i class="nav-icon fas fa-solid fa-person-circle-plus"></i>
                                         <p>New users</p>
                                     </a>

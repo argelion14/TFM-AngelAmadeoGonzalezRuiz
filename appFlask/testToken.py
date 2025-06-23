@@ -1795,12 +1795,12 @@ def roles():
     return render_template("roles.html", roles=roles)
 
 
-@app.route('/usuarios')
-def usuarios():
+@app.route('/user_list')
+def user_list():
     user = verificar_jwt()
     if user:
         users = get_users()
-        return render_template('usuarios.html', usuarios=users)
+        return render_template('user_list.html', usuarios=users)
     return redirect(url_for('login'))
 
 
@@ -2056,7 +2056,9 @@ def authrole_create():
 def authrole_vality():
     return render_template('authrole_vality.html')
 
-
+@app.route('/user_create')
+def user_create():
+    return render_template('user_create.html')
 
 
 
