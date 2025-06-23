@@ -2036,6 +2036,30 @@ def xml_vality():
     return render_template('xml_vality.html')
 
 
+
+
+
+
+
+@app.route('/xml_export_grant')
+def xml_export_grant():
+    return render_template('xml_export_grant.html')
+
+
+@app.route('/authrole_create')
+def authrole_create():
+    return render_template('authrole_create.html')
+
+
+
+@app.route('/authrole_vality')
+def authrole_vality():
+    return render_template('authrole_vality.html')
+
+
+
+
+
 @app.context_processor
 def inyectar_datos_token():
     token = request.cookies.get('token')

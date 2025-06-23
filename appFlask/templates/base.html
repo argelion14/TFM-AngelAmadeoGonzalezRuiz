@@ -145,7 +145,7 @@
                         </li>
 
                         <li class="nav-item">
-                            <a href="{{ url_for('informacion') }}" class="nav-link {% block active_export_grantbyrole %} {% endblock %}">
+                            <a href="{{ url_for('xml_export_grant') }}" class="nav-link {% block active_export_grantbyrole %} {% endblock %}">
                                 <i class="nav-icon far fa-image"></i>
                                 <p>export_grantbyrole</p>
                             </a>
@@ -154,14 +154,14 @@
                         <li class="nav-header">ROLE JWT</li>
 
                         <li class="nav-item">
-                            <a href="{{ url_for('informacion') }}" class="nav-link {% block active_auth_role %} {% endblock %}">
+                            <a href="{{ url_for('authrole_create') }}" class="nav-link {% block active_auth_role %} {% endblock %}">
                                 <i class="nav-icon far fa-image"></i>
                                 <p>Auth with role</p>
                             </a>
                         </li>
 
                         <li class="nav-item">
-                            <a href="{{ url_for('informacion') }}" class="nav-link {% block active_verify_role_token %} {% endblock %}">
+                            <a href="{{ url_for('authrole_vality') }}" class="nav-link {% block active_verify_role_token %} {% endblock %}">
                                 <i class="nav-icon far fa-image"></i>
                                 <p>Verify role token</p>
                             </a>
