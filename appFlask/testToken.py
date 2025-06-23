@@ -2001,8 +2001,8 @@ def delete_grant_template(grant_id):
     return redirect(url_for('list_grant_templates'))
 
 
-@app.route('/validar-xml', methods=['GET', 'POST'])
-def validar_xml():
+@app.route('/xml_vality', methods=['GET', 'POST'])
+def xml_vality():
     if request.method == 'POST':
         xml_file = request.files.get('xml_file')
         if not xml_file:
@@ -2030,10 +2030,10 @@ def validar_xml():
         finally:
             os.remove(xml_path)
 
-        return redirect(url_for('validar_xml'))
+        return redirect(url_for('xml_vality'))
 
     # Si es GET, simplemente muestra el formulario
-    return render_template('validar_xml.html')
+    return render_template('xml_vality.html')
 
 
 @app.context_processor
