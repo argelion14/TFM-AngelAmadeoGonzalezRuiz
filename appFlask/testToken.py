@@ -4,7 +4,7 @@ import sqlite3
 import datetime
 import tempfile
 import xml.etree.ElementTree as ET
-
+import yaml
 import bcrypt
 import jwt
 import xmlschema
@@ -18,40 +18,88 @@ from flask import (
 from werkzeug.utils import secure_filename
 from flasgger import Swagger, swag_from
 
+
 app = Flask(__name__)
 
 swagger_config = {
     "headers": [],
     "specs": [
         {
-            "endpoint": "api-docs",            # 👉 Nombre del endpoint JSON
-            "route": "/api-docs.json",         # 👉 Ruta visible
-            "rule_filter": lambda rule: True,  # Todas las rutas
+            "endpoint": "api-docs",
+            "route": "/api-docs.json",
+            "rule_filter": lambda rule: True,
             "model_filter": lambda tag: True,
         }
     ],
     "static_url_path": "/swagger_static",
     "swagger_ui": True,
-    "specs_route": "/docs/"                  # 👉 Ruta del Swagger UI
+    "specs_route": "/docs/"
 }
 
-swagger_template = {
-    "swagger": "2.0",
-    "info": {
-        "title": "Mi API segura",
-        "version": "1.0"
-    },
-    "securityDefinitions": {
-        "BearerAuth": {
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header",
-            "description": "Token JWT en formato: **Bearer &lt;token&gt;**"
-        }
-    }
-}
+# swagger_template = {
+#     "swagger": "2.0",
+#     "info": {
+#         "description": "This is a sample server Petstore server.  You can find out more about Swagger at [http://swagger.io](http://swagger.io) or on [irc.freenode.net, #swagger](http://swagger.io/irc/).  For this sample, you can use the api key `special-key` to test the authorization filters.",
+#         "version": "1.0.0",
+#         "title": "Swagger API ROLES CONNECT",
+#         "termsOfService": "http://swagger.io/terms/",
+#         "contact": {
+#             "email": "apiteam@swagger.io"
+#         },
+#         "license": {
+#             "name": "Apache 2.0",
+#             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+#         }
+#     },
+#     "securityDefinitions": {
+#         "BearerAuth": {
+#             "type": "apiKey",
+#             "name": "Authorization",
+#             "in": "header",
+#             "description": "Token JWT en formato: **Bearer &lt;token&gt;**"
+#         }
+#     },
+#     "definitions": {
+#         "Role": {
+#             "type": "object",
+#             "required": ["name", "exp_time"],
+#             "properties": {
+#                 "id": {
+#                     "type": "integer",
+#                     "format": "int64",
+#                     "readOnly": True
+#                 },
+#                 "name": {
+#                     "type": "string",
+#                     "example": "admin",
+#                     "description": "Nombre único del rol"
+#                 },
+#                 "description": {
+#                     "type": "string",
+#                     "example": "Rol de administrador con todos los permisos"
+#                 },
+#                 "exp_time": {
+#                     "type": "integer",
+#                     "format": "int32",
+#                     "example": 60,
+#                     "description": "Tiempo de expiración del token en minutos"
+#                 }
+#             }
+#         }
+#     },
+#     "externalDocs": {
+#         "description": "Find out more about Swagger",
+#         "url": "http://swagger.io"
+#     }
+# }
+
+# swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
+with open("swagger_template.yml", "r") as f:
+    swagger_template = yaml.safe_load(f)
 
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
 
 app.secret_key = 'tu_clave_secreta'
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -1150,7 +1198,8 @@ def validate_xml_api():
         404: {
             'description': 'Grant not found'
         }
-    }
+    },
+    'deprecated': True
 })
 def export_grant(grant_id):
     conn = get_db_connection()

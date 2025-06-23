@@ -1,0 +1,240 @@
+swagger: "2.0"
+info:
+  title: "Swagger API ROLES CONNECT"
+  description: >
+    API endpoints
+  version: "1.0.0"
+  termsOfService: "http://swagger.io/terms/"
+  contact:
+    email: "apiteam@swagger.io"
+  license:
+    name: "Apache 2.0"
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+
+externalDocs:
+  description: "Find out more about Swagger"
+  url: "http://swagger.io"
+
+schemes:
+  - http
+
+tags:
+  - name: Auth_role_JWT
+    description: "Authentication and role management using JWT tokens"
+    externalDocs:
+      description: "More info on JWT"
+      url: "https://jwt.io/"
+  - name: XML
+    description: "Operations related to XML data processing"
+  - name: Grant Templates
+    description: "Manage grant templates and permission rules"
+  - name: Authentication
+    description: "User authentication endpoints"
+  - name: Roles
+    description: "Role management operations"
+  - name: Users
+    description: "User management endpoints"
+
+securityDefinitions:
+  BearerAuth:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: "JWT token in format: **Bearer <token>**"
+
+
+
+definitions:
+  User:
+    type: object
+    required:
+      - username
+      - password
+    properties:
+      id:
+        type: integer
+        format: int64
+        readOnly: true
+      username:
+        type: string
+        example: "user123"
+        description: "Unique username"
+      password:
+        type: string
+        example: "securePass!"
+        description: "User's password"
+      cert:
+        type: string
+        example: "CERT123ABC"
+        description: "Optional user certificate"
+      is_superuser:
+        type: boolean
+        example: false
+        description: "Whether the user is a superuser"
+
+  Role:
+    type: object
+    required:
+      - name
+      - exp_time
+    properties:
+      id:
+        type: integer
+        format: int64
+        readOnly: true
+      name:
+        type: string
+        example: "admin"
+        description: "Unique name of the role"
+      description:
+        type: string
+        example: "Administrator role with all permissions"
+      exp_time:
+        type: integer
+        format: int32
+        example: 60
+        description: "Token expiration time in minutes"
+
+  UserRole:
+    type: object
+    required:
+      - user_id
+      - role_id
+    properties:
+      user_id:
+        type: integer
+        format: int64
+        example: 1
+        description: "User ID"
+      role_id:
+        type: integer
+        format: int64
+        example: 2
+        description: "Role ID"
+
+  GrantTemplate:
+    type: object
+    required:
+      - name
+      - default_action
+      - role_id
+    properties:
+      id:
+        type: integer
+        format: int64
+        readOnly: true
+      name:
+        type: string
+        example: "BasicTemplate"
+        description: "Template name for permissions"
+      default_action:
+        type: string
+        enum: ["ALLOW", "DENY"]
+        example: "DENY"
+        description: "Default action if no matching rule is found"
+      role_id:
+        type: integer
+        format: int64
+        example: 2
+        description: "ID of the role associated with the template"
+
+  Domain:
+    type: object
+    required:
+      - name
+    properties:
+      id:
+        type: integer
+        format: int64
+        readOnly: true
+      name:
+        type: string
+        example: "example.com"
+        description: "Domain name"
+
+  Topic:
+    type: object
+    required:
+      - name
+    properties:
+      id:
+        type: integer
+        format: int64
+        readOnly: true
+      name:
+        type: string
+        example: "sensors/temperature"
+        description: "Topic name"
+
+  Rule:
+    type: object
+    required:
+      - permiso
+    properties:
+      id:
+        type: integer
+        format: int64
+        readOnly: true
+      permiso:
+        type: string
+        enum: ["allow_rule", "deny_rule"]
+        example: "allow_rule"
+        description: "Permission type of the rule"
+
+  RuleDomain:
+    type: object
+    required:
+      - rule_id
+      - domain_id
+    properties:
+      rule_id:
+        type: integer
+        format: int64
+        example: 1
+        description: "ID of the rule"
+      domain_id:
+        type: integer
+        format: int64
+        example: 1
+        description: "ID of the domain"
+
+  RuleTopic:
+    type: object
+    required:
+      - rule_id
+      - topic_id
+      - action
+    properties:
+      rule_id:
+        type: integer
+        format: int64
+        example: 1
+        description: "ID of the rule"
+      topic_id:
+        type: integer
+        format: int64
+        example: 2
+        description: "ID of the topic"
+      action:
+        type: string
+        enum: ["publish", "subscribe"]
+        example: "subscribe"
+        description: "Action on the topic"
+
+  GrantRule:
+    type: object
+    required:
+      - grant_id
+      - rule_id
+    properties:
+      grant_id:
+        type: integer
+        format: int64
+        example: 1
+        description: "ID of the grant template"
+      rule_id:
+        type: integer
+        format: int64
+        example: 2
+        description: "ID of the linked rule"
+
