@@ -1785,6 +1785,9 @@ def decode():
 def informacion():
     return render_template('informacion.html')
 
+@app.route('/contact')
+def contact():
+    return render_template('contact.html')
 
 @app.route("/roles")
 def roles():
@@ -1830,7 +1833,7 @@ def usuarios2():
             return render_template("usuarios_roles.html", usuarios=users)
         case _:
             # Usuario válido pero no es superusuario
-            return render_template("acceso_denegado.html"), 403
+            return render_template("access_denied.html"), 403
 
 
 @app.route("/asignar_rol", methods=["GET", "POST"])
@@ -1877,7 +1880,7 @@ def asignar_rol():
             users, roles = get_all_users_and_roles()
             return render_template("asignar_rol.html", users=users, roles=roles)
         case _:
-            return render_template("acceso_denegado.html"), 403
+            return render_template("access_denied.html"), 403
 
 
 @app.route('/dashboard')

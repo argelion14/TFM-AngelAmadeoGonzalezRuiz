@@ -1,5 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Usuarios{% endblock %}
+{% block title %}
+Users
+{% endblock %}
+
+{% block active_module_USER%}
+active
+{% endblock %}
+
+{% block open_USERS%}-open{% endblock %}
+
+{% block active_users %}
+active
+{% endblock %}
+
+
 {% block header %}Usuarios registrados{% endblock %}
 
 {% block path_main %}
@@ -28,9 +42,9 @@
           <td>{{ user['username'] }}</td>
           <td>
             {% if user['cert'] %}
-              <code>{{ user['cert'] }}</code>
+            <code>{{ user['cert'] }}</code>
             {% else %}
-              <span class="text-muted">Sin certificado</span>
+            <span class="text-muted">Sin certificado</span>
             {% endif %}
           </td>
         </tr>

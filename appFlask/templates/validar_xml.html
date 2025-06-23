@@ -1,6 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Validar XML{% endblock %}
+{% block title %}
+Validar XML
+{% endblock %}
+
+{% block active_validar_xml %}
+active
+{% endblock %}
+
 {% block header %}Validar archivo XML de permisos RTI{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Index</a></li>
+<li class="breadcrumb-item active">Validar XML</li>
+{% endblock %}
+
 
 {% block content %}
 {% with messages = get_flashed_messages(with_categories=true) %}

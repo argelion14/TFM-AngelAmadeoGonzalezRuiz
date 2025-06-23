@@ -17,26 +17,54 @@
     {% block head %}{% endblock %}
 </head>
 
-<body class="hold-transition sidebar-mini">
-
+<body class="sidebar-mini layout-fixed layout-navbar-fixed layout-footer-fixed">
     <div class="wrapper">
 
-        <!-- Navbar -->
+        <!--Preloader-->
+        <div class="preloader flex-column justify-content-center align-items-center">
+            <img class="animation__shake" src="{{ url_for('static', filename='img/RTI.png') }}" alt="AdminLTELogo"
+                height="200" width="200">
+        </div>
+
         <!-- Navbar -->
         <nav class="main-header navbar navbar-expand navbar-white navbar-light">
             <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a title="Expandir/Comprimir" class="nav-link" data-widget="pushmenu" href="#" role="button"><i
+                            class="fas fa-bars"></i></a>
+                </li>
                 <li class="nav-item"><a href="{{ url_for('home') }}" class="nav-link">Inicio</a></li>
                 <li class="nav-item"><a href="{{ url_for('index') }}" class="nav-link">Panel</a></li>
+                <li class="nav-item"><a href="{{ url_for('contact') }}" class="nav-link">Contact</a></li>
                 <li class="nav-item"><a href="{{ url_for('logout') }}" class="nav-link">Logout</a></li>
                 <li class="nav-item"><a href="{{ url_for('mis_roles') }}" class="nav-link">mis_roles</a></li>
                 <li class="nav-item"><a href="{{ url_for('usuarios2') }}" class="nav-link">usuarios2</a></li>
                 <li class="nav-item"><a href="{{ url_for('asignar_rol') }}" class="nav-link">asignar_rol</a></li>
                 <li class="nav-item"><a href="{{ url_for('new_grant') }}" class="nav-link">new_grant</a></li>
-                <li class="nav-item"><a href="{{ url_for('list_grant_templates') }}" class="nav-link">list_grant_templates</a></li>
+                <li class="nav-item"><a href="{{ url_for('list_grant_templates') }}"
+                        class="nav-link">list_grant_templates</a></li>
                 <li class="nav-item"><a href="{{ url_for('validar_xml') }}" class="nav-link">validar_xml</a></li>
-                <li class="nav-item"><a href="{{ url_for('redirigir_a_swagger_json') }}" class="nav-link">swagger-json</a></li>
+                <li class="nav-item"><a href="{{ url_for('redirigir_a_swagger_json') }}"
+                        class="nav-link">swagger-json</a></li>
                 <li class="nav-item"><a href="{{ url_for('index') }}" class="nav-link">Panel</a></li>
                 <li class="nav-item"><a href="{{ url_for('index') }}" class="nav-link">Panel</a></li>
+            </ul>
+
+            <ul class="navbar-nav ml-auto">
+
+                <li class="nav-item">
+                    <a title="Fullscreen" class="nav-link" data-widget="fullscreen" role="button">
+                        <i class="fas fa-expand-arrows-alt"></i>
+                    </a>
+                </li>
+                {% if token_data.is_superuser %}
+                <li class="nav-item">
+                    <a title="Menu admin" class="nav-link" data-widget="control-sidebar" data-slide="true" href="#"
+                        role="button">
+                        <i class="fas fa-th-large"></i>
+                    </a>
+                </li>
+                {%endif%}
             </ul>
 
             <!-- Botones Login/Logout -->
@@ -44,13 +72,13 @@
                 {% if token_data.username %}
                 <li class="nav-item">
                     <a href="{{ url_for('logout') }}" class="nav-link btn btn-outline-danger btn-sm">
-                        <i class="fas fa-sign-out-alt"></i> Cerrar sesión ({{ token_data.username }})
+                        <i class="fas fa-sign-out-alt"></i> Logout ({{ token_data.username }})
                     </a>
                 </li>
                 {% else %}
                 <li class="nav-item">
                     <a href="{{ url_for('login') }}" class="nav-link btn btn-outline-success btn-sm">
-                        <i class="fas fa-sign-in-alt"></i> Iniciar sesión
+                        <i class="fas fa-sign-in-alt"></i> Login
                     </a>
                 </li>
                 {% endif %}
@@ -60,12 +88,34 @@
 
         <!-- Sidebar -->
         <aside class="main-sidebar sidebar-dark-primary elevation-4">
-            <a href="#" class="brand-link">
-                <span class="brand-text font-weight-light">Mi App Flask</span>
+            <!-- Brand Logo -->
+            <a title="dashboard" href="{{ url_for('index') }}" class="brand-link">
+                <img title="dashboard" src="{{ url_for('static', filename='img/RTI.png') }}" alt="Logo ORI"
+                    class="brand-image img-circle elevation-3" style="opacity: .8">
+                <span class="brand-text font-weight-light">My App Flask</span>
             </a>
+            <!-- <a href="#" class="brand-link">
+                <span class="brand-text font-weight-light">My App Flask</span>
+            </a> -->
             <div class="sidebar">
+
+                <!-- SidebarSearch Form -->
+                <div class="form-inline">
+                    <div class="input-group" data-widget="sidebar-search">
+                        <input class="form-control form-control-sidebar" type="search" placeholder="Search"
+                            aria-label="Search">
+                        <div class="input-group-append">
+                            <button class="btn btn-sidebar">
+                                <i class="fas fa-search fa-fw"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar Menu -->
                 <nav class="mt-2">
-                    <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+                    <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview"
+                        role="menu" data-accordion="false">
                         <li class="nav-item">
                             <a href="{{ url_for('index') }}" class="nav-link">
                                 <i class="nav-icon fas fa-th"></i>
@@ -85,73 +135,122 @@
                             </a>
                         </li>
 
+                        <li class="nav-header">XML</li>
+
+                        <li class="nav-item">
+                            <a href="{{ url_for('validar_xml') }}" class="nav-link {% block active_validar_xml %} {% endblock %}">
+                                <i class="nav-icon far fa-image"></i>
+                                <p>Validity XML</p>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a href="{{ url_for('informacion') }}" class="nav-link {% block active_export_grantbyrole %} {% endblock %}">
+                                <i class="nav-icon far fa-image"></i>
+                                <p>export_grantbyrole</p>
+                            </a>
+                        </li>
+
+                        <li class="nav-header">ROLE JWT</li>
+
+                        <li class="nav-item">
+                            <a href="{{ url_for('informacion') }}" class="nav-link {% block active_auth_role %} {% endblock %}">
+                                <i class="nav-icon far fa-image"></i>
+                                <p>Auth with role</p>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a href="{{ url_for('informacion') }}" class="nav-link {% block active_verify_role_token %} {% endblock %}">
+                                <i class="nav-icon far fa-image"></i>
+                                <p>Verify role token</p>
+                            </a>
+                        </li>
+
                         {% if token_data.is_superuser %}
-                        <li class="nav-item">
-                            <a href="{{ url_for('usuarios') }}" class="nav-link">
-                                <i class="nav-icon fas fa-users"></i>
-                                <p>Usuarios</p>
-                            </a>
-                        </li>
-                        {% endif %}
-                        <!-- <li class="nav-item">
-                            <a href="{{ url_for('usuarios') }}"
-                                class="nav-link {% block usuarios_active%}{% endblock %}">
-                                <i class="nav-icon far fa-image"></i>
-                                <p>Usuarios</p>
-                            </a>
-                        </li> -->
-                        <li class="nav-item">
-                            <a href="{{ url_for('new_grant') }}" class="nav-link">
-                                <i class="nav-icon far fa-image"></i>
-                                <p>Load an XML to DB NOPE</p>
-                            </a>
-                        </li>
+                        <li class="nav-header">Admin section</li>
 
-                        <li class="nav-item">
-                            <a href="{{ url_for('index') }}" class="nav-link">
-                                <i class="nav-icon far fa-image"></i>
-                                <p>Ask for a role NOPE</p>
-                            </a>
-                        </li>
-                        {% if token_data.is_superuser %}
-
-                        <li class="nav-header">ADMIN</li>
-
-                        <li class="nav-item menu{% block open_roles%}{% endblock %}">
-                            <a title="Módulo Roles" href="#"
-                                class="nav-link {% block active_module_rol%}{% endblock %}">
-                                <i class="nav-icon fas fa-solid fa-business-time"></i>
-                                <p>
-                                    Roles
-                                    <i class="right fas fa-angle-left"></i>
-                                </p>
+                        <li class="nav-item menu{% block open_USERS%}{% endblock %}">
+                            <a title="Módulo Recursos Humanos" href="#"
+                                class="nav-link {% block active_module_USER%}{% endblock %}">
+                                <i class="nav-icon fas fa-solid fa-hands-holding-child"></i>
+                                <p>User management<i class="right fas fa-angle-left"></i></p>
                             </a>
                             <ul class="nav nav-treeview">
                                 <li class="nav-item">
-                                    <a title="Nueva timesheet" href="{{ url_for('roles') }}"
-                                        class="nav-link {% block roles_active %}{% endblock %}">
-                                        <i class="nav-icon fas fa-solid fa-user-clock"></i>
-                                        <p>Lista de roles</p>
+                                    <a title="Users list" href="{{ url_for('usuarios') }}"
+                                        class="nav-link {% block active_users %}{% endblock %}">
+                                        <i class="nav-icon fas fa-solid fa-people-group"></i>
+                                        <p>Users</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a title="New users" href="{{ url_for('informacion') }}"
+                                        class="nav-link {% block active_nuevo_participante %}{% endblock %}">
+                                        <i class="nav-icon fas fa-solid fa-person-circle-plus"></i>
+                                        <p>New users</p>
                                     </a>
                                 </li>
                             </ul>
                         </li>
-                        <li class="nav-item">
-                            <a href="{{ url_for('usuarios') }}" class="nav-link">
-                                <i class="nav-icon fas fa-users"></i>
-                                <p>Usuarios</p>
+                        {% endif %}
+                        {% if token_data.is_superuser %}
+                        <li class="nav-item menu{% block open_proyecto%}{% endblock %}">
+                            <a title="Module rols" href="#"
+                                class="nav-link {% block active_module_proyectos%}{% endblock %}">
+                                <i class="nav-icon fas fa-solid fa-briefcase"></i>
+                                <p>Rols management<i class="right fas fa-angle-left"></i></p>
                             </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a title="Lista de proyectos" href="{{ url_for('informacion') }}"
+                                        class="nav-link {% block active_proyectos %}{% endblock %} ">
+                                        <i class="nav-icon fas fa-solid fa-list"></i>
+                                        <p>Rols</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a title="Nuevo proyecto" href="{{ url_for('informacion') }}"
+                                        class="nav-link {% block active_nuevo_proyecto %}{% endblock %} ">
+                                        <i class="nav-icon fas fa-solid fa-plus"></i>
+                                        <p>New rol</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        {% endif %}
+                        {% if token_data.is_superuser %}
+                        <li class="nav-item menu{% block open_proyectoo%}{% endblock %}">
+                            <a title="Module GrantTemplate" href="#"
+                                class="nav-link {% block active_module_proyectoss%}{% endblock %}">
+                                <i class="nav-icon fas fa-solid fa-briefcase"></i>
+                                <p>GrantTemplate management<i class="right fas fa-angle-left"></i></p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a title="Lista de proyectos" href="{{ url_for('informacion') }}"
+                                        class="nav-link {% block active_proyectoss %}{% endblock %} ">
+                                        <i class="nav-icon fas fa-solid fa-list"></i>
+                                        <p>GrantTemplate</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a title="Nuevo proyecto" href="{{ url_for('informacion') }}"
+                                        class="nav-link {% block active_nuevo_proyectoo %}{% endblock %} ">
+                                        <i class="nav-icon fas fa-solid fa-plus"></i>
+                                        <p>New GrantTemplate</p>
+                                    </a>
+                                </li>
+                            </ul>
                         </li>
                         {% endif %}
                         <!--Documentación extra-->
                         <li class="nav-header">EXTRA</li>
                         <li class="nav-item  ">
-                            <a title="Información" href="{{ url_for('informacion') }}"
-                                class="nav-link {% block active_informacion %} {% endblock %}">
+                            <a title="Information" href="{{ url_for('informacion') }}"
+                                class="nav-link {% block active_information %} {% endblock %}">
                                 <i class="nav-icon fas fa-solid fa-circle-info"></i>
-                                <!--<i class="material-symbols-outlined" id="icon">home</i>-->
-                                <p>Información
-                                    <!--<span class="right badge badge-danger">New</span>-->
+                                <p>Information
                                 </p>
                             </a>
                         </li>
@@ -189,6 +288,41 @@
                 </div>
             </section>
         </div>
+
+        <!-- Control Sidebar -->
+        {% if token_data.is_superuser %}
+        <aside class="control-sidebar control-sidebar-dark">
+            <!-- Control sidebar content goes here -->
+            <div class="p-3">
+                <h5>Administración</h5>
+                <a target="_blank" href="/admin" class="nav-link">
+                    <p>Formularios de admin</p>
+                </a>
+                <hr class="mb-2">
+                <h6>Área usuarios</h6>
+
+                <hr class="mb-2">
+                <h6>Área módulos</h6>
+                <a target="_blank" href="{{ url_for('index') }}" class="nav-link">
+                    <p>Añadir Departamento</p>
+                </a>
+                <a target="_blank" href="{{ url_for('index') }}" class="nav-link">
+                    <p>Añadir Institución</p>
+                </a>
+                <a target="_blank" href="{{ url_for('index') }}" class="nav-link">
+                    <p>Añadir Partnership Agreement</p>
+                </a>
+                <a target="_blank" href="{{ url_for('index') }}" class="nav-link">
+                    <p>Añadir Periodicidades</p>
+                </a>
+                <a target="_blank" href="{{ url_for('index') }}" class="nav-link">
+                    <p>Añadir Roles</p>
+                </a>
+
+            </div>
+        </aside>
+        {%endif%}
+        <!-- /.control-sidebar -->
 
         <!-- Footer -->
         <footer class="main-footer text-center">
