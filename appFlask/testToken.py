@@ -1781,9 +1781,9 @@ def decode():
     return render_template('decode.html')
 
 
-@app.route('/informacion')
-def informacion():
-    return render_template('informacion.html')
+@app.route('/information')
+def information():
+    return render_template('information.html')
 
 @app.route('/contact')
 def contact():
