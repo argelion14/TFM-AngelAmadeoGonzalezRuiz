@@ -1384,8 +1384,9 @@ def export_grant_by_role(role_id):
     permissions = ET.SubElement(dds, 'permissions')
     grant_elem = ET.SubElement(permissions, 'grant', {'name': grant_name})
 
+    cert_subject_name = user_data.get('cert', 'CN=Unknown')
     subject = ET.SubElement(grant_elem, 'subject_name')
-    subject.text = "C=ES, ST=CLM, O=JCCM, emailAddress=argel@arge.site, CN=FlaskExported"
+    subject.text = cert_subject_name
 
     # Obtener exp_time desde la tabla roles
     cursor.execute('SELECT exp_time FROM roles WHERE id = ?', (role_id,))
