@@ -23,7 +23,9 @@ def create_tables():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             description TEXT,
-            exp_time INTEGER NOT NULL DEFAULT 60
+            exp_time INTEGER NOT NULL DEFAULT 60,
+            grant_id INTEGER,
+            FOREIGN KEY (grant_id) REFERENCES grantTemplate(id) ON DELETE SET NULL
         )
     ''')
 
@@ -41,9 +43,7 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS grantTemplate (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            default_action TEXT CHECK(default_action IN ('ALLOW', 'DENY')),
-            role_id INT UNIQUE NOT NULL,
-            FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+            default_action TEXT CHECK(default_action IN ('ALLOW', 'DENY'))
         )
     ''')
 

@@ -215,7 +215,7 @@ def get_db_connection():
 @swag_from({
     'tags': ['Grant Templates'],
     'summary': 'Lists all grant templates',
-    'description': 'Retrieves a list of grant templates along with their default action and associated role name. Requires JWT authentication.',
+    'description': 'Retrieves a list of grant templates with their default action. Requires JWT authentication.',
     'security': [{'BearerAuth': []}],
     'responses': {
         200: {
@@ -227,8 +227,7 @@ def get_db_connection():
                     'properties': {
                         'id': {'type': 'integer'},
                         'name': {'type': 'string'},
-                        'default_action': {'type': 'string'},
-                        'role_name': {'type': 'string'}
+                        'default_action': {'type': 'string'}
                     }
                 }
             }
@@ -240,9 +239,8 @@ def list_grant_templates_api():
     conn = get_db_connection()
     cursor = conn.cursor()
     query = '''
-        SELECT gt.id, gt.name, gt.default_action, r.name as role_name
-        FROM grantTemplate gt
-        JOIN roles r ON gt.role_id = r.id
+        SELECT id, name, default_action
+        FROM grantTemplate
     '''
     cursor.execute(query)
     grant_templates = cursor.fetchall()
@@ -252,8 +250,7 @@ def list_grant_templates_api():
         {
             'id': row[0],
             'name': row[1],
-            'default_action': row[2],
-            'role_name': row[3]
+            'default_action': row[2]
         } for row in grant_templates
     ]
     return jsonify(grants)
@@ -265,7 +262,7 @@ def list_grant_templates_api():
     'tags': ['Grant Templates'],
     'summary': 'Create a new grant from an XML DDS Permissions file',
     'security': [{'BearerAuth': []}],
-    'description': 'Allows uploading an XML file and a role_id to create a grant and its associated rules.',
+    'description': 'Allows uploading an XML file to create a grant template and its associated rules.',
     'consumes': ['multipart/form-data'],
     'parameters': [
         {
@@ -274,13 +271,6 @@ def list_grant_templates_api():
             'type': 'file',
             'required': True,
             'description': 'XML DDS Permissions file'
-        },
-        {
-            'name': 'role_id',
-            'in': 'formData',
-            'type': 'integer',
-            'required': True,
-            'description': 'ID of the role to which the grant will be assigned'
         }
     ],
     'responses': {
@@ -308,17 +298,16 @@ def list_grant_templates_api():
 })
 def create_grant_api():
     f = request.files.get('xml_file')
-    role_id = request.form.get('role_id')
 
-    if not f or not role_id:
-        return jsonify({'error': 'Missing file or role_id'}), 400
+    if not f:
+        return jsonify({'error': 'Missing XML file'}), 400
 
     try:
         filename = secure_filename(f.filename)
         path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         f.save(path)
 
-        grant_id, name, default_action = insert_grant_from_xml(path, role_id)
+        grant_id, name, default_action = insert_grant_from_xml(path)
         return jsonify({
             'grant_id': grant_id,
             'name': name,
@@ -387,13 +376,13 @@ def delete_grant_api(grant_id):
     finally:
         conn.close()
 
-
+# TODO Tengo que probarlo
 @app.route('/api/auth-role', methods=['POST'])
 @user_required
 @swag_from({
     'tags': ['Auth_role_JWT'],
     'summary': 'Authenticate a specific role for an already authenticated user',
-    'description': 'Returns a JWT if the authenticated user has the requested role and it is assigned to a single grantTemplate.',
+    'description': 'Returns a JWT if the authenticated user has the requested role and it is assigned to a grantTemplate.',
     'security': [{'BearerAuth': []}],
     'parameters': [
         {
@@ -458,13 +447,12 @@ def auth_role():
         conn.close()
         return jsonify({'error': 'User does not have the specified role'}), 401
 
-    # 3. Verify that the role is linked to a single grantTemplate
-    cursor.execute(
-        'SELECT id FROM grantTemplate WHERE role_id = ?', (role_id,))
-    templates = cursor.fetchall()
-    if len(templates) != 1:
+    # 3. Verify that the role is linked to a grantTemplate (i.e. roles.grant_id IS NOT NULL)
+    cursor.execute('SELECT grant_id FROM roles WHERE id = ?', (role_id,))
+    result = cursor.fetchone()
+    if not result or result[0] is None:
         conn.close()
-        return jsonify({'error': 'Role is not linked to a single grantTemplate'}), 401
+        return jsonify({'error': 'Role is not linked to a grantTemplate'}), 401
 
     # 4. Issue new JWT for this role
     payload = {
@@ -665,7 +653,7 @@ def get_role(role_id):
 @swag_from({
     'tags': ['Roles'],
     'summary': 'Add a new role (superadmin only)',
-    'description': 'Allows a superadmin to create a new role by providing a name and optional description.',
+    'description': 'Allows a superadmin to create a new role by providing a name, optional description, and a required grant_id.',
     'parameters': [
         {
             'in': 'body',
@@ -673,7 +661,7 @@ def get_role(role_id):
             'required': True,
             'schema': {
                 'type': 'object',
-                'required': ['name'],
+                'required': ['name', 'grant_id'],
                 'properties': {
                     'name': {
                         'type': 'string',
@@ -682,6 +670,10 @@ def get_role(role_id):
                     'description': {
                         'type': 'string',
                         'description': 'Description of the role'
+                    },
+                    'grant_id': {
+                        'type': 'integer',
+                        'description': 'ID of the grantTemplate this role belongs to'
                     }
                 }
             }
@@ -692,7 +684,7 @@ def get_role(role_id):
             'description': 'Role successfully created'
         },
         400: {
-            'description': 'Invalid data or duplicate role'
+            'description': 'Invalid data, nonexistent grant_id or duplicate role'
         },
         403: {
             'description': 'Access denied'
@@ -704,19 +696,33 @@ def get_role(role_id):
 })
 def add_role():
     data = request.get_json()
-    if not data or not data.get('name'):
-        return jsonify({"error": "The 'name' field is required"}), 400
+    name = data.get('name')
+    grant_id = data.get('grant_id')
+    description = data.get('description')
+
+    if not name or grant_id is None:
+        return jsonify({"error": "Fields 'name' and 'grant_id' are required"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # Verificar que el grant_id existe
+    cursor.execute("SELECT id FROM grantTemplate WHERE id = ?", (grant_id,))
+    if cursor.fetchone() is None:
+        conn.close()
+        return jsonify({"error": f"grant_id {grant_id} does not exist"}), 400
+
     try:
-        cursor.execute("INSERT INTO roles (name, description) VALUES (?, ?)",
-                       (data['name'], data.get('description')))
+        cursor.execute(
+            "INSERT INTO roles (name, description, grant_id) VALUES (?, ?, ?)",
+            (name, description, grant_id)
+        )
         conn.commit()
         new_id = cursor.lastrowid
     except sqlite3.IntegrityError:
         conn.close()
         return jsonify({"error": "Role with that name already exists"}), 400
+
     conn.close()
     return jsonify({"message": "Role created", "id": new_id}), 201
 
@@ -726,7 +732,7 @@ def add_role():
 @swag_from({
     'tags': ['Roles'],
     'summary': 'Delete a role by ID (superadmin only)',
-    'description': 'Allows a superadmin to delete an existing role by its ID.',
+    'description': 'Allows a superadmin to delete an existing role by its ID. The grantTemplate associated to the role, if any, will NOT be deleted.',
     'parameters': [
         {
             'name': 'role_id',
@@ -760,23 +766,13 @@ def delete_role(role_id):
         # Verificar que el rol existe
         cursor.execute("SELECT id FROM roles WHERE id=?", (role_id,))
         if cursor.fetchone() is None:
-            conn.close()
             return jsonify({"error": "Role not found"}), 404
-
-        # Buscar si hay un grantTemplate asociado a este rol
-        cursor.execute(
-            "SELECT id FROM grantTemplate WHERE role_id = ?", (role_id,))
-        grant_row = cursor.fetchone()
-
-        if grant_row:
-            grant_id = grant_row[0]
-            delete_grant_template_by_id(grant_id, conn)
 
         # Eliminar el rol (esto también elimina user_roles por ON DELETE CASCADE)
         cursor.execute("DELETE FROM roles WHERE id=?", (role_id,))
-
         conn.commit()
-        return jsonify({"message": "Role and associated grantTemplate (if any) deleted successfully"}), 200
+
+        return jsonify({"message": "Role deleted successfully"}), 200
 
     except Exception as e:
         conn.rollback()
@@ -791,7 +787,7 @@ def delete_role(role_id):
 @swag_from({
     'tags': ['Roles'],
     'summary': 'Update a role by ID (superadmin only)',
-    'description': 'Allows a superadmin to update the name or description of an existing role by its ID.',
+    'description': 'Allows a superadmin to update the name, description or associated grantTemplate of an existing role by its ID.',
     'parameters': [
         {
             'name': 'role_id',
@@ -814,6 +810,10 @@ def delete_role(role_id):
                     'description': {
                         'type': 'string',
                         'description': 'New description for the role'
+                    },
+                    'grant_id': {
+                        'type': 'integer',
+                        'description': 'ID of the associated grantTemplate'
                     }
                 }
             }
@@ -824,7 +824,7 @@ def delete_role(role_id):
             'description': 'Role successfully updated'
         },
         400: {
-            'description': 'Invalid data or duplicate role name'
+            'description': 'Invalid data, grantTemplate not found or duplicate role name'
         },
         404: {
             'description': 'Role not found'
@@ -851,6 +851,13 @@ def update_role(role_id):
         conn.close()
         return jsonify({"error": "Role not found"}), 404
 
+    # Si hay grant_id, validar que exista
+    if 'grant_id' in data and data['grant_id'] is not None:
+        cursor.execute("SELECT id FROM grantTemplate WHERE id = ?", (data['grant_id'],))
+        if cursor.fetchone() is None:
+            conn.close()
+            return jsonify({"error": "grantTemplate not found"}), 400
+
     # Build dynamic update
     fields = []
     values = []
@@ -860,6 +867,9 @@ def update_role(role_id):
     if 'description' in data:
         fields.append("description = ?")
         values.append(data['description'])
+    if 'grant_id' in data:
+        fields.append("grant_id = ?")
+        values.append(data['grant_id'])
 
     if not fields:
         conn.close()
@@ -1350,15 +1360,13 @@ def export_grant_by_role(role_id):
         conn.close()
         return jsonify({'error': 'Role does not belong to user'}), 403
 
-    # Comprobar que el rol existe
-    cursor.execute('SELECT id FROM roles WHERE id = ?', (role_id,))
-    if not cursor.fetchone():
-        conn.close()
-        return jsonify({'error': 'Role not found'}), 404
-
-    # Obtener el grant asociado al role_id
-    cursor.execute(
-        'SELECT id, name, default_action FROM grantTemplate WHERE role_id = ?', (role_id,))
+    # Obtener el grant_id desde la tabla roles
+    cursor.execute('''
+        SELECT g.id, g.name, g.default_action
+        FROM roles r
+        JOIN grantTemplate g ON r.grant_id = g.id
+        WHERE r.id = ?
+    ''', (role_id,))
     row = cursor.fetchone()
     if not row:
         conn.close()
@@ -1624,11 +1632,10 @@ def get_users2():
     return usuarios
 
 
-def insert_grant_from_xml(xml_path, role_id):
+def insert_grant_from_xml(xml_path):
     if not os.path.exists(xml_path):
         raise FileNotFoundError(f"The file {xml_path} does not exist")
 
-    role_id = int(role_id)
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
@@ -1647,24 +1654,18 @@ def insert_grant_from_xml(xml_path, role_id):
     cursor = conn.cursor()
 
     try:
-        # Check if the role exists
-        cursor.execute("SELECT id FROM roles WHERE id = ?", (role_id,))
-        if cursor.fetchone() is None:
-            raise ValueError(f"Role with ID {role_id} does not exist")
-
-        # 1. Insert into grantTemplate
+        # Insert into grantTemplate (sin role_id)
         cursor.execute('''
-            INSERT INTO grantTemplate (name, default_action, role_id)
-            VALUES (?, ?, ?)
-        ''', (name, default_action, role_id))
+            INSERT INTO grantTemplate (name, default_action)
+            VALUES (?, ?)
+        ''', (name, default_action))
         grant_id = cursor.lastrowid
 
-        # 2. Process rules
+        # Procesar reglas
         for rule_type in ['allow_rule', 'deny_rule']:
             for rule in root.findall(f'.//grant/{rule_type}'):
-                permiso = rule_type  # Either 'allow_rule' or 'deny_rule'
+                permiso = rule_type
 
-                # Insert into rules table (permiso is required)
                 cursor.execute(
                     'INSERT INTO rules (permiso) VALUES (?)', (permiso,)
                 )
@@ -1715,7 +1716,7 @@ def insert_grant_from_xml(xml_path, role_id):
                             VALUES (?, ?, 'subscribe')
                         ''', (rule_id, topic_id))
 
-                # Link rule with grant
+                # Enlazar regla con grantTemplate
                 cursor.execute('''
                     INSERT INTO grant_rules (grant_id, rule_id)
                     VALUES (?, ?)
