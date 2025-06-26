@@ -395,7 +395,7 @@ def delete_grant_api(grant_id):
 # Funciones auxiliares para gestión token de roles
 #########################
 
-# TODO Tengo que probarlo
+
 @app.route('/api/auth-role', methods=['POST'])
 @user_required
 @swag_from({
@@ -872,7 +872,8 @@ def update_role(role_id):
 
     # Si hay grant_id, validar que exista
     if 'grant_id' in data and data['grant_id'] is not None:
-        cursor.execute("SELECT id FROM grantTemplate WHERE id = ?", (data['grant_id'],))
+        cursor.execute(
+            "SELECT id FROM grantTemplate WHERE id = ?", (data['grant_id'],))
         if cursor.fetchone() is None:
             conn.close()
             return jsonify({"error": "grantTemplate not found"}), 400
@@ -1408,7 +1409,8 @@ def export_grant_by_role(role_id):
     # Obtener exp_time desde la tabla roles
     cursor.execute('SELECT exp_time FROM roles WHERE id = ?', (role_id,))
     row = cursor.fetchone()
-    exp_minutes = row[0] if row else 60  # fallback a 60 minutos si no se encuentra
+    # fallback a 60 minutos si no se encuentra
+    exp_minutes = row[0] if row else 60
 
     # Calcular fechas
     now = datetime.now()
@@ -1495,6 +1497,278 @@ def export_grant_by_role(role_id):
         'Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
     return response
 
+
+#########################
+# SECCIÓN DE grantTemplate - rols
+# Funciones auxiliares para interacción entre roles y grantTemplate
+#########################
+
+# TODO Llevarlo al frontal
+@app.route('/api/roles/<int:role_id>/grant', methods=['PATCH'])
+@swag_from({
+    'tags': ['asociarrolcongrantid'],
+    'summary': 'Associate or update a grantTemplate to a role',
+    'description': 'Updates the grantTemplate (grant_id) associated with a given role.',
+    'parameters': [
+        {
+            'name': 'role_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID of the role to update'
+        },
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'grant_id': {
+                        'type': 'integer',
+                        'description': 'ID of an existing grantTemplate'
+                    }
+                },
+                'required': ['grant_id']
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'GrantTemplate updated',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string'},
+                    'role_id': {'type': 'integer'},
+                    'grant_id': {'type': 'integer'}
+                }
+            }
+        },
+        400: {
+            'description': 'Invalid grant_id or role_id'
+        },
+        404: {
+            'description': 'Role not found'
+        }
+    }
+})
+def update_role_grant(role_id):
+    data = request.get_json()
+    grant_id = data.get('grant_id')
+
+    if grant_id is None:
+        return jsonify({'error': 'grant_id is required'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Verificar que el rol existe
+    cursor.execute("SELECT * FROM roles WHERE id=?", (role_id,))
+    role = cursor.fetchone()
+    if not role:
+        conn.close()
+        return jsonify({'error': 'Role not found'}), 404
+
+    # Verificar que el grant_id existe
+    cursor.execute("SELECT id FROM grantTemplate WHERE id=?", (grant_id,))
+    grant = cursor.fetchone()
+    if not grant:
+        conn.close()
+        return jsonify({'error': 'Invalid grant_id'}), 400
+
+    # Actualizar grant_id del rol
+    cursor.execute("UPDATE roles SET grant_id=? WHERE id=?", (grant_id, role_id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'message': 'GrantTemplate updated',
+        'role_id': role_id,
+        'grant_id': grant_id
+    }), 200
+
+#########################
+# SECCIÓN DE usuarios - roles
+# Funciones auxiliares para interacción entre usuarios y roles
+#########################
+
+# TODO Mejorar en el frontal
+@app.route('/api/users/<int:user_id>/roles', methods=['POST'])
+@swag_from({
+    'tags': ['asociarolauser'],
+    'summary': 'Associate roles to a user',
+    'description': 'Adds one or more roles to the specified user. Skips any roles already associated.',
+    'parameters': [
+        {
+            'name': 'user_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID of the user to update'
+        },
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'role_ids': {
+                        'type': 'array',
+                        'items': {'type': 'integer'},
+                        'description': 'List of role IDs to associate with the user'
+                    }
+                },
+                'required': ['role_ids']
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Roles associated successfully',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string'},
+                    'user_id': {'type': 'integer'},
+                    'roles_added': {
+                        'type': 'array',
+                        'items': {'type': 'integer'}
+                    }
+                }
+            }
+        },
+        400: {
+            'description': 'Invalid user_id or role_ids'
+        },
+        404: {
+            'description': 'User not found'
+        }
+    }
+})
+def assign_roles_to_user(user_id):
+    data = request.get_json()
+    role_ids = data.get('role_ids')
+
+    if not role_ids or not isinstance(role_ids, list):
+        return jsonify({'error': 'role_ids must be a non-empty list'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Verificar existencia del usuario
+    cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+
+    roles_added = []
+    for role_id in role_ids:
+        # Verificar si el rol existe
+        cursor.execute("SELECT id FROM roles WHERE id=?", (role_id,))
+        if not cursor.fetchone():
+            continue  # Ignora roles inexistentes
+
+        # Verificar si ya está asociado
+        cursor.execute("SELECT 1 FROM user_roles WHERE user_id=? AND role_id=?", (user_id, role_id))
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
+            roles_added.append(role_id)
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'message': 'Roles associated successfully',
+        'user_id': user_id,
+        'roles_added': roles_added
+    }), 200
+
+# TODO Hacerlo en el front
+@app.route('/api/users/<int:user_id>/roles', methods=['DELETE'])
+@swag_from({
+    'tags': ['desasociarrolauser'],
+    'summary': 'Remove roles from a user',
+    'description': 'Removes one or more roles associated with a user. Ignores roles that are not currently associated.',
+    'parameters': [
+        {
+            'name': 'user_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID of the user'
+        },
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'role_ids': {
+                        'type': 'array',
+                        'items': {'type': 'integer'},
+                        'description': 'List of role IDs to remove from the user'
+                    }
+                },
+                'required': ['role_ids']
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Roles removed successfully',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string'},
+                    'user_id': {'type': 'integer'},
+                    'roles_removed': {
+                        'type': 'array',
+                        'items': {'type': 'integer'}
+                    }
+                }
+            }
+        },
+        400: {
+            'description': 'Invalid input'
+        },
+        404: {
+            'description': 'User not found'
+        }
+    }
+})
+def remove_roles_from_user(user_id):
+    data = request.get_json()
+    role_ids = data.get('role_ids')
+
+    if not role_ids or not isinstance(role_ids, list):
+        return jsonify({'error': 'role_ids must be a non-empty list'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Verificar existencia del usuario
+    cursor.execute("SELECT id FROM users WHERE id=?", (user_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+
+    roles_removed = []
+    for role_id in role_ids:
+        cursor.execute("DELETE FROM user_roles WHERE user_id=? AND role_id=?", (user_id, role_id))
+        if cursor.rowcount > 0:
+            roles_removed.append(role_id)
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'message': 'Roles removed successfully',
+        'user_id': user_id,
+        'roles_removed': roles_removed
+    }), 200
 
 #########################
 ########## HTML #########
@@ -1820,9 +2094,11 @@ def decode():
 def information():
     return render_template('information.html')
 
+
 @app.route('/contact')
 def contact():
     return render_template('contact.html')
+
 
 @app.route("/roles")
 def roles():
@@ -2071,11 +2347,6 @@ def xml_vality():
     return render_template('xml_vality.html')
 
 
-
-
-
-
-
 @app.route('/xml_export_grant')
 def xml_export_grant():
     return render_template('xml_export_grant.html')
@@ -2086,15 +2357,14 @@ def authrole_create():
     return render_template('authrole_create.html')
 
 
-
 @app.route('/authrole_vality')
 def authrole_vality():
     return render_template('authrole_vality.html')
 
+
 @app.route('/user_create')
 def user_create():
     return render_template('user_create.html')
-
 
 
 @app.context_processor
