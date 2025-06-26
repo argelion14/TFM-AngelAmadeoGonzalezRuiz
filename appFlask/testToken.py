@@ -3,6 +3,7 @@ import os
 import sqlite3
 import datetime
 import tempfile
+from xml.dom import minidom
 import xml.etree.ElementTree as ET
 import yaml
 import bcrypt
@@ -1448,14 +1449,13 @@ def export_grant_by_role(role_id):
     default_elem = ET.SubElement(grant_elem, 'default')
     default_elem.text = default_action
 
-    # Generar XML
-    xml_io = io.BytesIO()
-    tree = ET.ElementTree(dds)
-    tree.write(xml_io, encoding='utf-8', xml_declaration=True)
-    xml_io.seek(0)
+    # Generar XML y formatear con minidom para legibilidad
+    xml_str = ET.tostring(dds, encoding='utf-8')
+    parsed_xml = minidom.parseString(xml_str)
+    pretty_xml_as_str = parsed_xml.toprettyxml(indent="  ", encoding='utf-8')
 
     conn.close()
-    response = make_response(xml_io.read())
+    response = make_response(pretty_xml_as_str)
     response.headers['Content-Type'] = 'application/xml'
     response.headers[
         'Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
