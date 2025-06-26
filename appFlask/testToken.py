@@ -477,7 +477,7 @@ def auth_role():
     payload = {
         'user_id': user_id,
         'role_id': role_id,
-        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=JWT_EXPIRATION_MINUTES)
+        'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
     }
     token = jwt.encode(payload, PRIVATE_KEY, algorithm="ES256")
 
