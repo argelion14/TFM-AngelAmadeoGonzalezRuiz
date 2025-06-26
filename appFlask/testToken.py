@@ -390,6 +390,11 @@ def delete_grant_api(grant_id):
     finally:
         conn.close()
 
+#########################
+# SECCIÓN DE Auth Role
+# Funciones auxiliares para gestión token de roles
+#########################
+
 # TODO Tengo que probarlo
 @app.route('/api/auth-role', methods=['POST'])
 @user_required
@@ -474,7 +479,7 @@ def auth_role():
         'role_id': role_id,
         'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=JWT_EXPIRATION_MINUTES)
     }
-    token = jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+    token = jwt.encode(payload, PRIVATE_KEY, algorithm="ES256")
 
     conn.close()
     return jsonify({'token': token})
@@ -545,7 +550,7 @@ def verify_role_token():
         return jsonify({'valid': False, 'error': 'Token not provided'}), 400
 
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        payload = jwt.decode(token, PUBLIC_KEY, algorithms=["ES256"])
     except jwt.ExpiredSignatureError:
         return jsonify({'valid': False, 'error': 'Token expired'}), 401
     except jwt.InvalidTokenError:

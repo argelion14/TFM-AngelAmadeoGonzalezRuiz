@@ -48,3 +48,9 @@ openssl smime -verify \
   -out /dev/null
 
 openssl x509 -in "$ALICE_CERT" -text -noout
+
+# Clave privada
+# openssl ecparam -genkey -name prime256v1 -noout -out certs/private.pem
+
+# Clave pública
+# openssl ec -in certs/private.pem -pubout -out certs/public.pem
