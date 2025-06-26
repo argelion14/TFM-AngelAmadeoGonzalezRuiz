@@ -11,6 +11,7 @@ import jwt
 import xmlschema
 import functools
 
+from datetime import datetime, timedelta
 from flask import (
     Flask, abort, render_template, request, redirect, url_for,
     flash, make_response, g, jsonify
@@ -1386,11 +1387,26 @@ def export_grant_by_role(role_id):
     subject = ET.SubElement(grant_elem, 'subject_name')
     subject.text = "C=ES, ST=CLM, O=JCCM, emailAddress=argel@arge.site, CN=FlaskExported"
 
+    # Obtener exp_time desde la tabla roles
+    cursor.execute('SELECT exp_time FROM roles WHERE id = ?', (role_id,))
+    row = cursor.fetchone()
+    exp_minutes = row[0] if row else 60  # fallback a 60 minutos si no se encuentra
+
+    # Calcular fechas
+    now = datetime.now()
+    not_before_dt = now
+    not_after_dt = now + timedelta(minutes=exp_minutes)
+
+    # Formato ISO 8601 con segundos
+    not_before_str = not_before_dt.strftime('%Y-%m-%dT%H:%M:%S')
+    not_after_str = not_after_dt.strftime('%Y-%m-%dT%H:%M:%S')
+
+    # Insertar en XML
     validity = ET.SubElement(grant_elem, 'validity')
     not_before = ET.SubElement(validity, 'not_before')
-    not_before.text = '2019-10-31T13:00:00'
+    not_before.text = not_before_str
     not_after = ET.SubElement(validity, 'not_after')
-    not_after.text = '2029-10-31T13:00:00'
+    not_after.text = not_after_str
 
     # Reglas del grant
     cursor.execute('''
@@ -1542,7 +1558,7 @@ def generar_jwt(user):
         'username': user[0],
         'cert': user[2],
         'is_superuser': user[3] == 1,
-        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=JWT_EXPIRATION_MINUTES)
+        'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm='HS256')
     return token
