@@ -5,3 +5,4 @@ jwt
 PyJWT
 xmlschema
 flasgger
+python-dotenv

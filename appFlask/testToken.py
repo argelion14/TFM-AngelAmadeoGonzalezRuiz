@@ -20,6 +20,18 @@ from flask import (
 from werkzeug.utils import secure_filename
 from flasgger import Swagger, swag_from
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY_PATH")
+PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY_PATH")
+
+with open(PRIVATE_KEY_PATH, "rb") as f:
+    PRIVATE_KEY = f.read()
+
+with open(PUBLIC_KEY_PATH, "rb") as f:
+    PUBLIC_KEY = f.read()
 
 app = Flask(__name__)
 
@@ -1561,7 +1573,7 @@ def generar_jwt(user):
         'is_superuser': user[3] == 1,
         'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
     }
-    token = jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+    token = jwt.encode(payload, PRIVATE_KEY, algorithm="ES256")
     return token
 
 
@@ -1589,7 +1601,7 @@ def decodificar_jwt(token):
     if not token:
         return None
     try:
-        return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        return jwt.decode(token, PUBLIC_KEY, algorithms=["ES256"])
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
         return None
 
