@@ -2,6 +2,7 @@ import io
 import os
 import sqlite3
 import datetime
+import subprocess
 import tempfile
 from xml.dom import minidom
 import xml.etree.ElementTree as ET
@@ -14,7 +15,7 @@ import functools
 from datetime import datetime, timedelta
 from flask import (
     Flask, abort, render_template, request, redirect, url_for,
-    flash, make_response, g, jsonify
+    flash, make_response, g, jsonify, send_file
 )
 
 from werkzeug.utils import secure_filename
@@ -26,6 +27,9 @@ load_dotenv()
 
 PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY_PATH")
 PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY_PATH")
+
+CA_CERT_PATH = os.getenv("CA_CERT_PATH")
+CA_KEY_PATH = os.getenv("CA_KEY_PATH")
 
 with open(PRIVATE_KEY_PATH, "rb") as f:
     PRIVATE_KEY = f.read()
@@ -1331,6 +1335,104 @@ def export_grant(grant_id):
     return response
 
 
+def generar_xml_grant(role_id, user_data, conn):
+    cursor = conn.cursor()
+
+    # Obtener el grant_id y datos del grant
+    cursor.execute('''
+        SELECT g.id, g.name, g.default_action
+        FROM roles r
+        JOIN grantTemplate g ON r.grant_id = g.id
+        WHERE r.id = ?
+    ''', (role_id,))
+    row = cursor.fetchone()
+    if not row:
+        return None, None, 'No grant associated with this role'
+
+    grant_id, grant_name, default_action = row
+
+    # Construcción del XML
+    dds = ET.Element('dds', {
+        'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
+        'xsi:noNamespaceSchemaLocation': "http://community.rti.com/schema/7.3.0/dds_security_permissions.xsd"
+    })
+    permissions = ET.SubElement(dds, 'permissions')
+    grant_elem = ET.SubElement(permissions, 'grant', {'name': grant_name})
+
+    subject = ET.SubElement(grant_elem, 'subject_name')
+    subject.text = user_data.get('cert', 'CN=Unknown')
+
+    # Fechas
+    cursor.execute('SELECT exp_time FROM roles WHERE id = ?', (role_id,))
+    exp_minutes = cursor.fetchone()
+    exp_minutes = exp_minutes[0] if exp_minutes else 60
+
+    now = datetime.now()
+    not_before_str = now.strftime('%Y-%m-%dT%H:%M:%S')
+    not_after_str = (now + timedelta(minutes=exp_minutes)).strftime('%Y-%m-%dT%H:%M:%S')
+
+    validity = ET.SubElement(grant_elem, 'validity')
+    ET.SubElement(validity, 'not_before').text = not_before_str
+    ET.SubElement(validity, 'not_after').text = not_after_str
+
+    # Reglas
+    cursor.execute('''
+        SELECT rules.id, rules.permiso
+        FROM rules
+        JOIN grant_rules ON rules.id = grant_rules.rule_id
+        WHERE grant_rules.grant_id = ?
+    ''', (grant_id,))
+    rules = cursor.fetchall()
+
+    for rule_id, permiso in rules:
+        rule_tag = ET.SubElement(grant_elem, permiso)
+
+        cursor.execute('''
+            SELECT domains.name FROM rule_domains
+            JOIN domains ON rule_domains.domain_id = domains.id
+            WHERE rule_domains.rule_id = ?
+        ''', (rule_id,))
+        domain_rows = cursor.fetchall()
+        if domain_rows:
+            domains_elem = ET.SubElement(rule_tag, 'domains')
+            for (domain,) in domain_rows:
+                ET.SubElement(domains_elem, 'id').text = domain
+
+        cursor.execute('''
+            SELECT topics.name FROM rule_topics
+            JOIN topics ON rule_topics.topic_id = topics.id
+            WHERE rule_topics.rule_id = ? AND rule_topics.action = 'publish'
+        ''', (rule_id,))
+        publish_rows = cursor.fetchall()
+        if publish_rows:
+            pub_elem = ET.SubElement(rule_tag, 'publish')
+            topics_elem = ET.SubElement(pub_elem, 'topics')
+            for (topic,) in publish_rows:
+                ET.SubElement(topics_elem, 'topic').text = topic
+
+        cursor.execute('''
+            SELECT topics.name FROM rule_topics
+            JOIN topics ON rule_topics.topic_id = topics.id
+            WHERE rule_topics.rule_id = ? AND rule_topics.action = 'subscribe'
+        ''', (rule_id,))
+        subscribe_rows = cursor.fetchall()
+        if subscribe_rows:
+            sub_elem = ET.SubElement(rule_tag, 'subscribe')
+            topics_elem = ET.SubElement(sub_elem, 'topics')
+            for (topic,) in subscribe_rows:
+                ET.SubElement(topics_elem, 'topic').text = topic
+
+    ET.SubElement(grant_elem, 'default').text = default_action
+
+    xml_str = ET.tostring(dds, encoding='utf-8')
+    pretty_xml = minidom.parseString(xml_str).toprettyxml(indent="  ", encoding='utf-8')
+
+    return pretty_xml, grant_name, None
+
+
+
+
+
 @app.route('/api/export-grantbyrole/<int:role_id>', methods=['GET'])
 @user_required
 @swag_from({
@@ -1358,144 +1460,177 @@ def export_grant_by_role(role_id):
     user_data = verificar_jwt_api()
     username = user_data.get('username')
 
-    if not username:
-        return jsonify({'error': 'Invalid token'}), 401
-
     conn = get_db_connection()
     cursor = conn.cursor()
-
-    # Obtener user_id desde el username
     cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
     user = cursor.fetchone()
+
     if not user:
-        conn.close()
         return jsonify({'error': 'User not found'}), 401
 
     user_id = user[0]
-
-    # Comprobar si el rol pertenece al usuario
-    cursor.execute(
-        'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+    cursor.execute('SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
     if cursor.fetchone() is None:
-        conn.close()
         return jsonify({'error': 'Role does not belong to user'}), 403
 
-    # Obtener el grant_id desde la tabla roles
-    cursor.execute('''
-        SELECT g.id, g.name, g.default_action
-        FROM roles r
-        JOIN grantTemplate g ON r.grant_id = g.id
-        WHERE r.id = ?
-    ''', (role_id,))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
-        return jsonify({'error': 'No grant associated with this role'}), 404
-
-    grant_id, grant_name, default_action = row
-
-    # Construir el XML
-    dds = ET.Element('dds', {
-        'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
-        'xsi:noNamespaceSchemaLocation': "http://community.rti.com/schema/7.3.0/dds_security_permissions.xsd"
-    })
-    permissions = ET.SubElement(dds, 'permissions')
-    grant_elem = ET.SubElement(permissions, 'grant', {'name': grant_name})
-
-    cert_subject_name = user_data.get('cert', 'CN=Unknown')
-    subject = ET.SubElement(grant_elem, 'subject_name')
-    subject.text = cert_subject_name
-
-    # Obtener exp_time desde la tabla roles
-    cursor.execute('SELECT exp_time FROM roles WHERE id = ?', (role_id,))
-    row = cursor.fetchone()
-    # fallback a 60 minutos si no se encuentra
-    exp_minutes = row[0] if row else 60
-
-    # Calcular fechas
-    now = datetime.now()
-    not_before_dt = now
-    not_after_dt = now + timedelta(minutes=exp_minutes)
-
-    # Formato ISO 8601 con segundos
-    not_before_str = not_before_dt.strftime('%Y-%m-%dT%H:%M:%S')
-    not_after_str = not_after_dt.strftime('%Y-%m-%dT%H:%M:%S')
-
-    # Insertar en XML
-    validity = ET.SubElement(grant_elem, 'validity')
-    not_before = ET.SubElement(validity, 'not_before')
-    not_before.text = not_before_str
-    not_after = ET.SubElement(validity, 'not_after')
-    not_after.text = not_after_str
-
-    # Reglas del grant
-    cursor.execute('''
-        SELECT rules.id, rules.permiso
-        FROM rules
-        JOIN grant_rules ON rules.id = grant_rules.rule_id
-        WHERE grant_rules.grant_id = ?
-    ''', (grant_id,))
-    rules = cursor.fetchall()
-
-    for rule_id, permiso in rules:
-        rule_tag = ET.SubElement(grant_elem, permiso)
-
-        # Dominios
-        cursor.execute('''
-            SELECT domains.name
-            FROM rule_domains
-            JOIN domains ON rule_domains.domain_id = domains.id
-            WHERE rule_domains.rule_id = ?
-        ''', (rule_id,))
-        domain_rows = cursor.fetchall()
-        if domain_rows:
-            domains_elem = ET.SubElement(rule_tag, 'domains')
-            for (domain,) in domain_rows:
-                ET.SubElement(domains_elem, 'id').text = domain
-
-        # Topics - publish
-        cursor.execute('''
-            SELECT topics.name
-            FROM rule_topics
-            JOIN topics ON rule_topics.topic_id = topics.id
-            WHERE rule_topics.rule_id = ? AND rule_topics.action = 'publish'
-        ''', (rule_id,))
-        publish_rows = cursor.fetchall()
-        if publish_rows:
-            publish_elem = ET.SubElement(rule_tag, 'publish')
-            topics_elem = ET.SubElement(publish_elem, 'topics')
-            for (topic,) in publish_rows:
-                ET.SubElement(topics_elem, 'topic').text = topic
-
-        # Topics - subscribe
-        cursor.execute('''
-            SELECT topics.name
-            FROM rule_topics
-            JOIN topics ON rule_topics.topic_id = topics.id
-            WHERE rule_topics.rule_id = ? AND rule_topics.action = 'subscribe'
-        ''', (rule_id,))
-        subscribe_rows = cursor.fetchall()
-        if subscribe_rows:
-            subscribe_elem = ET.SubElement(rule_tag, 'subscribe')
-            topics_elem = ET.SubElement(subscribe_elem, 'topics')
-            for (topic,) in subscribe_rows:
-                ET.SubElement(topics_elem, 'topic').text = topic
-
-    # Acción por defecto
-    default_elem = ET.SubElement(grant_elem, 'default')
-    default_elem.text = default_action
-
-    # Generar XML y formatear con minidom para legibilidad
-    xml_str = ET.tostring(dds, encoding='utf-8')
-    parsed_xml = minidom.parseString(xml_str)
-    pretty_xml_as_str = parsed_xml.toprettyxml(indent="  ", encoding='utf-8')
-
+    xml_data, _, error = generar_xml_grant(role_id, user_data, conn)
     conn.close()
-    response = make_response(pretty_xml_as_str)
+
+    if error:
+        return jsonify({'error': error}), 404
+
+    response = make_response(xml_data)
     response.headers['Content-Type'] = 'application/xml'
-    response.headers[
-        'Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
+    response.headers['Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
     return response
+
+
+
+@app.route('/api/sign-grant-by-role/<int:role_id>', methods=['GET'])
+@user_required
+@swag_from({
+    'tags': ['TEST'],
+    'summary': 'Sign and export a grantTemplate as a PKCS#7 (.p7s) file',
+    'description': 'Authenticated users can export a signed version of the XML grantTemplate associated with a specific role. The response is a .p7s file (PKCS#7 detached signature).',
+    'security': [{'BearerAuth': []}],
+    'parameters': [
+        {
+            'name': 'role_id',
+            'in': 'path',
+            'required': True,
+            'type': 'integer',
+            'description': 'ID of the role whose grant should be signed and exported'
+        }
+    ],
+    'responses': {
+        200: {'description': 'Signed grantTemplate exported successfully as .p7s'},
+        401: {'description': 'Invalid token or unauthorized user'},
+        403: {'description': 'User does not have access to this role'},
+        404: {'description': 'Role or grant not found'},
+        500: {'description': 'Error while signing the grant'}
+    }
+})
+def sign_grant_by_role(role_id):
+    user_data = verificar_jwt_api()
+    username = user_data.get('username')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
+    user = cursor.fetchone()
+
+    if not user:
+        return jsonify({'error': 'User not found'}), 401
+
+    user_id = user[0]
+    cursor.execute('SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+    if cursor.fetchone() is None:
+        return jsonify({'error': 'Role does not belong to user'}), 403
+
+    xml_data, grant_name, error = generar_xml_grant(role_id, user_data, conn)
+    conn.close()
+
+    if error:
+        return jsonify({'error': error}), 404
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as xml_file:
+        xml_file.write(xml_data)
+        xml_path = xml_file.name
+
+    signed_output_path = os.path.join(tempfile.gettempdir(), f"{grant_name}.p7s")
+
+    # TODO Cambiarlo cuando uses docker
+    OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+
+    result = subprocess.run([
+        OPENSSL_PATH, "smime", "-sign",
+        "-in", xml_path,
+        "-out", signed_output_path,
+        "-signer", CA_CERT_PATH,
+        "-inkey", CA_KEY_PATH,
+        "-outform", "DER",
+        "-nodetach"
+    ], capture_output=True)
+
+    os.remove(xml_path)
+
+    if result.returncode != 0:
+        return jsonify({'error': 'Signing failed', 'details': result.stderr.decode()}), 500
+
+    return send_file(
+        signed_output_path,
+        as_attachment=True,
+        download_name=f"{grant_name}.p7s",
+        mimetype='application/pkcs7-signature'
+    )
+
+
+@app.route('/api/verify-signed-file', methods=['POST'])
+@swag_from({
+    'tags': ['TEST'],
+    'summary': 'Verifica un archivo .p7s firmado (PKCS#7)',
+    'description': 'Verifica la firma digital de un archivo .p7s usando el certificado del firmante',
+    'consumes': ['multipart/form-data'],
+    'security': [{'BearerAuth': []}],
+    'parameters': [
+        {
+            'name': 'file',
+            'in': 'formData',
+            'type': 'file',
+            'required': True,
+            'description': 'Archivo firmado (.p7s)'
+        }
+    ],
+    'responses': {
+        200: {'description': 'Firma verificada correctamente'},
+        400: {'description': 'Faltan parámetros o archivo inválido'},
+        500: {'description': 'Error al verificar la firma'}
+    }
+})
+def verify_signed_file():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No se envió ningún archivo'}), 400
+
+    file = request.files['file']
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".p7s") as temp_signed:
+        file.save(temp_signed.name)
+        signed_path = temp_signed.name
+
+    # Temporal para la salida verificada
+    verified_path = signed_path + ".verified"
+
+    # TODO Modificarlo a cuando se use docker
+    OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+
+    try:
+        result = subprocess.run([
+            OPENSSL_PATH, "smime", "-verify",
+            "-in", signed_path,
+            "-inform", "DER",
+            "-CAfile", CA_CERT_PATH,
+            "-out", verified_path
+        ], capture_output=True)
+
+        if result.returncode != 0:
+            return jsonify({
+                'error': 'La verificación falló',
+                'details': result.stderr.decode()
+            }), 400
+
+        with open(verified_path, 'rb') as f:
+            content = f.read()
+
+        return {
+            'message': 'Firma verificada correctamente',
+            'original_data': content.decode('utf-8', errors='replace')
+        }, 200
+
+    finally:
+        os.remove(signed_path)
+        if os.path.exists(verified_path):
+            os.remove(verified_path)
+
 
 
 #########################
