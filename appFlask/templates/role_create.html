@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Create Role{% endblock %}
+
+{% block active_module_rol %}active{% endblock %}
+{% block open_rol %}-open{% endblock %}
+{% block active_new_role %}active{% endblock %}
+
+{% block header %}Create a new Role{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Index</a></li>
+<li class="breadcrumb-item active">Create Role</li>
+{% endblock %}
+
+{% block content %}
+<div class="card card-primary">
+  <div class="card-header">
+    <h3 class="card-title">New Role</h3>
+  </div>
+  <form method="POST">
+    <div class="card-body">
+      <div class="form-group">
+        <label for="name">Role Name</label>
+        <input type="text" class="form-control" id="name" name="name" placeholder="Enter role name" required>
+      </div>
+      <div class="form-group">
+        <label for="description">Description (optional)</label>
+        <input type="text" class="form-control" id="description" name="description" placeholder="Enter description">
+      </div>
+      <div class="form-group">
+        <label for="exp_time">Expiration Time (minutes)</label>
+        <input type="number" class="form-control" id="exp_time" name="exp_time" value="60" required>
+      </div>
+      <div class="form-group">
+        <label for="grant_id">Grant Template</label>
+        <select class="form-control" id="grant_id" name="grant_id">
+          <option value="">-- None --</option>
+          {% for template in templates %}
+          <option value="{{ template[0] }}">{{ template[1] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="card-footer">
+      <button type="submit" class="btn btn-primary">Create Role</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

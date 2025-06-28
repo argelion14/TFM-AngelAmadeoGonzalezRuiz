@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Listar Roles{% endblock %}
+
+{% block active_module_rol %}active{% endblock %}
+{% block open_rol %}-open{% endblock %}
+{% block active_roles %}active{% endblock %}
+
+{% block header %}Listado de Roles{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
+<li class="breadcrumb-item active">Roles</li>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Roles del sistema</h3>
+  </div>
+  <div class="card-body">
+    <table id="rolesTable" class="table table-bordered table-striped">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>Descripción</th>
+          <th>Expira en (min)</th>
+          <th>Grant Template</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for role in roles %}
+        <tr>
+          <td>{{ role.id }}</td>
+          <td>{{ role.name }}</td>
+          <td>{{ role.description or "—" }}</td>
+          <td>{{ role.exp_time }}</td>
+          <td>{{ role.grant_name or "—" }}</td>
+          <td>
+            <!-- Botón Editar -->
+            <a href="{{ url_for('edit_role', role_id=role.id) }}" class="btn btn-primary btn-sm">
+              <i class="fas fa-edit"></i> Editar
+            </a>
+
+            <!-- Botón Eliminar -->
+            <form action="{{ url_for('delete_role_html', role_id=role.id) }}" method="POST" style="display:inline;"
+              onsubmit="return confirm('¿Estás seguro de que deseas eliminar el rol \'{{ role.name }}\'?');">
+              <button type="submit" class="btn btn-danger btn-sm">
+                <i class="fas fa-trash-alt"></i> Eliminar
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  $(function () {
+    $("#rolesTable").DataTable({
+      "language": {
+        "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+      }
+    });
+  });
+</script>
+{% endblock %}

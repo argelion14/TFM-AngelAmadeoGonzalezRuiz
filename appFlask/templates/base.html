@@ -46,7 +46,7 @@
                 <li class="nav-item"><a href="{{ url_for('xml_vality') }}" class="nav-link">validar_xml</a></li>
                 <li class="nav-item"><a href="{{ url_for('redirigir_a_swagger_json') }}"
                         class="nav-link">swagger-json</a></li>
-                <li class="nav-item"><a href="{{ url_for('index') }}" class="nav-link">Panel</a></li>
+                <li class="nav-item"><a href="{{ url_for('role_list') }}" class="nav-link">role_list</a></li>
                 <li class="nav-item"><a href="{{ url_for('index') }}" class="nav-link">Panel</a></li>
             </ul>
 
@@ -195,23 +195,23 @@
                         </li>
                         {% endif %}
                         {% if token_data.is_superuser %}
-                        <li class="nav-item menu{% block open_proyecto%}{% endblock %}">
+                        <li class="nav-item menu{% block open_rol%}{% endblock %}">
                             <a title="Module rols" href="#"
-                                class="nav-link {% block active_module_proyectos%}{% endblock %}">
+                                class="nav-link {% block active_module_rol%}{% endblock %}">
                                 <i class="nav-icon fas fa-solid fa-briefcase"></i>
                                 <p>Rols management<i class="right fas fa-angle-left"></i></p>
                             </a>
                             <ul class="nav nav-treeview">
                                 <li class="nav-item">
-                                    <a title="Lista de proyectos" href="{{ url_for('information') }}"
-                                        class="nav-link {% block active_proyectos %}{% endblock %} ">
+                                    <a title="Lista de roles" href="{{ url_for('role_list') }}"
+                                        class="nav-link {% block active_roles %}{% endblock %} ">
                                         <i class="nav-icon fas fa-solid fa-list"></i>
                                         <p>Rols</p>
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a title="Nuevo proyecto" href="{{ url_for('information') }}"
-                                        class="nav-link {% block active_nuevo_proyecto %}{% endblock %} ">
+                                    <a title="Nuevo proyecto" href="{{ url_for('create_role') }}"
+                                        class="nav-link {% block active_new_role %}{% endblock %} ">
                                         <i class="nav-icon fas fa-solid fa-plus"></i>
                                         <p>New rol</p>
                                     </a>

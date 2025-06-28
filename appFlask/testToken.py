@@ -11,6 +11,7 @@ import bcrypt
 import jwt
 import xmlschema
 import functools
+from functools import wraps
 
 from datetime import datetime, timedelta
 from flask import (
@@ -1913,21 +1914,26 @@ def remove_roles_from_user(user_id):
 # SECCIÓN DE HTML ROLES
 #########################
 
-def get_roles():
+def get_roles_html():
     """
-    Recupera todos los roles almacenados en la base de datos.
-
-    Conecta con la base de datos SQLite 'roles.db', realiza una consulta
-    para obtener todos los registros de la tabla 'roles' y devuelve los resultados
-    como una lista de objetos `sqlite3.Row`.
+    Recupera todos los roles junto con el nombre del grantTemplate asociado.
 
     Returns:
-        list[sqlite3.Row]: Lista de filas que representan los roles existentes en la base de datos.
+        list[sqlite3.Row]: Lista de filas con información de roles y sus grant templates.
     """
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM roles")
+    cursor.execute('''
+        SELECT 
+            roles.id,
+            roles.name,
+            roles.description,
+            roles.exp_time,
+            grantTemplate.name AS grant_name
+        FROM roles
+        LEFT JOIN grantTemplate ON roles.grant_id = grantTemplate.id
+    ''')
     rows = cursor.fetchall()
     conn.close()
     return rows
@@ -2237,7 +2243,7 @@ def contact():
 
 @app.route("/roles")
 def roles():
-    roles = get_roles()
+    roles = get_roles2()
     return render_template("roles.html", roles=roles)
 
 
@@ -2500,6 +2506,181 @@ def authrole_vality():
 @app.route('/user_create')
 def user_create():
     return render_template('user_create.html')
+
+def superuser_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = verificar_jwt()
+        if not user:
+            return redirect(url_for('login'))
+        if not user.get('is_superuser', False):
+            return render_template("access_denied.html"), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+
+
+# @app.route('/create_role', methods=['GET', 'POST'])
+# def create_role():
+#     user_data = verificar_jwt()
+#     if not user_data:
+#         flash("Debes iniciar sesión para acceder a esta página", "danger")
+#         return redirect(url_for("login"))
+
+#     token = None
+
+#     if request.method == 'POST':
+#         role_id = request.form.get('role_id')
+#         if not role_id or not role_id.isdigit():
+#             flash("El ID de rol es inválido", "danger")
+#             return render_template('role_create.html')
+
+#         role_id = int(role_id)
+
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+
+#         # Obtener user_id a partir del username del JWT
+#         cursor.execute("SELECT id FROM users WHERE username = ?", (user_data['username'],))
+#         user = cursor.fetchone()
+#         if not user:
+#             conn.close()
+#             flash("Usuario no encontrado", "danger")
+#             return render_template('role_create.html')
+
+#         user_id = user[0]
+
+#         # Verificar que el usuario tiene ese rol
+#         cursor.execute("SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?", (user_id, role_id))
+#         if cursor.fetchone() is None:
+#             conn.close()
+#             flash("No tienes asignado ese rol", "danger")
+#             return render_template('role_create.html')
+
+#         # Verificar que el rol está vinculado a una grantTemplate
+#         cursor.execute("SELECT grant_id FROM roles WHERE id = ?", (role_id,))
+#         result = cursor.fetchone()
+#         if not result or result[0] is None:
+#             conn.close()
+#             flash("El rol no está vinculado a una grantTemplate", "danger")
+#             return render_template('role_create.html')
+
+#         # Generar un nuevo JWT con ese rol
+#         payload = {
+#             'username': user_data['username'],
+#             'role_id': role_id,
+#             'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
+#         }
+#         token = jwt.encode(payload, PRIVATE_KEY, algorithm="ES256")
+
+#         conn.close()
+#         flash("Token generado con éxito", "success")
+
+#     return render_template('role_create.html', token=token)
+
+
+@app.route('/create_role', methods=['GET', 'POST'])
+@superuser_required
+def create_role():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        exp_time = request.form.get('exp_time')
+        grant_id = request.form.get('grant_id')
+
+        # Validación básica
+        if not name or not exp_time:
+            flash("❌ Nombre y tiempo de expiración son obligatorios.", "danger")
+        else:
+            try:
+                cursor.execute(
+                    "INSERT INTO roles (name, description, exp_time, grant_id) VALUES (?, ?, ?, ?)",
+                    (name, description, exp_time, grant_id if grant_id else None)
+                )
+                conn.commit()
+                flash(f"✅ Rol '{name}' creado correctamente.", "success")
+                return redirect(url_for('create_role'))
+            except Exception as e:
+                flash(f"❌ Error al crear el rol: {str(e)}", "danger")
+
+    # Obtener los templates para la lista desplegable
+    cursor.execute("SELECT id, name FROM grantTemplate")
+    templates = cursor.fetchall()
+
+    conn.close()
+    return render_template("role_create.html", templates=templates)
+
+
+@app.route('/role_list', methods=['GET'])
+@superuser_required
+def role_list():
+    roles = get_roles_html()
+    return render_template("role_list.html", roles=roles)
+
+
+@app.route('/delete_role/<int:role_id>', methods=['POST'])
+@superuser_required
+def delete_role_html(role_id):
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row  # 👈 Esto permite acceder con ['name']
+    cursor = conn.cursor()
+
+    # Verificamos si el rol existe
+    cursor.execute("SELECT name FROM roles WHERE id = ?", (role_id,))
+    role = cursor.fetchone()
+
+    if not role:
+        conn.close()
+        flash("❌ Rol no encontrado.", "danger")
+        return redirect(url_for('role_list'))
+
+    # Eliminamos el rol
+    cursor.execute("DELETE FROM roles WHERE id = ?", (role_id,))
+    conn.commit()
+    conn.close()
+
+    flash(f"✅ Rol '{role['name']}' eliminado correctamente.", "success")
+    return redirect(url_for('role_list'))
+
+@app.route('/edit_role/<int:role_id>', methods=['GET', 'POST'])
+@superuser_required
+def edit_role(role_id):
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        name = request.form['name']
+        description = request.form['description']
+        exp_time = request.form['exp_time']
+        grant_id = request.form.get('grant_id') or None
+
+        cursor.execute('''
+            UPDATE roles SET name=?, description=?, exp_time=?, grant_id=?
+            WHERE id=?
+        ''', (name, description, exp_time, grant_id, role_id))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('role_list'))
+
+    cursor.execute("SELECT * FROM roles WHERE id=?", (role_id,))
+    role = cursor.fetchone()
+
+    if not role:
+        abort(404)
+
+    cursor.execute("SELECT * FROM grantTemplate")
+    grant_templates = cursor.fetchall()
+    conn.close()
+
+    return render_template("edit_role.html", role=role, grant_templates=grant_templates)
+
+
+
 
 
 @app.context_processor
