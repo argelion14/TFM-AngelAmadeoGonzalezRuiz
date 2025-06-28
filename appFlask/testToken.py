@@ -2304,6 +2304,14 @@ def edit_role(role_id):
 # SECCIÓN DE USER HTML
 #########################
 
+@app.route('/user_list')
+def user_list():
+    user = verificar_jwt()
+    if user:
+        users = get_users()
+        return render_template('user_list.html', usuarios=users)
+    return redirect(url_for('login'))
+
 @app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
 @superuser_required
 def editar_usuario(id):
@@ -2332,7 +2340,7 @@ def editar_usuario(id):
     if usuario is None:
         abort(404)
 
-    return render_template('editar_usuario.html', usuario=usuario)
+    return render_template('user_update.html', usuario=usuario)
 
 
 @app.route('/usuarios/<int:id>/eliminar', methods=['POST'])
@@ -2384,6 +2392,166 @@ def user_create():
             return redirect(url_for('user_create'))
 
     return render_template('user_create.html')
+
+#########################
+# SECCIÓN DE GrantTemplate HTML
+#########################
+
+def get_grant_templates():
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT
+            gt.id,
+            gt.name,
+            gt.default_action,
+            GROUP_CONCAT(r.name, ', ') AS roles
+        FROM grantTemplate gt
+        LEFT JOIN roles r ON r.grant_id = gt.id
+        GROUP BY gt.id
+    ''')
+
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+@app.route('/grant_templates')
+@superuser_required
+def grant_template_list():
+    user = verificar_jwt()
+    if not user:
+        return redirect(url_for('login'))
+
+    templates = get_grant_templates()
+    return render_template('grant_template_list.html', templates=templates)
+
+@app.route('/grant_templates/delete/<int:grant_id>', methods=['POST'])
+@superuser_required
+def delete_grant_template(grant_id):
+    user = verificar_jwt()
+    if not user:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    try:
+        delete_grant_template_by_id(grant_id, conn)
+        conn.commit()
+        flash(f'Grant template {grant_id} eliminado correctamente.', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error al eliminar el grant template: {e}', 'danger')
+    finally:
+        conn.close()
+
+    return redirect(url_for('grant_template_list'))
+
+# @app.route('/grant_templates/<int:grant_id>')
+# @superuser_required
+# def grant_template_detail(grant_id):
+#     user = verificar_jwt()
+#     if not user:
+#         return redirect(url_for('login'))
+
+#     conn = get_db_connection()
+#     conn.row_factory = sqlite3.Row
+#     cursor = conn.cursor()
+
+#     # Obtener el grantTemplate
+#     cursor.execute('''
+#         SELECT id, name, default_action
+#         FROM grantTemplate
+#         WHERE id = ?
+#     ''', (grant_id,))
+#     grant = cursor.fetchone()
+
+#     if not grant:
+#         conn.close()
+#         return render_template('404.html'), 404
+
+#     # Obtener roles asociados
+#     cursor.execute('''
+#         SELECT name, description, exp_time
+#         FROM roles
+#         WHERE grant_id = ?
+#     ''', (grant_id,))
+#     roles = cursor.fetchall()
+#     conn.close()
+
+#     return render_template('grant_template_detail.html', grant=grant, roles=roles)
+
+@app.route('/grant_templates/<int:grant_id>')
+@superuser_required
+def grant_template_detail(grant_id):
+    user = verificar_jwt()
+    if not user:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # Obtener el grantTemplate
+    cursor.execute('''
+        SELECT id, name, default_action
+        FROM grantTemplate
+        WHERE id = ?
+    ''', (grant_id,))
+    grant = cursor.fetchone()
+    if not grant:
+        conn.close()
+        return render_template('404.html'), 404
+
+    # Obtener roles asociados
+    cursor.execute('''
+        SELECT name, description, exp_time
+        FROM roles
+        WHERE grant_id = ?
+    ''', (grant_id,))
+    roles = cursor.fetchall()
+
+    # Obtener reglas asociadas al grant
+    cursor.execute('''
+        SELECT r.id, r.permiso
+        FROM rules r
+        JOIN grant_rules gr ON gr.rule_id = r.id
+        WHERE gr.grant_id = ?
+    ''', (grant_id,))
+    rules = cursor.fetchall()
+
+    # Para cada regla, obtener dominios y tópicos
+    detailed_rules = []
+    for rule in rules:
+        rule_id = rule['id']
+
+        # Dominios
+        cursor.execute('''
+            SELECT d.name
+            FROM domains d
+            JOIN rule_domains rd ON rd.domain_id = d.id
+            WHERE rd.rule_id = ?
+        ''', (rule_id,))
+        domains = [row['name'] for row in cursor.fetchall()]
+
+        # Tópicos y acciones
+        cursor.execute('''
+            SELECT t.name, rt.action
+            FROM topics t
+            JOIN rule_topics rt ON rt.topic_id = t.id
+            WHERE rt.rule_id = ?
+        ''', (rule_id,))
+        topics = [{'name': row['name'], 'action': row['action']} for row in cursor.fetchall()]
+
+        detailed_rules.append({
+            'id': rule_id,
+            'permiso': rule['permiso'],
+            'domains': domains,
+            'topics': topics
+        })
+
+    conn.close()
+    return render_template('grant_template_detail.html', grant=grant, roles=roles, rules=detailed_rules)
 
 #########################
 # SECCIÓN DE ADDITIONAL HTML
@@ -2452,13 +2620,7 @@ def contact():
 #     return render_template("roles.html", roles=roles)
 
 
-@app.route('/user_list')
-def user_list():
-    user = verificar_jwt()
-    if user:
-        users = get_users()
-        return render_template('user_list.html', usuarios=users)
-    return redirect(url_for('login'))
+
 
 
 @app.errorhandler(404)
@@ -2643,7 +2805,7 @@ def delete_grant_template_by_id(grant_id, conn):
 
 
 @app.route('/delete_grant/<int:grant_id>', methods=['POST'])
-def delete_grant_template(grant_id):
+def delete_grant_template_html(grant_id):
     conn = get_db_connection()
     try:
         delete_grant_template_by_id(grant_id, conn)

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de Grant Templates{% endblock %}
+
+{% block content %}
+<section class="content-header">
+    <h1>Plantillas de permisos <small>Listado</small></h1>
+</section>
+
+<section class="content">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Grant Templates</h3>
+        </div>
+        <div class="card-body table-responsive p-0">
+            <table class="table table-hover text-nowrap">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Acción por defecto</th>
+                        <th>Roles asociados</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for template in templates %}
+                    <tr>
+                        <td>{{ template['id'] }}</td>
+                        <td>{{ template['name'] }}</td>
+                        <td>
+                            {% if template['default_action'] == 'ALLOW' %}
+                            <span class="badge bg-success">ALLOW</span>
+                            {% else %}
+                            <span class="badge bg-danger">DENY</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ template['roles'] or '—' }}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('grant_template_detail', grant_id=template['id']) }}"
+                                class="btn btn-sm btn-info">Ver detalles</a>
+                            <form action="{{ url_for('delete_grant_template', grant_id=template['id']) }}" method="post"
+                                style="display:inline;"
+                                onsubmit="return confirm('¿Eliminar esta plantilla y sus reglas?');">
+                                <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">No hay plantillas registradas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

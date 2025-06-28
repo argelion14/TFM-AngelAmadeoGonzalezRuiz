@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Detalle del Grant Template</h2>
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">{{ grant['name'] }}</h5>
+      <p><strong>ID:</strong> {{ grant['id'] }}</p>
+      <p><strong>Acción por defecto:</strong>
+        {% if grant['default_action'] == 'ALLOW' %}
+          <span class="badge bg-success">ALLOW</span>
+        {% else %}
+          <span class="badge bg-danger">DENY</span>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <h4>Roles asociados</h4>
+  {% if roles %}
+    <ul class="list-group mb-4">
+      {% for role in roles %}
+      <li class="list-group-item">
+        <strong>{{ role['name'] }}</strong><br>
+        {{ role['description'] or 'Sin descripción' }}<br>
+        <small>Expira en {{ role['exp_time'] }} minutos</small>
+      </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No hay roles asociados a este template.</p>
+  {% endif %}
+
+  <h4>Reglas asociadas</h4>
+  {% if rules %}
+    {% for rule in rules %}
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5>Regla #{{ rule['id'] }}</h5>
+        <p><strong>Permiso:</strong>
+          {% if rule['permiso'] == 'allow_rule' %}
+            <span class="badge bg-success">ALLOW</span>
+          {% else %}
+            <span class="badge bg-danger">DENY</span>
+          {% endif %}
+        </p>
+
+        <p><strong>Dominios:</strong>
+          {% if rule['domains'] %}
+            <ul>
+              {% for domain in rule['domains'] %}
+                <li>{{ domain }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <em>No hay dominios asociados</em>
+          {% endif %}
+        </p>
+
+        <p><strong>Tópicos:</strong>
+          {% if rule['topics'] %}
+            <ul>
+              {% for topic in rule['topics'] %}
+                <li>{{ topic['action'] | capitalize }} → {{ topic['name'] }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <em>No hay tópicos asociados</em>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p>No hay reglas asociadas a este template.</p>
+  {% endif %}
+
+  <a href="{{ url_for('grant_template_list') }}" class="btn btn-secondary mt-3">← Volver a la lista</a>
+</div>
+{% endblock %}
