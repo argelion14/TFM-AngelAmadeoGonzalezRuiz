@@ -21,5 +21,33 @@ active
 {% endblock %}
 
 {% block content %}
-user_create
+<div class="card card-primary">
+    <div class="card-header">
+        <h3 class="card-title">Formulario de nuevo usuario</h3>
+    </div>
+    <form method="POST">
+        <div class="card-body">
+            <div class="form-group">
+                <label for="username">Nombre de usuario</label>
+                <input type="text" name="username" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="cert">Certificado (opcional)</label>
+                <textarea name="cert" class="form-control"></textarea>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" name="is_superuser" class="form-check-input" id="is_superuser">
+                <label class="form-check-label" for="is_superuser">Superusuario</label>
+            </div>
+        </div>
+        <div class="card-footer">
+            <button type="submit" class="btn btn-primary">Crear</button>
+            <a href="{{ url_for('user_list') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
 {% endblock %}

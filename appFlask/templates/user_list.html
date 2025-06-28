@@ -1,25 +1,40 @@
 {% extends "base.html" %}
+
 {% block title %}
-Users
+Usuarios
 {% endblock %}
 
-{% block active_module_USER%}
+{% block active_module_USER %}
 active
 {% endblock %}
 
-{% block open_USERS%}-open{% endblock %}
+{% block open_USERS %}-open{% endblock %}
 
 {% block active_users %}
 active
 {% endblock %}
 
-
-{% block header %}Usuarios registrados{% endblock %}
+{% block header %}
+Usuarios registrados
+{% endblock %}
 
 {% block path_main %}
 <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Index</a></li>
 <li class="breadcrumb-item active">Usuarios</li>
 {% endblock %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
 
 {% block content %}
 <div class="card">
@@ -33,6 +48,7 @@ active
           <th>ID</th>
           <th>Usuario</th>
           <th>Certificado</th>
+          <th>Acciones</th> <!-- Nueva columna para las acciones -->
         </tr>
       </thead>
       <tbody>
@@ -46,6 +62,17 @@ active
             {% else %}
             <span class="text-muted">Sin certificado</span>
             {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('editar_usuario', id=user['id']) }}" class="btn btn-info btn-sm">
+              <i class="fas fa-edit"></i> Editar
+            </a>
+            <form action="{{ url_for('eliminar_usuario', id=user['id']) }}" method="post" style="display:inline;"
+              onsubmit="return confirm('¿Estás seguro de que deseas eliminar este usuario?');">
+              <button type="submit" class="btn btn-danger btn-sm">
+                <i class="fas fa-trash-alt"></i> Eliminar
+              </button>
+            </form>
           </td>
         </tr>
         {% endfor %}

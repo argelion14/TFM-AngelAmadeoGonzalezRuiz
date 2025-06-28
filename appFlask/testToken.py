@@ -2185,6 +2185,211 @@ def insert_grant_from_xml(xml_path):
 # SECCIÓN DE RUTAS
 #########################
 
+def superuser_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = verificar_jwt()
+        if not user:
+            return redirect(url_for('login'))
+        if not user.get('is_superuser', False):
+            return render_template("access_denied.html"), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+#########################
+# SECCIÓN DE ROLES HTML
+#########################
+
+@app.route('/create_role', methods=['GET', 'POST'])
+@superuser_required
+def create_role():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        exp_time = request.form.get('exp_time')
+        grant_id = request.form.get('grant_id')
+
+        # Validación básica
+        if not name or not exp_time:
+            flash("❌ Nombre y tiempo de expiración son obligatorios.", "danger")
+        else:
+            try:
+                cursor.execute(
+                    "INSERT INTO roles (name, description, exp_time, grant_id) VALUES (?, ?, ?, ?)",
+                    (name, description, exp_time, grant_id if grant_id else None)
+                )
+                conn.commit()
+                flash(f"✅ Rol '{name}' creado correctamente.", "success")
+                return redirect(url_for('create_role'))
+            except Exception as e:
+                flash(f"❌ Error al crear el rol: {str(e)}", "danger")
+
+    # Obtener los templates para la lista desplegable
+    cursor.execute("SELECT id, name FROM grantTemplate")
+    templates = cursor.fetchall()
+
+    conn.close()
+    return render_template("role_create.html", templates=templates)
+
+
+@app.route('/role_list', methods=['GET'])
+@superuser_required
+def role_list():
+    roles = get_roles_html()
+    return render_template("role_list.html", roles=roles)
+
+
+@app.route('/delete_role/<int:role_id>', methods=['POST'])
+@superuser_required
+def delete_role_html(role_id):
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row  # 👈 Esto permite acceder con ['name']
+    cursor = conn.cursor()
+
+    # Verificamos si el rol existe
+    cursor.execute("SELECT name FROM roles WHERE id = ?", (role_id,))
+    role = cursor.fetchone()
+
+    if not role:
+        conn.close()
+        flash("❌ Rol no encontrado.", "danger")
+        return redirect(url_for('role_list'))
+
+    # Eliminamos el rol
+    cursor.execute("DELETE FROM roles WHERE id = ?", (role_id,))
+    conn.commit()
+    conn.close()
+
+    flash(f"✅ Rol '{role['name']}' eliminado correctamente.", "success")
+    return redirect(url_for('role_list'))
+
+@app.route('/edit_role/<int:role_id>', methods=['GET', 'POST'])
+@superuser_required
+def edit_role(role_id):
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        name = request.form['name']
+        description = request.form['description']
+        exp_time = request.form['exp_time']
+        grant_id = request.form.get('grant_id') or None
+
+        cursor.execute('''
+            UPDATE roles SET name=?, description=?, exp_time=?, grant_id=?
+            WHERE id=?
+        ''', (name, description, exp_time, grant_id, role_id))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('role_list'))
+
+    cursor.execute("SELECT * FROM roles WHERE id=?", (role_id,))
+    role = cursor.fetchone()
+
+    if not role:
+        abort(404)
+
+    cursor.execute("SELECT * FROM grantTemplate")
+    grant_templates = cursor.fetchall()
+    conn.close()
+
+    return render_template("edit_role.html", role=role, grant_templates=grant_templates)
+
+
+#########################
+# SECCIÓN DE USER HTML
+#########################
+
+@app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
+@superuser_required
+def editar_usuario(id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        username = request.form['username']
+        cert = request.form['cert']
+        is_superuser = 1 if request.form.get('is_superuser') == 'on' else 0
+
+        cursor.execute('''
+            UPDATE users
+            SET username = ?, cert = ?, is_superuser = ?
+            WHERE id = ?
+        ''', (username, cert, is_superuser, id))
+        conn.commit()
+        conn.close()
+        flash('Usuario actualizado correctamente', 'success')
+        return redirect(url_for('user_list'))
+
+    # GET: cargar datos del usuario
+    cursor.execute('SELECT * FROM users WHERE id = ?', (id,))
+    usuario = cursor.fetchone()
+    conn.close()
+    if usuario is None:
+        abort(404)
+
+    return render_template('editar_usuario.html', usuario=usuario)
+
+
+@app.route('/usuarios/<int:id>/eliminar', methods=['POST'])
+@superuser_required
+def eliminar_usuario(id):
+    # current_user = verificar_jwt()
+    # if current_user['id'] == id:
+    #     flash('No puedes eliminar tu propio usuario.', 'warning')
+    #     return redirect(url_for('user_list'))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM users WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+
+    flash('Usuario eliminado correctamente', 'success')
+    return redirect(url_for('user_list'))
+
+@app.route('/user_create', methods=['GET', 'POST'])
+@superuser_required
+def user_create():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        cert = request.form.get('cert')
+        is_superuser = 1 if request.form.get('is_superuser') == 'on' else 0
+
+        if not username or not password:
+            flash("Usuario y contraseña son obligatorios", "danger")
+            return redirect(url_for('user_create'))
+
+        # Encriptamos la contraseña usando bcrypt (igual que en la API)
+        hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO users (username, password, cert, is_superuser)
+                VALUES (?, ?, ?, ?)
+            ''', (username, hashed_pw, cert, is_superuser))
+            conn.commit()
+            conn.close()
+            flash('Usuario creado correctamente', 'success')
+            return redirect(url_for('user_list'))
+        except sqlite3.IntegrityError:
+            flash('El nombre de usuario ya existe', 'danger')
+            return redirect(url_for('user_create'))
+
+    return render_template('user_create.html')
+
+#########################
+# SECCIÓN DE ADDITIONAL HTML
+#########################
+
+
 @app.route('/swagger-json')
 def redirigir_a_swagger_json():
     return redirect('/api-docs.json')
@@ -2200,7 +2405,7 @@ def login():
 
         if user and bcrypt.checkpw(password.encode('utf-8'), user[1].encode('utf-8')):
             token = generar_jwt(user)
-            resp = make_response(redirect(url_for('dashboard')))
+            resp = make_response(redirect(url_for('index')))
             resp.set_cookie('token', token, httponly=True, samesite='Lax')
             return resp
         else:
@@ -2241,10 +2446,10 @@ def contact():
     return render_template('contact.html')
 
 
-@app.route("/roles")
-def roles():
-    roles = get_roles2()
-    return render_template("roles.html", roles=roles)
+# @app.route("/roles")
+# def roles():
+#     roles = get_roles2()
+#     return render_template("roles.html", roles=roles)
 
 
 @app.route('/user_list')
@@ -2503,20 +2708,11 @@ def authrole_vality():
     return render_template('authrole_vality.html')
 
 
-@app.route('/user_create')
-def user_create():
-    return render_template('user_create.html')
+# @app.route('/user_create')
+# def user_create():
+#     return render_template('user_create.html')
 
-def superuser_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        user = verificar_jwt()
-        if not user:
-            return redirect(url_for('login'))
-        if not user.get('is_superuser', False):
-            return render_template("access_denied.html"), 403
-        return f(*args, **kwargs)
-    return decorated_function
+
 
 
 
@@ -2580,104 +2776,7 @@ def superuser_required(f):
 #     return render_template('role_create.html', token=token)
 
 
-@app.route('/create_role', methods=['GET', 'POST'])
-@superuser_required
-def create_role():
-    conn = get_db_connection()
-    cursor = conn.cursor()
 
-    if request.method == 'POST':
-        name = request.form.get('name')
-        description = request.form.get('description')
-        exp_time = request.form.get('exp_time')
-        grant_id = request.form.get('grant_id')
-
-        # Validación básica
-        if not name or not exp_time:
-            flash("❌ Nombre y tiempo de expiración son obligatorios.", "danger")
-        else:
-            try:
-                cursor.execute(
-                    "INSERT INTO roles (name, description, exp_time, grant_id) VALUES (?, ?, ?, ?)",
-                    (name, description, exp_time, grant_id if grant_id else None)
-                )
-                conn.commit()
-                flash(f"✅ Rol '{name}' creado correctamente.", "success")
-                return redirect(url_for('create_role'))
-            except Exception as e:
-                flash(f"❌ Error al crear el rol: {str(e)}", "danger")
-
-    # Obtener los templates para la lista desplegable
-    cursor.execute("SELECT id, name FROM grantTemplate")
-    templates = cursor.fetchall()
-
-    conn.close()
-    return render_template("role_create.html", templates=templates)
-
-
-@app.route('/role_list', methods=['GET'])
-@superuser_required
-def role_list():
-    roles = get_roles_html()
-    return render_template("role_list.html", roles=roles)
-
-
-@app.route('/delete_role/<int:role_id>', methods=['POST'])
-@superuser_required
-def delete_role_html(role_id):
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row  # 👈 Esto permite acceder con ['name']
-    cursor = conn.cursor()
-
-    # Verificamos si el rol existe
-    cursor.execute("SELECT name FROM roles WHERE id = ?", (role_id,))
-    role = cursor.fetchone()
-
-    if not role:
-        conn.close()
-        flash("❌ Rol no encontrado.", "danger")
-        return redirect(url_for('role_list'))
-
-    # Eliminamos el rol
-    cursor.execute("DELETE FROM roles WHERE id = ?", (role_id,))
-    conn.commit()
-    conn.close()
-
-    flash(f"✅ Rol '{role['name']}' eliminado correctamente.", "success")
-    return redirect(url_for('role_list'))
-
-@app.route('/edit_role/<int:role_id>', methods=['GET', 'POST'])
-@superuser_required
-def edit_role(role_id):
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    if request.method == 'POST':
-        name = request.form['name']
-        description = request.form['description']
-        exp_time = request.form['exp_time']
-        grant_id = request.form.get('grant_id') or None
-
-        cursor.execute('''
-            UPDATE roles SET name=?, description=?, exp_time=?, grant_id=?
-            WHERE id=?
-        ''', (name, description, exp_time, grant_id, role_id))
-        conn.commit()
-        conn.close()
-        return redirect(url_for('role_list'))
-
-    cursor.execute("SELECT * FROM roles WHERE id=?", (role_id,))
-    role = cursor.fetchone()
-
-    if not role:
-        abort(404)
-
-    cursor.execute("SELECT * FROM grantTemplate")
-    grant_templates = cursor.fetchall()
-    conn.close()
-
-    return render_template("edit_role.html", role=role, grant_templates=grant_templates)
 
 
 
