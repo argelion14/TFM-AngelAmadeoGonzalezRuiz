@@ -16,6 +16,65 @@ active
 
 
 {% block content %}
-xml_export_grant
+<section class="content-header">
+  <div class="container-fluid">
+    <h1>Exportar Grant XML</h1>
+  </div>
+</section>
 
+<section class="content">
+  <div class="container-fluid">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="card card-primary">
+      <div class="card-header">
+        <h3 class="card-title">Seleccionar un Rol</h3>
+      </div>
+      <form method="POST">
+        <div class="card-body">
+          <div class="form-group">
+            <label for="role_id">Rol disponible</label>
+            <select class="form-control" name="role_id" id="role_id" required>
+              <option value="" disabled selected>-- Selecciona un rol --</option>
+              {% for id, name in roles %}
+                <option value="{{ id }}">{{ name }} (ID: {{ id }})</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-file-code"></i> Generar XML</button>
+        </div>
+      </form>
+    </div>
+
+    {% if xml_output %}
+    <div class="card card-info">
+      <div class="card-header">
+        <h3 class="card-title">Grant generado: {{ grant_name }}</h3>
+      </div>
+      <div class="card-body">
+        <pre style="white-space: pre-wrap; word-break: break-word;">{{ xml_output }}</pre>
+        <a href="{{ url_for('export_grant_by_role', role_id=request.form.get('role_id')) }}"
+           class="btn btn-success mt-3">
+          <i class="fas fa-download"></i> Descargar XML
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</section>
 {% endblock %}

@@ -2579,6 +2579,54 @@ def new_grant_template():
     return render_template('new_grantTemplate.html')
 
 
+#########################
+# SECCIÓN DE AuthRole HTML
+#########################
+
+@app.route('/xml_export_grant', methods=['GET', 'POST'])
+def xml_export_grant():
+    xml_output = None
+    grant_name = None
+
+    user_data = verificar_jwt()
+    if not user_data:
+        flash("No tienes autorización para acceder a esta página", "danger")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if user_data["is_superuser"]:
+        cursor.execute("""
+            SELECT r.id, r.name
+            FROM roles r
+            WHERE r.grant_id IS NOT NULL
+        """)
+    else:
+        cursor.execute("""
+            SELECT r.id, r.name
+            FROM roles r
+            WHERE r.grant_id IS NOT NULL
+              AND r.user = ?
+        """, (user_data["username"],))
+
+    roles = cursor.fetchall()
+
+    if request.method == 'POST':
+        role_id = request.form.get('role_id', type=int)
+        if not role_id:
+            flash('Por favor selecciona un rol.', 'danger')
+        else:
+            xml_data, grant_name, error = generar_xml_grant(role_id, user_data, conn)
+
+            if error:
+                flash(f'Error al generar el XML: {error}', 'danger')
+            else:
+                xml_output = xml_data.decode('utf-8')
+
+    conn.close()
+    return render_template('xml_export_grant.html', roles=roles, xml_output=xml_output, grant_name=grant_name)
+
 
 
 
@@ -2884,9 +2932,9 @@ def xml_vality():
     return render_template('xml_vality.html')
 
 
-@app.route('/xml_export_grant')
-def xml_export_grant():
-    return render_template('xml_export_grant.html')
+# @app.route('/xml_export_grant')
+# def xml_export_grant():
+#     return render_template('xml_export_grant.html')
 
 
 @app.route('/authrole_create')
