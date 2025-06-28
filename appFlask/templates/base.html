@@ -220,23 +220,23 @@
                         </li>
                         {% endif %}
                         {% if token_data.is_superuser %}
-                        <li class="nav-item menu{% block open_proyectoo%}{% endblock %}">
+                        <li class="nav-item menu{% block open_grantTemplate%}{% endblock %}">
                             <a title="Module GrantTemplate" href="#"
-                                class="nav-link {% block active_module_proyectoss%}{% endblock %}">
+                                class="nav-link {% block active_module_grantTemplate%}{% endblock %}">
                                 <i class="nav-icon fas fa-solid fa-briefcase"></i>
                                 <p>GrantTemplate management<i class="right fas fa-angle-left"></i></p>
                             </a>
                             <ul class="nav nav-treeview">
                                 <li class="nav-item">
-                                    <a title="Lista de proyectos" href="{{ url_for('information') }}"
-                                        class="nav-link {% block active_proyectoss %}{% endblock %} ">
+                                    <a title="Lista de proyectos" href="{{ url_for('grant_template_list') }}"
+                                        class="nav-link {% block active_grantTemplateList %}{% endblock %} ">
                                         <i class="nav-icon fas fa-solid fa-list"></i>
                                         <p>GrantTemplate</p>
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a title="Nuevo proyecto" href="{{ url_for('information') }}"
-                                        class="nav-link {% block active_nuevo_proyectoo %}{% endblock %} ">
+                                    <a title="Nuevo proyecto" href="{{ url_for('new_grant_template') }}"
+                                        class="nav-link {% block active_grantTemplateNew %}{% endblock %} ">
                                         <i class="nav-icon fas fa-solid fa-plus"></i>
                                         <p>New GrantTemplate</p>
                                     </a>

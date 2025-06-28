@@ -2553,6 +2553,35 @@ def grant_template_detail(grant_id):
     conn.close()
     return render_template('grant_template_detail.html', grant=grant, roles=roles, rules=detailed_rules)
 
+# TODO Hacer que no se puedan crear con el mismo nombre las grantTemplate
+@app.route('/grants/new', methods=['GET', 'POST'])
+@superuser_required
+def new_grant_template():
+    if request.method == 'POST':
+        xml_file = request.files.get('xml_file')
+
+        if not xml_file:
+            flash('Debes subir un archivo XML.', 'danger')
+            return redirect(request.url)
+
+        try:
+            filename = secure_filename(xml_file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            xml_file.save(filepath)
+
+            grant_id, name, default_action = insert_grant_from_xml(filepath)
+            flash(f'Plantilla de permisos "{name}" creada correctamente con acción por defecto {default_action}.', 'success')
+            return redirect(url_for('grant_template_detail', grant_id=grant_id))
+        except Exception as e:
+            flash(f'Error al crear la plantilla: {str(e)}', 'danger')
+            return redirect(request.url)
+
+    return render_template('new_grantTemplate.html')
+
+
+
+
+
 #########################
 # SECCIÓN DE ADDITIONAL HTML
 #########################

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}
+GrantTemplate
+{% endblock %}
+
+{% block active_module_grantTemplate %}
+active
+{% endblock %}
+
+{% block open_grantTemplate %}-open{% endblock %}
+
+{% block active_grantTemplateNew %}
+active
+{% endblock %}
+
+{% block header %}
+Usuarios registrados
+{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Index</a></li>
+<li class="breadcrumb-item active">Usuarios</li>
+{% endblock %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+
+{% block content %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1>Crear nueva GrantTemplate</h1>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="card card-primary">
+            <div class="card-header">
+                <h3 class="card-title">Subir archivo XML</h3>
+            </div>
+            <form method="POST" enctype="multipart/form-data">
+                <div class="card-body">
+                    <div class="form-group">
+                        <label for="xml_file">Archivo XML DDS Permissions</label>
+                        <input type="file" class="form-control-file" id="xml_file" name="xml_file" accept=".xml"
+                            required>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> Crear GrantTemplate
+                    </button>
+                    <a href="{{ url_for('list_grant_templates') }}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+{% endblock %}
