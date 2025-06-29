@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+
 {% block title %}
 Validate XML
 {% endblock %}
@@ -14,8 +15,47 @@ active
 <li class="breadcrumb-item active">Validate XML</li>
 {% endblock %}
 
-
 {% block content %}
-active_auth_role
+<div class="card card-primary">
+    <div class="card-header">
+        <h3 class="card-title">Authenticate Role</h3>
+    </div>
+    <form method="POST" action="{{ url_for('auth_role_html') }}">
+        <div class="card-body">
+            {% if roles %}
+            <div class="form-group">
+                <label for="role_id">Select Role</label>
+                <select class="form-control" id="role_id" name="role_id" required>
+                    {% for role in roles %}
+                    <option value="{{ role.id }}">{{ role.name }} - {{ role.description }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                No roles available. You don't have any assigned roles.
+            </div>
+            {% endif %}
+
+            {% if error %}
+            <div class="alert alert-danger mt-3">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            {% if token %}
+            <div class="alert alert-success mt-3">
+                JWT issued successfully: <code>{{ token }}</code>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="card-footer">
+            <button type="submit" class="btn btn-primary" {% if not roles %}disabled{% endif %}>
+                Authenticate
+            </button>
+        </div>
+    </form>
+</div>
 
 {% endblock %}

@@ -2687,6 +2687,70 @@ def xml_vality():
     return render_template('xml_vality.html')
 
 #########################
+# SECCIÓN DE AuthRole HTML
+#########################
+
+
+@app.route('/auth-role', methods=['GET', 'POST'])
+def auth_role_html():
+    user_data = verificar_jwt()
+    if not user_data:
+        return redirect(url_for('login'))
+
+    username = user_data.get('username')
+    if not username:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # Obtener id del usuario
+    cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
+    user = cursor.fetchone()
+    if not user:
+        conn.close()
+        return redirect(url_for('login'))
+    user_id = user['id']
+
+    # Obtener roles con grant_id directamente
+    cursor.execute('''
+        SELECT r.id, r.name, r.description, r.grant_id
+        FROM users u
+        JOIN user_roles ur ON u.id = ur.user_id
+        JOIN roles r ON ur.role_id = r.id
+        WHERE u.username = ?
+    ''', (username,))
+    roles_dict = [dict(r) for r in cursor.fetchall()]
+
+    error = None
+    token = None
+
+    if request.method == 'POST':
+        role_id = int(request.form.get('role_id'))
+        selected = next((r for r in roles_dict if r['id'] == role_id), None)
+        if not selected:
+            error = 'Rol inválido o no disponible'
+        elif selected['grant_id'] is None:
+            error = 'El rol no está vinculado a una grantTemplate'
+        else:
+            payload = {
+                'user_id': user_id,
+                'role_id': role_id,
+                'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
+            }
+            token = jwt.encode(payload, PRIVATE_KEY, algorithm="ES256")
+
+    user = verificar_jwt()
+    if user:
+        username = user.get('username')
+        roles2 = get_roles_by_username(username)
+
+    conn.close()
+    return render_template('authrole_create.html', roles=roles_dict, error=error, token=token, roles2=roles2, user="hola")
+
+
+#########################
 # SECCIÓN DE ADDITIONAL HTML
 #########################
 
