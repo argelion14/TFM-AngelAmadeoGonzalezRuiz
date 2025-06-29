@@ -1370,7 +1370,8 @@ def generar_xml_grant(role_id, user_data, conn):
 
     now = datetime.now()
     not_before_str = now.strftime('%Y-%m-%dT%H:%M:%S')
-    not_after_str = (now + timedelta(minutes=exp_minutes)).strftime('%Y-%m-%dT%H:%M:%S')
+    not_after_str = (now + timedelta(minutes=exp_minutes)
+                     ).strftime('%Y-%m-%dT%H:%M:%S')
 
     validity = ET.SubElement(grant_elem, 'validity')
     ET.SubElement(validity, 'not_before').text = not_before_str
@@ -1426,12 +1427,10 @@ def generar_xml_grant(role_id, user_data, conn):
     ET.SubElement(grant_elem, 'default').text = default_action
 
     xml_str = ET.tostring(dds, encoding='utf-8')
-    pretty_xml = minidom.parseString(xml_str).toprettyxml(indent="  ", encoding='utf-8')
+    pretty_xml = minidom.parseString(xml_str).toprettyxml(
+        indent="  ", encoding='utf-8')
 
     return pretty_xml, grant_name, None
-
-
-
 
 
 @app.route('/api/export-grantbyrole/<int:role_id>', methods=['GET'])
@@ -1470,7 +1469,8 @@ def export_grant_by_role(role_id):
         return jsonify({'error': 'User not found'}), 401
 
     user_id = user[0]
-    cursor.execute('SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+    cursor.execute(
+        'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
     if cursor.fetchone() is None:
         return jsonify({'error': 'Role does not belong to user'}), 403
 
@@ -1482,9 +1482,9 @@ def export_grant_by_role(role_id):
 
     response = make_response(xml_data)
     response.headers['Content-Type'] = 'application/xml'
-    response.headers['Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
+    response.headers[
+        'Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
     return response
-
 
 
 @app.route('/api/sign-grant-by-role/<int:role_id>', methods=['GET'])
@@ -1524,7 +1524,8 @@ def sign_grant_by_role(role_id):
         return jsonify({'error': 'User not found'}), 401
 
     user_id = user[0]
-    cursor.execute('SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+    cursor.execute(
+        'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
     if cursor.fetchone() is None:
         return jsonify({'error': 'Role does not belong to user'}), 403
 
@@ -1538,7 +1539,8 @@ def sign_grant_by_role(role_id):
         xml_file.write(xml_data)
         xml_path = xml_file.name
 
-    signed_output_path = os.path.join(tempfile.gettempdir(), f"{grant_name}.p7s")
+    signed_output_path = os.path.join(
+        tempfile.gettempdir(), f"{grant_name}.p7s")
 
     # TODO Cambiarlo cuando uses docker
     OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
@@ -1633,7 +1635,6 @@ def verify_signed_file():
             os.remove(verified_path)
 
 
-
 #########################
 # SECCIÓN DE grantTemplate - rols
 # Funciones auxiliares para interacción entre roles y grantTemplate
@@ -1714,7 +1715,8 @@ def update_role_grant(role_id):
         return jsonify({'error': 'Invalid grant_id'}), 400
 
     # Actualizar grant_id del rol
-    cursor.execute("UPDATE roles SET grant_id=? WHERE id=?", (grant_id, role_id))
+    cursor.execute("UPDATE roles SET grant_id=? WHERE id=?",
+                   (grant_id, role_id))
     conn.commit()
     conn.close()
 
@@ -1730,6 +1732,8 @@ def update_role_grant(role_id):
 #########################
 
 # TODO Mejorar en el frontal
+
+
 @app.route('/api/users/<int:user_id>/roles', methods=['POST'])
 @swag_from({
     'tags': ['asociarolauser'],
@@ -1807,9 +1811,11 @@ def assign_roles_to_user(user_id):
             continue  # Ignora roles inexistentes
 
         # Verificar si ya está asociado
-        cursor.execute("SELECT 1 FROM user_roles WHERE user_id=? AND role_id=?", (user_id, role_id))
+        cursor.execute(
+            "SELECT 1 FROM user_roles WHERE user_id=? AND role_id=?", (user_id, role_id))
         if not cursor.fetchone():
-            cursor.execute("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
+            cursor.execute(
+                "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
             roles_added.append(role_id)
 
     conn.commit()
@@ -1822,6 +1828,8 @@ def assign_roles_to_user(user_id):
     }), 200
 
 # TODO Hacerlo en el front
+
+
 @app.route('/api/users/<int:user_id>/roles', methods=['DELETE'])
 @swag_from({
     'tags': ['desasociarrolauser'],
@@ -1893,7 +1901,8 @@ def remove_roles_from_user(user_id):
 
     roles_removed = []
     for role_id in role_ids:
-        cursor.execute("DELETE FROM user_roles WHERE user_id=? AND role_id=?", (user_id, role_id))
+        cursor.execute(
+            "DELETE FROM user_roles WHERE user_id=? AND role_id=?", (user_id, role_id))
         if cursor.rowcount > 0:
             roles_removed.append(role_id)
 
@@ -1913,6 +1922,7 @@ def remove_roles_from_user(user_id):
 #########################
 # SECCIÓN DE HTML ROLES
 #########################
+
 
 def get_roles_html():
     """
@@ -2200,6 +2210,7 @@ def superuser_required(f):
 # SECCIÓN DE ROLES HTML
 #########################
 
+
 @app.route('/create_role', methods=['GET', 'POST'])
 @superuser_required
 def create_role():
@@ -2266,6 +2277,7 @@ def delete_role_html(role_id):
     flash(f"✅ Rol '{role['name']}' eliminado correctamente.", "success")
     return redirect(url_for('role_list'))
 
+
 @app.route('/edit_role/<int:role_id>', methods=['GET', 'POST'])
 @superuser_required
 def edit_role(role_id):
@@ -2311,6 +2323,7 @@ def user_list():
         users = get_users()
         return render_template('user_list.html', usuarios=users)
     return redirect(url_for('login'))
+
 
 @app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
 @superuser_required
@@ -2360,6 +2373,7 @@ def eliminar_usuario(id):
     flash('Usuario eliminado correctamente', 'success')
     return redirect(url_for('user_list'))
 
+
 @app.route('/user_create', methods=['GET', 'POST'])
 @superuser_required
 def user_create():
@@ -2374,7 +2388,8 @@ def user_create():
             return redirect(url_for('user_create'))
 
         # Encriptamos la contraseña usando bcrypt (igual que en la API)
-        hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        hashed_pw = bcrypt.hashpw(password.encode(
+            'utf-8'), bcrypt.gensalt()).decode('utf-8')
 
         try:
             conn = get_db_connection()
@@ -2397,6 +2412,7 @@ def user_create():
 # SECCIÓN DE GrantTemplate HTML
 #########################
 
+
 def get_grant_templates():
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
@@ -2417,6 +2433,7 @@ def get_grant_templates():
     conn.close()
     return rows
 
+
 @app.route('/grant_templates')
 @superuser_required
 def grant_template_list():
@@ -2426,6 +2443,7 @@ def grant_template_list():
 
     templates = get_grant_templates()
     return render_template('grant_template_list.html', templates=templates)
+
 
 @app.route('/grant_templates/delete/<int:grant_id>', methods=['POST'])
 @superuser_required
@@ -2480,6 +2498,7 @@ def delete_grant_template(grant_id):
 #     conn.close()
 
 #     return render_template('grant_template_detail.html', grant=grant, roles=roles)
+
 
 @app.route('/grant_templates/<int:grant_id>')
 @superuser_required
@@ -2541,7 +2560,8 @@ def grant_template_detail(grant_id):
             JOIN rule_topics rt ON rt.topic_id = t.id
             WHERE rt.rule_id = ?
         ''', (rule_id,))
-        topics = [{'name': row['name'], 'action': row['action']} for row in cursor.fetchall()]
+        topics = [{'name': row['name'], 'action': row['action']}
+                  for row in cursor.fetchall()]
 
         detailed_rules.append({
             'id': rule_id,
@@ -2554,6 +2574,8 @@ def grant_template_detail(grant_id):
     return render_template('grant_template_detail.html', grant=grant, roles=roles, rules=detailed_rules)
 
 # TODO Hacer que no se puedan crear con el mismo nombre las grantTemplate
+
+
 @app.route('/grants/new', methods=['GET', 'POST'])
 @superuser_required
 def new_grant_template():
@@ -2570,7 +2592,8 @@ def new_grant_template():
             xml_file.save(filepath)
 
             grant_id, name, default_action = insert_grant_from_xml(filepath)
-            flash(f'Plantilla de permisos "{name}" creada correctamente con acción por defecto {default_action}.', 'success')
+            flash(
+                f'Plantilla de permisos "{name}" creada correctamente con acción por defecto {default_action}.', 'success')
             return redirect(url_for('grant_template_detail', grant_id=grant_id))
         except Exception as e:
             flash(f'Error al crear la plantilla: {str(e)}', 'danger')
@@ -2580,7 +2603,7 @@ def new_grant_template():
 
 
 #########################
-# SECCIÓN DE AuthRole HTML
+# SECCIÓN DE XML HTML
 #########################
 
 @app.route('/xml_export_grant', methods=['GET', 'POST'])
@@ -2617,7 +2640,8 @@ def xml_export_grant():
         if not role_id:
             flash('Por favor selecciona un rol.', 'danger')
         else:
-            xml_data, grant_name, error = generar_xml_grant(role_id, user_data, conn)
+            xml_data, grant_name, error = generar_xml_grant(
+                role_id, user_data, conn)
 
             if error:
                 flash(f'Error al generar el XML: {error}', 'danger')
@@ -2628,7 +2652,39 @@ def xml_export_grant():
     return render_template('xml_export_grant.html', roles=roles, xml_output=xml_output, grant_name=grant_name)
 
 
+@app.route('/xml_vality', methods=['GET', 'POST'])
+def xml_vality():
+    if request.method == 'POST':
+        xml_file = request.files.get('xml_file')
+        if not xml_file:
+            flash("❌ No se ha proporcionado un archivo XML.", "error")
+            return redirect(request.url)
 
+        # Guardar el archivo XML en un archivo temporal
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as tmp:
+            xml_path = tmp.name
+            xml_file.save(xml_path)
+
+        schema_url = "https://community.rti.com/schema/7.5.0/dds_security_permissions.xsd"
+
+        try:
+            schema = xmlschema.XMLSchema(schema_url)
+            if schema.is_valid(xml_path):
+                flash(
+                    "✅ El archivo XML es válido según el esquema DDS Permissions 7.5.0.", "success")
+            else:
+                errores = [f"- {e}" for e in schema.iter_errors(xml_path)]
+                for e in errores:
+                    flash(f"❌ Error: {e}", "error")
+        except Exception as e:
+            flash(f"❌ Error al validar: {e}", "error")
+        finally:
+            os.remove(xml_path)
+
+        return redirect(url_for('xml_vality'))
+
+    # Si es GET, simplemente muestra el formulario
+    return render_template('xml_vality.html')
 
 #########################
 # SECCIÓN DE ADDITIONAL HTML
@@ -2695,9 +2751,6 @@ def contact():
 # def roles():
 #     roles = get_roles2()
 #     return render_template("roles.html", roles=roles)
-
-
-
 
 
 @app.errorhandler(404)
@@ -2897,41 +2950,6 @@ def delete_grant_template_html(grant_id):
     return redirect(url_for('list_grant_templates'))
 
 
-@app.route('/xml_vality', methods=['GET', 'POST'])
-def xml_vality():
-    if request.method == 'POST':
-        xml_file = request.files.get('xml_file')
-        if not xml_file:
-            flash("❌ No se ha proporcionado un archivo XML.", "error")
-            return redirect(request.url)
-
-        # Guardar el archivo XML en un archivo temporal
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as tmp:
-            xml_path = tmp.name
-            xml_file.save(xml_path)
-
-        schema_url = "https://community.rti.com/schema/7.5.0/dds_security_permissions.xsd"
-
-        try:
-            schema = xmlschema.XMLSchema(schema_url)
-            if schema.is_valid(xml_path):
-                flash(
-                    "✅ El archivo XML es válido según el esquema DDS Permissions 7.5.0.", "success")
-            else:
-                errores = [f"- {e}" for e in schema.iter_errors(xml_path)]
-                for e in errores:
-                    flash(f"❌ Error: {e}", "error")
-        except Exception as e:
-            flash(f"❌ Error al validar: {e}", "error")
-        finally:
-            os.remove(xml_path)
-
-        return redirect(url_for('xml_vality'))
-
-    # Si es GET, simplemente muestra el formulario
-    return render_template('xml_vality.html')
-
-
 # @app.route('/xml_export_grant')
 # def xml_export_grant():
 #     return render_template('xml_export_grant.html')
@@ -2950,10 +2968,6 @@ def authrole_vality():
 # @app.route('/user_create')
 # def user_create():
 #     return render_template('user_create.html')
-
-
-
-
 
 
 # @app.route('/create_role', methods=['GET', 'POST'])
@@ -3013,12 +3027,6 @@ def authrole_vality():
 #         flash("Token generado con éxito", "success")
 
 #     return render_template('role_create.html', token=token)
-
-
-
-
-
-
 
 
 @app.context_processor
