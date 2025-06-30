@@ -101,6 +101,7 @@ Este repositorio contiene el desarrollo del Trabajo Fin de Máster (TFM) basado 
 
 ## 📁 Estructura
 
+```markdown
 ├── permissions/
 │ ├── governance.xml
 │ ├── permissions.xml
@@ -112,7 +113,7 @@ Este repositorio contiene el desarrollo del Trabajo Fin de Máster (TFM) basado 
 │ └── memoria_tfm.pdf
 ├── LICENSE
 └── README.md
-
+```
 
 ## 🛡️ Licencia
 
