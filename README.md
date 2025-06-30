@@ -82,4 +82,51 @@ curl -X POST http://127.0.0.1:5000/verify \
     -d '{"token": "TOKEN_AQUI"}'
 ```
 
+# Sistema de Control de Acceso Basado en DDS
 
+Este repositorio contiene el desarrollo del Trabajo Fin de Máster (TFM) basado en el middleware **RTI Connext DDS**, centrado en la implementación de un sistema de control de acceso distribuido utilizando políticas de permisos y temas (topics) definidos con el estándar **DDS Security**.
+
+## 📌 Objetivos
+
+- Aplicar el modelo DDS para el control de acceso basado en roles (RBAC).
+- Configurar documentos `governance.xml` y `permissions.xml` siguiendo la especificación DDS Security 1.1.
+- Demostrar un sistema de comunicación segura entre entidades (por ejemplo, drones, estaciones base, vehículos, etc.).
+
+## ⚙️ Tecnologías
+
+- **RTI Connext DDS Professional** (licencia académica)
+- **Python / C++** (dependiendo de tu implementación)
+- **OpenSSL** (para generación de certificados)
+- **Docker** (opcional para despliegue de nodos)
+
+## 📁 Estructura
+
+├── permissions/
+│ ├── governance.xml
+│ ├── permissions.xml
+│ └── certificados/
+├── src/
+│ ├── publicador.py
+│ ├── suscriptor.py
+├── doc/
+│ └── memoria_tfm.pdf
+├── LICENSE
+└── README.md
+
+
+## 🛡️ Licencia
+
+Este proyecto se distribuye bajo la licencia MIT. Puedes usar, modificar y redistribuir este trabajo libremente con fines académicos y de investigación.  
+Consulta el archivo [LICENSE](LICENSE) para más detalles.
+
+> ⚠️ **Nota importante:** Este trabajo utiliza **RTI Connext DDS Professional** bajo una licencia académica gratuita proporcionada por Real-Time Innovations, Inc.  
+> No se incluye ni redistribuye ningún binario, librería ni código fuente propietario de RTI.
+
+## 🧪 Créditos
+
+Autor: [Tu Nombre Aquí]  
+Universidad: [Nombre de tu universidad]  
+Máster: [Nombre del máster]  
+Curso: [Año académico]
+
+---
