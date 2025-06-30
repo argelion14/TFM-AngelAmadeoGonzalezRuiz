@@ -116,17 +116,17 @@ Este repositorio contiene el desarrollo del Trabajo Fin de Máster (TFM) basado 
 
 ## 🛡️ Licencia
 
-Este proyecto se distribuye bajo la licencia MIT. Puedes usar, modificar y redistribuir este trabajo libremente con fines académicos y de investigación.  
+Este proyecto se distribuye bajo la licencia MIT. Puedes usar, modificar y redistribuir este trabajo libremente con fines académicos y de investigación.
 Consulta el archivo [LICENSE](LICENSE) para más detalles.
 
-> ⚠️ **Nota importante:** Este trabajo utiliza **RTI Connext DDS Professional** bajo una licencia académica gratuita proporcionada por Real-Time Innovations, Inc.  
+> ⚠️ **Nota importante:** Este trabajo utiliza **RTI Connext DDS Professional** bajo una licencia académica gratuita proporcionada por Real-Time Innovations, Inc.
 > No se incluye ni redistribuye ningún binario, librería ni código fuente propietario de RTI.
 
 ## 🧪 Créditos
 
-Autor: [Tu Nombre Aquí]  
-Universidad: [Nombre de tu universidad]  
-Máster: [Nombre del máster]  
-Curso: [Año académico]
+Autor: [Ángel Amadeo González Ruiz](https://github.com/argelion14)
+Universidad: [UGR](https://www.ugr.es/)
+Máster: [Master propio de ciberseguridad]
+Curso: [2025]
 
 ---
