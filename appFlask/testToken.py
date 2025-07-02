@@ -12,7 +12,7 @@ import jwt
 import xmlschema
 import functools
 from functools import wraps
-
+from cryptography.x509 import load_pem_x509_certificate
 from datetime import datetime, timedelta
 from flask import (
     Flask, abort, render_template, request, redirect, url_for,
@@ -26,17 +26,26 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY_PATH")
-PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY_PATH")
+# PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY_PATH")
+# PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY_PATH")
 
 CA_CERT_PATH = os.getenv("CA_CERT_PATH")
 CA_KEY_PATH = os.getenv("CA_KEY_PATH")
 
-with open(PRIVATE_KEY_PATH, "rb") as f:
-    PRIVATE_KEY = f.read()
+# with open(PRIVATE_KEY_PATH, "rb") as f:
+#     PRIVATE_KEY = f.read()
 
-with open(PUBLIC_KEY_PATH, "rb") as f:
-    PUBLIC_KEY = f.read()
+# with open(PUBLIC_KEY_PATH, "rb") as f:
+#     PUBLIC_KEY = f.read()
+
+
+with open(CA_CERT_PATH, "rb") as f:
+    cert_bytes = f.read()
+CA_CERT = load_pem_x509_certificate(cert_bytes)
+CA_PUBLIC_KEY = CA_CERT.public_key()
+
+with open(CA_KEY_PATH, "rb") as f:
+    CA_KEY = f.read()
 
 app = Flask(__name__)
 
@@ -484,7 +493,7 @@ def auth_role():
         'role_id': role_id,
         'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
     }
-    token = jwt.encode(payload, PRIVATE_KEY, algorithm="ES256")
+    token = jwt.encode(payload, CA_KEY, algorithm="ES256")
 
     conn.close()
     return jsonify({'token': token})
@@ -555,7 +564,7 @@ def verify_role_token():
         return jsonify({'valid': False, 'error': 'Token not provided'}), 400
 
     try:
-        payload = jwt.decode(token, PUBLIC_KEY, algorithms=["ES256"])
+        payload = jwt.decode(token, CA_PUBLIC_KEY, algorithms=["ES256"])
     except jwt.ExpiredSignatureError:
         return jsonify({'valid': False, 'error': 'Token expired'}), 401
     except jwt.InvalidTokenError:
@@ -2003,7 +2012,7 @@ def generar_jwt(user):
         'is_superuser': user[3] == 1,
         'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
     }
-    token = jwt.encode(payload, PRIVATE_KEY, algorithm="ES256")
+    token = jwt.encode(payload, CA_KEY, algorithm="ES256")
     return token
 
 
@@ -2031,7 +2040,7 @@ def decodificar_jwt(token):
     if not token:
         return None
     try:
-        return jwt.decode(token, PUBLIC_KEY, algorithms=["ES256"])
+        return jwt.decode(token, CA_PUBLIC_KEY, algorithms=["ES256"])
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
         return None
 
@@ -2739,7 +2748,7 @@ def auth_role_html():
                 'role_id': role_id,
                 'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
             }
-            token = jwt.encode(payload, PRIVATE_KEY, algorithm="ES256")
+            token = jwt.encode(payload, CA_KEY, algorithm="ES256")
 
     user = verificar_jwt()
     if user:
@@ -3085,7 +3094,7 @@ def authrole_vality():
 #             'role_id': role_id,
 #             'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
 #         }
-#         token = jwt.encode(payload, PRIVATE_KEY, algorithm="ES256")
+#         token = jwt.encode(payload, CA_KEY, algorithm="ES256")
 
 #         conn.close()
 #         flash("Token generado con éxito", "success")
