@@ -2699,6 +2699,15 @@ def xml_vality():
 # SECCIÓN DE AuthRole HTML
 #########################
 
+# @app.route('/authrole_create')
+# def authrole_create():
+#     return render_template('authrole_create.html')
+
+
+# @app.route('/authrole_vality')
+# def authrole_vality():
+#     return render_template('authrole_vality.html')
+
 
 @app.route('/auth-role', methods=['GET', 'POST'])
 def auth_role_html():
@@ -2757,6 +2766,51 @@ def auth_role_html():
 
     conn.close()
     return render_template('authrole_create.html', roles=roles_dict, error=error, token=token, roles2=roles2, user="hola")
+
+
+@app.route('/authrole_vality', methods=['GET', 'POST'])
+def authrole_vality():
+    result = None
+
+    if request.method == 'POST':
+        token = request.form.get('token')
+
+        if not token:
+            result = {'valid': False, 'error': 'Token not provided'}
+        else:
+            try:
+                payload = jwt.decode(token, CA_PUBLIC_KEY, algorithms=["ES256"])
+            except jwt.ExpiredSignatureError:
+                result = {'valid': False, 'error': 'Token expired'}
+            except jwt.InvalidTokenError:
+                result = {'valid': False, 'error': 'Invalid token'}
+            else:
+                user_id = payload.get('user_id')
+                role_id = payload.get('role_id')
+
+                if not user_id or not role_id:
+                    result = {'valid': False, 'error': 'Incomplete token'}
+                else:
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+
+                    cursor.execute('SELECT 1 FROM users WHERE id = ?', (user_id,))
+                    if cursor.fetchone() is None:
+                        result = {'valid': False, 'error': 'User does not exist'}
+                    else:
+                        cursor.execute('SELECT 1 FROM roles WHERE id = ?', (role_id,))
+                        if cursor.fetchone() is None:
+                            result = {'valid': False, 'error': 'Role does not exist'}
+                        else:
+                            cursor.execute('SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+                            if cursor.fetchone() is None:
+                                result = {'valid': False, 'error': 'User does not have this role'}
+                            else:
+                                result = {'valid': True, 'user_id': user_id, 'role_id': role_id}
+
+                    conn.close()
+
+    return render_template('authrole_vality.html', result=result)
 
 
 #########################
@@ -3028,14 +3082,7 @@ def delete_grant_template_html(grant_id):
 #     return render_template('xml_export_grant.html')
 
 
-@app.route('/authrole_create')
-def authrole_create():
-    return render_template('authrole_create.html')
 
-
-@app.route('/authrole_vality')
-def authrole_vality():
-    return render_template('authrole_vality.html')
 
 
 # @app.route('/user_create')
