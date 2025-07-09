@@ -2383,39 +2383,140 @@ def eliminar_usuario(id):
     return redirect(url_for('user_list'))
 
 
+# @app.route('/user_create', methods=['GET', 'POST'])
+# @superuser_required
+# def user_create():
+#     if request.method == 'POST':
+#         username = request.form.get('username')
+#         password = request.form.get('password')
+#         cert = request.form.get('cert')
+#         is_superuser = 1 if request.form.get('is_superuser') == 'on' else 0
+
+#         if not username or not password:
+#             flash("Usuario y contraseña son obligatorios", "danger")
+#             return redirect(url_for('user_create'))
+
+#         # Encriptamos la contraseña usando bcrypt (igual que en la API)
+#         hashed_pw = bcrypt.hashpw(password.encode(
+#             'utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+#         try:
+#             conn = get_db_connection()
+#             cursor = conn.cursor()
+#             cursor.execute('''
+#                 INSERT INTO users (username, password, cert, is_superuser)
+#                 VALUES (?, ?, ?, ?)
+#             ''', (username, hashed_pw, cert, is_superuser))
+#             conn.commit()
+#             conn.close()
+#             flash('Usuario creado correctamente', 'success')
+#             return redirect(url_for('user_list'))
+#         except sqlite3.IntegrityError:
+#             flash('El nombre de usuario ya existe', 'danger')
+#             return redirect(url_for('user_create'))
+
+#     return render_template('user_create.html')
+
+
 @app.route('/user_create', methods=['GET', 'POST'])
 @superuser_required
 def user_create():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        cert = request.form.get('cert')
         is_superuser = 1 if request.form.get('is_superuser') == 'on' else 0
 
         if not username or not password:
             flash("Usuario y contraseña son obligatorios", "danger")
             return redirect(url_for('user_create'))
 
-        # Encriptamos la contraseña usando bcrypt (igual que en la API)
-        hashed_pw = bcrypt.hashpw(password.encode(
-            'utf-8'), bcrypt.gensalt()).decode('utf-8')
+        hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
         try:
+            # ====== INSERCIÓN PREVIA EN TABLA users ======
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO users (username, password, cert, is_superuser)
-                VALUES (?, ?, ?, ?)
-            ''', (username, hashed_pw, cert, is_superuser))
+                INSERT INTO users (username, password, is_superuser)
+                VALUES (?, ?, ?)
+            ''', (username, hashed_pw, is_superuser))
+            user_id = cursor.lastrowid
+            conn.commit()
+
+            # ====== GENERACIÓN DE CLAVES Y CERTIFICADO ======
+            ca_cert = os.getenv("CA_CERT_PATH")
+            ca_key = os.getenv("CA_KEY_PATH")
+            base_dir = f"certs/{username}"
+            os.makedirs(base_dir, exist_ok=True)
+
+            key_path = os.path.join(base_dir, "private.key")
+            csr_path = os.path.join(base_dir, "request.csr")
+            cert_path = os.path.join(base_dir, "certificate.pem")
+
+            # TODO: Modificar para entorno Docker si es necesario
+            OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+
+            # 1. Clave privada
+            subprocess.run([
+                OPENSSL_PATH, "genpkey", "-algorithm", "EC",
+                "-pkeyopt", "ec_paramgen_curve:P-256",
+                "-out", key_path
+            ], check=True)
+
+            # 2. CSR
+            subj = f"/C=US/ST=CA/O=RTI Demo/CN={username}"
+            subprocess.run([
+                OPENSSL_PATH, "req", "-new", "-key", key_path,
+                "-out", csr_path, "-subj", subj
+            ], check=True)
+
+            # 3. Firmar con la CA
+            subprocess.run([
+                OPENSSL_PATH, "x509", "-req", "-in", csr_path,
+                "-CA", ca_cert, "-CAkey", ca_key,
+                "-CAcreateserial", "-out", cert_path,
+                "-days", "365"
+            ], check=True)
+
+            # 4. Leer contenido del certificado
+            with open(cert_path, 'r') as f:
+                cert_pem = f.read()
+
+            # 4.1 Obtener el subject real del certificado firmado
+            result = subprocess.run([
+                OPENSSL_PATH, "x509", "-in", cert_path, "-noout", "-subject"
+            ], capture_output=True, text=True, check=True)
+
+            subject_line = result.stdout.strip()  # ejemplo: "subject= C=US, ST=CA, O=RTI Demo, CN=bobby"
+            subject_clean = subject_line.replace("subject=", "").strip()
+
+            # 4.2 Actualizar el campo cert en la tabla users
+            cursor.execute('''
+                UPDATE users SET cert = ? WHERE id = ?
+            ''', (subject_clean, user_id))
+
+            # 5. Guardar en tabla user_keys
+            cursor.execute('''
+                INSERT INTO user_keys (user_id, public_cert, private_key_path)
+                VALUES (?, ?, ?)
+            ''', (user_id, cert_pem, key_path))
+
             conn.commit()
             conn.close()
-            flash('Usuario creado correctamente', 'success')
+
+            flash('Usuario y claves creadas correctamente', 'success')
             return redirect(url_for('user_list'))
+
         except sqlite3.IntegrityError:
             flash('El nombre de usuario ya existe', 'danger')
             return redirect(url_for('user_create'))
+        except subprocess.CalledProcessError as e:
+            flash(f'Error generando claves: {e}', 'danger')
+            return redirect(url_for('user_create'))
 
     return render_template('user_create.html')
+
+
 
 #########################
 # SECCIÓN DE GrantTemplate HTML
