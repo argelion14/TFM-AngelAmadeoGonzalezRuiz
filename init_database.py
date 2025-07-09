@@ -7,6 +7,7 @@ from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
+# TODO Mejorar donde se guardan las claves privadas y certificados
 def generate_cert_and_key(common_name):
     # Generar clave privada EC
     private_key = ec.generate_private_key(ec.SECP256R1())
