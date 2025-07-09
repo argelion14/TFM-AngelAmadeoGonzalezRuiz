@@ -1564,6 +1564,15 @@ def sign_grant_by_role(role_id):
         "-nodetach"
     ], capture_output=True)
 
+    # result = subprocess.run([
+    #     OPENSSL_PATH, "smime", "-sign",
+    #     "-in", xml_path,
+    #     "-text",
+    #     "-out", signed_output_path,
+    #     "-signer", CA_CERT_PATH,
+    #     "-inkey", CA_KEY_PATH
+    # ], capture_output=True)
+
     os.remove(xml_path)
 
     if result.returncode != 0:
