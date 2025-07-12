@@ -2343,6 +2343,28 @@ def user_list():
         return render_template('user_list.html', usuarios=users)
     return redirect(url_for('login'))
 
+# TODO Hacer este método en forma de API, es decir editar el obtener un usuario para poder obtener más datos
+@app.route('/user/<int:id>')
+@superuser_required
+def user_detail(id):
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT Username, is_superuser, cert FROM users WHERE id = ?', (id,))
+    user = cursor.fetchone()
+
+    cursor.execute('SELECT user_id, public_cert FROM user_keys WHERE user_id = ?', (id,))
+    keys = cursor.fetchone()
+
+    conn.close()
+
+    if not user:
+        flash("Usuario no encontrado", "danger")
+        return redirect(url_for('user_list'))
+
+    return render_template('user_detail.html', user=user, keys=keys)
+
 
 @app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
 @superuser_required

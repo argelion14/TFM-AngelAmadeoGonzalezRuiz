@@ -64,6 +64,9 @@ Usuarios registrados
             {% endif %}
           </td>
           <td>
+            <a href="{{ url_for('user_detail', id=user['id']) }}" class="btn btn-primary btn-sm">
+              <i class="fas fa-eye"></i> Ver
+            </a>
             <a href="{{ url_for('editar_usuario', id=user['id']) }}" class="btn btn-info btn-sm">
               <i class="fas fa-edit"></i> Editar
             </a>
