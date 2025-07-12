@@ -2333,7 +2333,6 @@ def edit_role(role_id):
 #########################
 # SECCIÓN DE USER HTML
 #########################
-# TODO cambiar todos los metodos para que se adapten a la nueva tabla que tienen los users, revisar uno a uno
 
 @app.route('/user_list')
 def user_list():
@@ -2365,23 +2364,23 @@ def user_detail(id):
 
     return render_template('user_detail.html', user=user, keys=keys)
 
-
+# TODO Hacer que si se edita el name se ha de generar un nuevo certificado
 @app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
 @superuser_required
 def editar_usuario(id):
     conn = get_db_connection()
+    conn.row_factory = sqlite3.Row  # <- Esta línea permite usar ['columna']
     cursor = conn.cursor()
 
     if request.method == 'POST':
         username = request.form['username']
-        cert = request.form['cert']
         is_superuser = 1 if request.form.get('is_superuser') == 'on' else 0
 
         cursor.execute('''
             UPDATE users
-            SET username = ?, cert = ?, is_superuser = ?
+            SET username = ?, is_superuser = ?
             WHERE id = ?
-        ''', (username, cert, is_superuser, id))
+        ''', (username, is_superuser, id))
         conn.commit()
         conn.close()
         flash('Usuario actualizado correctamente', 'success')
@@ -2390,28 +2389,42 @@ def editar_usuario(id):
     # GET: cargar datos del usuario
     cursor.execute('SELECT * FROM users WHERE id = ?', (id,))
     usuario = cursor.fetchone()
+
+    # Obtener el certificado público (sin la clave privada)
+    cursor.execute('SELECT public_cert FROM user_keys WHERE user_id = ?', (id,))
+    key_data = cursor.fetchone()
+
     conn.close()
+
     if usuario is None:
         abort(404)
 
-    return render_template('user_update.html', usuario=usuario)
+    return render_template('user_update.html', usuario=usuario, cert=key_data['public_cert'] if key_data else None)
 
 
 @app.route('/usuarios/<int:id>/eliminar', methods=['POST'])
 @superuser_required
 def eliminar_usuario(id):
+    # Evitar eliminarse a sí mismo (opcional: descomenta si se quiere proteger)
     # current_user = verificar_jwt()
     # if current_user['id'] == id:
     #     flash('No puedes eliminar tu propio usuario.', 'warning')
     #     return redirect(url_for('user_list'))
 
     conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+
+    # Eliminar claves asociadas al usuario (si existen)
+    cursor.execute('DELETE FROM user_keys WHERE user_id = ?', (id,))
+
+    # Eliminar el usuario
     cursor.execute('DELETE FROM users WHERE id = ?', (id,))
+
     conn.commit()
     conn.close()
 
-    flash('Usuario eliminado correctamente', 'success')
+    flash('Usuario y claves asociadas eliminados correctamente', 'success')
     return redirect(url_for('user_list'))
 
 
