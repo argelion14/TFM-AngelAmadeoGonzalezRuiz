@@ -927,7 +927,7 @@ def update_role(role_id):
 # SECCIÓN DE USERS
 # Funciones auxiliares para gestión de usuarios
 #########################
-
+# TODO cambiar todos los metodos para que se adapten a la nueva tabla que tienen los users, revisar uno a uno
 
 @app.route('/api/users', methods=['GET'])
 @swag_from({
@@ -2333,6 +2333,7 @@ def edit_role(role_id):
 #########################
 # SECCIÓN DE USER HTML
 #########################
+# TODO cambiar todos los metodos para que se adapten a la nueva tabla que tienen los users, revisar uno a uno
 
 @app.route('/user_list')
 def user_list():

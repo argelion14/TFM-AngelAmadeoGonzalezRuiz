@@ -69,12 +69,12 @@ def create_tables():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_keys (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            public_cert TEXT NOT NULL,  -- Certificado firmado por la CA (en PEM)
-            private_key_path TEXT,      -- (Opcional) Ruta al archivo .key
+            user_id INTEGER NOT NULL UNIQUE,
+            public_cert TEXT NOT NULL,
+            private_key_path TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             is_active INTEGER DEFAULT 1,
-            FOREIGN KEY (user_id) REFERENCES users(id)
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     ''')
 
@@ -179,6 +179,7 @@ def create_tables():
     ]
 
     for username, password_plain, cn, is_superuser in users:
+        # TODO Generar los certificados en el path correcto
         cert_pem, key_path = generate_cert_and_key(cn)
         hashed_password = bcrypt.hashpw(password_plain.encode('utf-8'), bcrypt.gensalt())
         cursor.execute(
