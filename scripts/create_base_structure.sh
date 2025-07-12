@@ -38,6 +38,10 @@ fi
 echo "✍️  Firmando $XML_FILE..."
 openssl smime -sign -in "$XML_FILE" -out "$SIGNED_PERMISSIONS" -signer "$CA_CERT" -inkey "$CA_KEY" -outform DER -nodetach
 
+# openssl smime -sign -in xml/pmiGovernance.xml -text -out xml/signed/pmiSigned_pmiGovernance.p7s -signer cert/pmi/ca/pmiPermissionsCaCert.pem -inkey cert/pmi/ca/private/pmiPermissionsCaKey.pem
+
+# openssl smime -sign -in xml\pmiPermissionsAlice.xml -text -out xml\signed\signed_pmiPermissionsAlice.p7s -signer cert\ecdsa01\ca\ecdsa01RootCaCert.pem -inkey cert\ecdsa01\ca\private\ecdsa01RootCaKey.pem
+
 ### 6. Verificar la firma
 
 echo "😄 Verificando $XML_FILE..."
