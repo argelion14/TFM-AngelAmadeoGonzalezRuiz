@@ -965,10 +965,10 @@ def list_users():
 @swag_from({
     'tags': ['Users'],
     'summary': 'Get user by ID',
-    'description': 'Retrieves the details of a specific user identified by their user ID.',
+    'description': 'Retrieves detailed information about a specific user, including key data if available.',
     'parameters': [
         {'name': 'user_id', 'in': 'path', 'type': 'integer',
-            'required': True, 'description': 'ID of the user to retrieve'}
+         'required': True, 'description': 'ID of the user to retrieve'}
     ],
     'responses': {
         200: {'description': 'User found'},
@@ -978,13 +978,29 @@ def list_users():
 def get_user(user_id):
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
-    cursor = conn.execute(
-        "SELECT id, username, cert, is_superuser FROM users WHERE id = ?", (user_id,))
-    row = cursor.fetchone()
+    cursor = conn.cursor()
+
+    # Obtener datos del usuario
+    cursor.execute("SELECT id, username, cert, is_superuser FROM users WHERE id = ?", (user_id,))
+    user_row = cursor.fetchone()
+
+    if not user_row:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+
+    user_data = dict(user_row)
+
+    # Obtener certificado público si existe
+    cursor.execute("SELECT public_cert FROM user_keys WHERE user_id = ?", (user_id,))
+    key_row = cursor.fetchone()
+
+    if key_row and 'public_cert' in key_row.keys():
+        user_data['public_cert'] = key_row['public_cert']
+    else:
+        user_data['public_cert'] = None
+
     conn.close()
-    if row:
-        return jsonify(dict(row))
-    return jsonify({'error': 'User not found'}), 404
+    return jsonify(user_data)
 
 
 @app.route('/api/users', methods=['POST'])
@@ -2342,7 +2358,6 @@ def user_list():
         return render_template('user_list.html', usuarios=users)
     return redirect(url_for('login'))
 
-# TODO Hacer este método en forma de API, es decir editar el obtener un usuario para poder obtener más datos
 @app.route('/user/<int:id>')
 @superuser_required
 def user_detail(id):
