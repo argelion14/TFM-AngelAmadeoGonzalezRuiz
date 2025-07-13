@@ -123,7 +123,10 @@ swagger_config = {
 
 # swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
-with open("swagger_template.yml", "r") as f:
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+swagger_file = os.path.join(BASE_DIR, "swagger_template.yml")
+
+with open(swagger_file, "r") as f:
     swagger_template = yaml.safe_load(f)
 
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
@@ -226,7 +229,10 @@ def user_required(f):
 
 
 def get_db_connection():
-    conn = sqlite3.connect('TFM.db')
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(BASE_DIR, "TFM.db")
+
+    conn = sqlite3.connect(db_path)
     conn.execute('PRAGMA foreign_keys = ON')
     return conn
 
@@ -2416,7 +2422,7 @@ def editar_usuario(id):
 
     return render_template('user_update.html', usuario=usuario, cert=key_data['public_cert'] if key_data else None)
 
-
+# TODO He de borrar también los certificados
 @app.route('/usuarios/<int:id>/eliminar', methods=['POST'])
 @superuser_required
 def eliminar_usuario(id):

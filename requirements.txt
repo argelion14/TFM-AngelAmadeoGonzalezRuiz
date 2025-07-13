@@ -1,8 +1,8 @@
 flask
 flask-login
 bcrypt
-jwt
 PyJWT
 xmlschema
 flasgger
 python-dotenv
+cryptography
