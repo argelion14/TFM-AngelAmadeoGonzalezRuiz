@@ -179,7 +179,7 @@ def create_tables():
     ]
 
     for username, password_plain, cn, is_superuser in users:
-        # TODO Generar los certificados en el path correcto
+        # TODO Generar los certificados en el path correcto, esta relacionado con el TOOD de la linea 10
         cert_pem, key_path = generate_cert_and_key(cn)
         hashed_password = bcrypt.hashpw(password_plain.encode('utf-8'), bcrypt.gensalt())
         cursor.execute(

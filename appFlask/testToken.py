@@ -1,43 +1,36 @@
-import io
 import os
+import io
 import sqlite3
-import datetime
 import subprocess
 import tempfile
-from xml.dom import minidom
-import xml.etree.ElementTree as ET
+import functools
+from functools import wraps
+from datetime import datetime, timedelta
+import datetime
 import yaml
 import bcrypt
 import jwt
 import xmlschema
-import functools
-from functools import wraps
+from xml.dom import minidom
+import xml.etree.ElementTree as ET
 from cryptography.x509 import load_pem_x509_certificate
-from datetime import datetime, timedelta
+
 from flask import (
     Flask, abort, render_template, request, redirect, url_for,
     flash, make_response, g, jsonify, send_file
 )
-
 from werkzeug.utils import secure_filename
 from flasgger import Swagger, swag_from
-
 from dotenv import load_dotenv
+
+from utils.helpers import (
+    get_db_connection, verificar_jwt_api, decodificar_jwt, generar_jwt, verificar_jwt
+)
 
 load_dotenv()
 
-# PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY_PATH")
-# PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY_PATH")
-
 CA_CERT_PATH = os.getenv("CA_CERT_PATH")
 CA_KEY_PATH = os.getenv("CA_KEY_PATH")
-
-# with open(PRIVATE_KEY_PATH, "rb") as f:
-#     PRIVATE_KEY = f.read()
-
-# with open(PUBLIC_KEY_PATH, "rb") as f:
-#     PUBLIC_KEY = f.read()
-
 
 with open(CA_CERT_PATH, "rb") as f:
     cert_bytes = f.read()
@@ -64,65 +57,6 @@ swagger_config = {
     "specs_route": "/docs/"
 }
 
-# swagger_template = {
-#     "swagger": "2.0",
-#     "info": {
-#         "description": "This is a sample server Petstore server.  You can find out more about Swagger at [http://swagger.io](http://swagger.io) or on [irc.freenode.net, #swagger](http://swagger.io/irc/).  For this sample, you can use the api key `special-key` to test the authorization filters.",
-#         "version": "1.0.0",
-#         "title": "Swagger API ROLES CONNECT",
-#         "termsOfService": "http://swagger.io/terms/",
-#         "contact": {
-#             "email": "apiteam@swagger.io"
-#         },
-#         "license": {
-#             "name": "Apache 2.0",
-#             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-#         }
-#     },
-#     "securityDefinitions": {
-#         "BearerAuth": {
-#             "type": "apiKey",
-#             "name": "Authorization",
-#             "in": "header",
-#             "description": "Token JWT en formato: **Bearer &lt;token&gt;**"
-#         }
-#     },
-#     "definitions": {
-#         "Role": {
-#             "type": "object",
-#             "required": ["name", "exp_time"],
-#             "properties": {
-#                 "id": {
-#                     "type": "integer",
-#                     "format": "int64",
-#                     "readOnly": True
-#                 },
-#                 "name": {
-#                     "type": "string",
-#                     "example": "admin",
-#                     "description": "Nombre único del rol"
-#                 },
-#                 "description": {
-#                     "type": "string",
-#                     "example": "Rol de administrador con todos los permisos"
-#                 },
-#                 "exp_time": {
-#                     "type": "integer",
-#                     "format": "int32",
-#                     "example": 60,
-#                     "description": "Tiempo de expiración del token en minutos"
-#                 }
-#             }
-#         }
-#     },
-#     "externalDocs": {
-#         "description": "Find out more about Swagger",
-#         "url": "http://swagger.io"
-#     }
-# }
-
-# swagger = Swagger(app, config=swagger_config, template=swagger_template)
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 swagger_file = os.path.join(BASE_DIR, "swagger_template.yml")
 
@@ -131,8 +65,6 @@ with open(swagger_file, "r") as f:
 
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
-
-app.secret_key = 'tu_clave_secreta'
 app.config['UPLOAD_FOLDER'] = 'uploads'
 JWT_SECRET = 'clave_jwt_segura'
 JWT_EXPIRATION_MINUTES = 60
@@ -197,15 +129,15 @@ def login_api():
         return jsonify({'error': 'Usuario o contraseña incorrectos'}), 401
 
 
-def verificar_jwt_api():
-    """
-    Verifies the JWT sent in the Authorization header of an API request.
+# def verificar_jwt_api():
+#     """
+#     Verifies the JWT sent in the Authorization header of an API request.
 
-    Returns:
-        dict | None: The token data if valid, or None if invalid or missing.
-    """
-    token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    return decodificar_jwt(token)
+#     Returns:
+#         dict | None: The token data if valid, or None if invalid or missing.
+#     """
+#     token = request.headers.get("Authorization", "").replace("Bearer ", "")
+#     return decodificar_jwt(token)
 
 
 def superadmin_required(f):
@@ -228,13 +160,13 @@ def user_required(f):
     return wrapper
 
 
-def get_db_connection():
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(BASE_DIR, "TFM.db")
+# def get_db_connection():
+#     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+#     db_path = os.path.join(BASE_DIR, "TFM.db")
 
-    conn = sqlite3.connect(db_path)
-    conn.execute('PRAGMA foreign_keys = ON')
-    return conn
+#     conn = sqlite3.connect(db_path)
+#     conn.execute('PRAGMA foreign_keys = ON')
+#     return conn
 
 #########################
 # SECCIÓN DE GrantTemplate
@@ -2036,44 +1968,44 @@ def assign_role_to_user(user_id, role_id):
 # SECCIÓN DE HTML AUTENTICACIÓN JWT
 #########################
 
-def generar_jwt(user):
-    payload = {
-        'username': user[0],
-        'cert': user[2],
-        'is_superuser': user[3] == 1,
-        'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
-    }
-    token = jwt.encode(payload, CA_KEY, algorithm="ES256")
-    return token
+# def generar_jwt(user):
+#     payload = {
+#         'username': user[0],
+#         'cert': user[2],
+#         'is_superuser': user[3] == 1,
+#         'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
+#     }
+#     token = jwt.encode(payload, CA_KEY, algorithm="ES256")
+#     return token
 
 
-def verificar_jwt():
-    """
-    Verifica el JWT almacenado en la cookie 'token' de una solicitud HTML.
+# def verificar_jwt():
+#     """
+#     Verifica el JWT almacenado en la cookie 'token' de una solicitud HTML.
 
-    Returns:
-        dict | None: Los datos del token si es válido, o None si es inválido o no existe.
-    """
-    token = request.cookies.get("token")
-    return decodificar_jwt(token)
+#     Returns:
+#         dict | None: Los datos del token si es válido, o None si es inválido o no existe.
+#     """
+#     token = request.cookies.get("token")
+#     return decodificar_jwt(token)
 
 
-def decodificar_jwt(token):
-    """
-    Intenta decodificar un token JWT.
+# def decodificar_jwt(token):
+#     """
+#     Intenta decodificar un token JWT.
 
-    Args:
-        token (str): El token JWT a decodificar.
+#     Args:
+#         token (str): El token JWT a decodificar.
 
-    Returns:
-        dict | None: Datos decodificados o None si el token es inválido o expirado.
-    """
-    if not token:
-        return None
-    try:
-        return jwt.decode(token, CA_PUBLIC_KEY, algorithms=["ES256"])
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-        return None
+#     Returns:
+#         dict | None: Datos decodificados o None si el token es inválido o expirado.
+#     """
+#     if not token:
+#         return None
+#     try:
+#         return jwt.decode(token, CA_PUBLIC_KEY, algorithms=["ES256"])
+#     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+#         return None
 
 
 #########################
@@ -2989,6 +2921,10 @@ def authrole_vality():
 def redirigir_a_swagger_json():
     return redirect('/api-docs.json')
 
+@app.route('/swagger-json-api')
+def redirigir_a_swagger_json_api():
+    return redirect('/docs')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -3244,78 +3180,6 @@ def delete_grant_template_html(grant_id):
     return redirect(url_for('list_grant_templates'))
 
 
-# @app.route('/xml_export_grant')
-# def xml_export_grant():
-#     return render_template('xml_export_grant.html')
-
-
-
-
-
-# @app.route('/user_create')
-# def user_create():
-#     return render_template('user_create.html')
-
-
-# @app.route('/create_role', methods=['GET', 'POST'])
-# def create_role():
-#     user_data = verificar_jwt()
-#     if not user_data:
-#         flash("Debes iniciar sesión para acceder a esta página", "danger")
-#         return redirect(url_for("login"))
-
-#     token = None
-
-#     if request.method == 'POST':
-#         role_id = request.form.get('role_id')
-#         if not role_id or not role_id.isdigit():
-#             flash("El ID de rol es inválido", "danger")
-#             return render_template('role_create.html')
-
-#         role_id = int(role_id)
-
-#         conn = get_db_connection()
-#         cursor = conn.cursor()
-
-#         # Obtener user_id a partir del username del JWT
-#         cursor.execute("SELECT id FROM users WHERE username = ?", (user_data['username'],))
-#         user = cursor.fetchone()
-#         if not user:
-#             conn.close()
-#             flash("Usuario no encontrado", "danger")
-#             return render_template('role_create.html')
-
-#         user_id = user[0]
-
-#         # Verificar que el usuario tiene ese rol
-#         cursor.execute("SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?", (user_id, role_id))
-#         if cursor.fetchone() is None:
-#             conn.close()
-#             flash("No tienes asignado ese rol", "danger")
-#             return render_template('role_create.html')
-
-#         # Verificar que el rol está vinculado a una grantTemplate
-#         cursor.execute("SELECT grant_id FROM roles WHERE id = ?", (role_id,))
-#         result = cursor.fetchone()
-#         if not result or result[0] is None:
-#             conn.close()
-#             flash("El rol no está vinculado a una grantTemplate", "danger")
-#             return render_template('role_create.html')
-
-#         # Generar un nuevo JWT con ese rol
-#         payload = {
-#             'username': user_data['username'],
-#             'role_id': role_id,
-#             'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
-#         }
-#         token = jwt.encode(payload, CA_KEY, algorithm="ES256")
-
-#         conn.close()
-#         flash("Token generado con éxito", "success")
-
-#     return render_template('role_create.html', token=token)
-
-
 @app.context_processor
 def inyectar_datos_token():
     token = request.cookies.get('token')
@@ -3325,21 +3189,6 @@ def inyectar_datos_token():
         if datos:
             datos_token = datos  # Contiene username, cert, is_superuser, etc.
     return {'token_data': datos_token}
-
-
-@app.before_request
-def cargar_usuario_desde_token():
-    token = request.cookies.get('token')
-    g.user = None
-    if token:
-        try:
-            data = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
-            g.user = data
-        except jwt.ExpiredSignatureError:
-            g.user = None
-        except jwt.InvalidTokenError:
-            g.user = None
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
