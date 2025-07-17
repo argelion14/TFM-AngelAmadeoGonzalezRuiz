@@ -6,11 +6,12 @@
 {% block open_rol %}-open{% endblock %}
 {% block active_new_role %}active{% endblock %}
 
-{% block header %}Create a new Role{% endblock %}
+{% block header %}Create a New Role{% endblock %}
 
 {% block path_main %}
-<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Index</a></li>
-<li class="breadcrumb-item active">Create Role</li>
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item"><a href="{{ url_for('role_list') }}">Roles</a></li>
+<li class="breadcrumb-item active">Create</li>
 {% endblock %}
 
 {% block content %}
@@ -44,6 +45,7 @@
     </div>
     <div class="card-footer">
       <button type="submit" class="btn btn-primary">Create Role</button>
+      <a href="{{ url_for('role_list') }}" class="btn btn-secondary">Cancel</a>
     </div>
   </form>
 </div>

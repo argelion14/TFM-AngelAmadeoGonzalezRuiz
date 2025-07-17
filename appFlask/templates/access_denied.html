@@ -1,45 +1,26 @@
-<!-- templates/access_denied.html -->
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Acceso Denegado</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background-color: #f8f9fa;
-            text-align: center;
-            padding: 50px;
-        }
-        .card {
-            display: inline-block;
-            padding: 2rem;
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #dc3545;
-        }
-        p {
-            color: #6c757d;
-        }
-        a {
-            color: #007bff;
-            text-decoration: none;
-            margin-top: 1rem;
-            display: inline-block;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1>🚫 Acceso Denegado</h1>
-        <p>No tienes permisos suficientes para acceder a esta sección.</p>
-        <a href="{{ url_for('index') }}">Volver al inicio</a>
+{% extends "base.html" %}
+
+{% block title %}Access Denied{% endblock %}
+
+{% block header %}Access Denied{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
+<li class="breadcrumb-item active">Access Denied</li>
+{% endblock %}
+
+{% block content %}
+<div class="card card-danger">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-ban"></i> Access Denied</h3>
     </div>
-</body>
-</html>
+    <div class="card-body text-center">
+        <p class="lead">You do not have sufficient permissions to access this section.</p>
+        <p>
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="fas fa-home"></i> Return to Dashboard
+            </a>
+        </p>
+    </div>
+</div>
+{% endblock %}

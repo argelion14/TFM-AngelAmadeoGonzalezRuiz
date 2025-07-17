@@ -1,70 +1,69 @@
 {% extends 'base.html' %}
 
-{% block title %}Panel Principal{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
-{% block header %}Panel Principal{% endblock %}
+{% block header %}Dashboard Overview{% endblock %}
 
 {% block content %}
-
 
 <div class="content-wrapper" style="margin-left: 0;">
     <section class="content pt-3">
         <div class="container">
-            <h1>Bienvenido, {{ username }}!</h1>
-            <h3>Tu certificado es:</h3>
+            <h1>Welcome, {{ username }}!</h1>
+            <h3>Your certificate:</h3>
             <pre>{{ cert }}</pre>
         </div>
+
         <div class="content">
             <div class="container-fluid">
                 <div class="row">
+                    <!-- Stored Data Chart -->
                     <div class="col-lg-6">
-
                         <div class="card card-info card-outline">
                             <div class="card-header">
-                                <h3 class="card-title"><i class="fas fa-database"></i> Datos almacenados</h3>
+                                <h3 class="card-title">
+                                    <i class="fas fa-database"></i> Stored Data
+                                </h3>
                             </div>
                             <div class="card-body">
-                                <div class="chartjs-size-monitor">
-                                    <div class="chartjs-size-monitor-expand">
-                                        <div class=""></div>
-                                    </div>
-                                    <div class="chartjs-size-monitor-shrink">
-                                        <div class=""></div>
-                                    </div>
-                                </div>
                                 <canvas id="donutChart"
-                                    style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%; display: block; width: 393px;"
-                                    width="491" height="312" class="chartjs-render-monitor"></canvas>
+                                    style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"
+                                    class="chartjs-render-monitor"></canvas>
                             </div>
                         </div>
-
                     </div>
 
+                    <!-- Info and Roles -->
                     <div class="col-lg-6">
-
-                        <div class="card card-info card-outline">
+                        <!-- Project Info -->
+                        <div class="card card-info card-outline mb-3">
                             <div class="card-header">
-                                <h5 class="m-0"><i class="fas fa-solid fa-circle-info"></i> Información</h5>
+                                <h5 class="m-0">
+                                    <i class="fas fa-circle-info"></i> Project Information
+                                </h5>
                             </div>
                             <div class="card-body">
-
-                                <p class="card-text">Aquí se encuentra información útil para entender más de este
-                                    proyecto</p>
-                                <a href="{{ url_for('roles') }}" class="btn btn-info">Ir a información</a>
+                                <p class="card-text">
+                                    This section provides useful information about the project and its current status.
+                                </p>
+                                <a href="{{ url_for('contact') }}" class="btn btn-info">More Information</a>
                             </div>
                         </div>
 
+                        <!-- User Roles -->
                         <div class="card card-info card-outline">
                             <div class="card-header">
-                                <h5 class="m-0"><i class="fas fa-solid fa-address-book"></i> Roles</h5>
+                                <h5 class="m-0">
+                                    <i class="fas fa-address-book"></i> User Roles
+                                </h5>
                             </div>
                             <div class="card-body">
-
-                                <p class="card-text">Roles que tengo</p>
-                                <a href="{{ url_for('mis_roles') }}" class="btn btn-info">Ir a mis roles</a>
+                                <p class="card-text">
+                                    Roles assigned to your user in this system.
+                                </p>
+                                <a href="{{ url_for('contact') }}" class="btn btn-info">View My Roles</a>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </div>
@@ -72,13 +71,9 @@
     </section>
 </div>
 
-
-
-
-
-
-
+<!-- AdminLTE JS dependencies -->
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/plugins/jquery/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+
 {% endblock %}

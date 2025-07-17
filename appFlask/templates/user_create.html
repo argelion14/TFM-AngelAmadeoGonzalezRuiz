@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}
-Crear nuevo usuario
+Create New User
 {% endblock %}
 
 {% block active_module_USER %}
@@ -14,56 +14,56 @@ active
 active
 {% endblock %}
 
-{% block header %}Crear nuevo usuario{% endblock %}
+{% block header %}Create New User{% endblock %}
 
 {% block path_main %}
-<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
-<li class="breadcrumb-item active">Nuevo usuario</li>
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item active">New User</li>
 {% endblock %}
 
 {% block content %}
 
 {% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-        {{ message }}
-        <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-    {% endfor %}
-  {% endif %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+  {{ message }}
+  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <span aria-hidden="true">&times;</span>
+  </button>
+</div>
+{% endfor %}
+{% endif %}
 {% endwith %}
 
 <div class="card card-primary">
-    <div class="card-header">
-        <h3 class="card-title">Formulario de nuevo usuario</h3>
+  <div class="card-header">
+    <h3 class="card-title">New User Form</h3>
+  </div>
+
+  <form method="POST">
+    <div class="card-body">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" name="username" class="form-control" placeholder="Enter username" required>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+      </div>
+
+      <div class="form-check">
+        <input type="checkbox" name="is_superuser" class="form-check-input" id="is_superuser">
+        <label class="form-check-label" for="is_superuser">Superuser</label>
+      </div>
     </div>
 
-    <form method="POST">
-        <div class="card-body">
-            <div class="form-group">
-                <label for="username">Nombre de usuario</label>
-                <input type="text" name="username" class="form-control" required>
-            </div>
-
-            <div class="form-group">
-                <label for="password">Contraseña</label>
-                <input type="password" name="password" class="form-control" required>
-            </div>
-
-            <div class="form-check">
-                <input type="checkbox" name="is_superuser" class="form-check-input" id="is_superuser">
-                <label class="form-check-label" for="is_superuser">Superusuario</label>
-            </div>
-        </div>
-
-        <div class="card-footer">
-            <button type="submit" class="btn btn-primary">Crear</button>
-            <a href="{{ url_for('user_list') }}" class="btn btn-secondary">Cancelar</a>
-        </div>
-    </form>
+    <div class="card-footer">
+      <button type="submit" class="btn btn-primary">Create</button>
+      <a href="{{ url_for('user_list') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
 </div>
 
 {% endblock %}

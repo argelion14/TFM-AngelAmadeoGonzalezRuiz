@@ -6,7 +6,6 @@ import tempfile
 import functools
 from functools import wraps
 from datetime import datetime, timedelta
-import datetime
 import yaml
 import bcrypt
 import jwt
@@ -2296,6 +2295,7 @@ def user_list():
         return render_template('user_list.html', usuarios=users)
     return redirect(url_for('login'))
 
+# TODO Hacer que aparezcan los roles tambien
 @app.route('/user/<int:id>')
 @superuser_required
 def user_detail(id):
@@ -2864,7 +2864,7 @@ def auth_role_html():
         roles2 = get_roles_by_username(username)
 
     conn.close()
-    return render_template('authrole_create.html', roles=roles_dict, error=error, token=token, roles2=roles2, user="hola")
+    return render_template('authrole_create.html', roles=roles_dict, error=error, token=token)
 
 
 @app.route('/authrole_vality', methods=['GET', 'POST'])
@@ -2988,31 +2988,31 @@ def page_not_found(e):
     return render_template("404.html"), 404
 
 
-@app.route('/mis_roles')
-def mis_roles():
-    user = verificar_jwt()
-    if user:
-        username = user.get('username')
-        roles = get_roles_by_username(username)
-        return render_template('mis_roles.html', username=username, roles=roles)
-    return redirect(url_for('login'))
+# @app.route('/mis_roles')
+# def mis_roles():
+#     user = verificar_jwt()
+#     if user:
+#         username = user.get('username')
+#         roles = get_roles_by_username(username)
+#         return render_template('mis_roles.html', username=username, roles=roles)
+#     return redirect(url_for('login'))
 
 
-@app.route("/usuarios2")
-def usuarios2():
-    user = verificar_jwt()
+# @app.route("/usuarios2")
+# def usuarios2():
+#     user = verificar_jwt()
 
-    match user:
-        case None:
-            # No se encontró usuario, redirige al login
-            return redirect(url_for('login'))
-        case {"is_superuser": 1}:
-            # Usuario válido y es superusuario
-            users = get_users2()
-            return render_template("usuarios_roles.html", usuarios=users)
-        case _:
-            # Usuario válido pero no es superusuario
-            return render_template("access_denied.html"), 403
+#     match user:
+#         case None:
+#             # No se encontró usuario, redirige al login
+#             return redirect(url_for('login'))
+#         case {"is_superuser": 1}:
+#             # Usuario válido y es superusuario
+#             users = get_users2()
+#             return render_template("borrar_usuarios_roles.html", usuarios=users)
+#         case _:
+#             # Usuario válido pero no es superusuario
+#             return render_template("access_denied.html"), 403
 
 
 @app.route("/asignar_rol", methods=["GET", "POST"])
@@ -3070,64 +3070,64 @@ def dashboard():
     return redirect(url_for('login'))
 
 
-@app.route('/new_grant', methods=['GET', 'POST'])
-def new_grant():
-    import os
-    from flask import request, flash, redirect, url_for, render_template
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, name FROM roles")
-    roles = [dict(id=row[0], name=row[1]) for row in cursor.fetchall()]
-    conn.close()
+# @app.route('/new_grant', methods=['GET', 'POST'])
+# def new_grant():
+#     import os
+#     from flask import request, flash, redirect, url_for, render_template
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
+#     cursor.execute("SELECT id, name FROM roles")
+#     roles = [dict(id=row[0], name=row[1]) for row in cursor.fetchall()]
+#     conn.close()
 
-    if request.method == 'POST':
-        f = request.files.get('xml_file')
-        role_id = request.form.get('role_id')
+#     if request.method == 'POST':
+#         f = request.files.get('xml_file')
+#         role_id = request.form.get('role_id')
 
-        if not f or not role_id:
-            flash('Falta fichero o rol', 'danger')
-            return redirect(request.url)
+#         if not f or not role_id:
+#             flash('Falta fichero o rol', 'danger')
+#             return redirect(request.url)
 
-        try:
-            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-            path = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
-            f.save(path)
+#         try:
+#             os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+#             path = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
+#             f.save(path)
 
-            grant_id, name, default_action = insert_grant_from_xml(
-                path, role_id)
-            flash(
-                f'Grant "{name}", con id {grant_id}, creado con default="{default_action}" y rol asignado.', 'success')
-            return redirect(url_for('new_grant'))
-        except Exception as e:
-            flash(f'Error: {e}', 'danger')
+#             grant_id, name, default_action = insert_grant_from_xml(
+#                 path, role_id)
+#             flash(
+#                 f'Grant "{name}", con id {grant_id}, creado con default="{default_action}" y rol asignado.', 'success')
+#             return redirect(url_for('new_grant'))
+#         except Exception as e:
+#             flash(f'Error: {e}', 'danger')
 
-    return render_template('new_grant.html', roles=roles)
+#     return render_template('new_grant.html', roles=roles)
 
 
 # TODO: Añadir que solo los superuser puedan listar los grants
-@app.route('/list_grant_templates')
-def list_grant_templates():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    query = '''
-        SELECT gt.id, gt.name, gt.default_action, r.name as role_name
-        FROM grantTemplate gt
-        JOIN roles r ON gt.role_id = r.id
-    '''
-    cursor.execute(query)
-    grant_templates = cursor.fetchall()  # Devuelve lista de tuplas
+# @app.route('/list_grant_templates')
+# def list_grant_templates():
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
+#     query = '''
+#         SELECT gt.id, gt.name, gt.default_action, r.name as role_name
+#         FROM grantTemplate gt
+#         JOIN roles r ON gt.role_id = r.id
+#     '''
+#     cursor.execute(query)
+#     grant_templates = cursor.fetchall()  # Devuelve lista de tuplas
 
-    # Opcional: transformar a lista de dicts
-    grants = [
-        {
-            'id': row[0],
-            'name': row[1],
-            'default_action': row[2],
-            'role_name': row[3]
-        } for row in grant_templates
-    ]
+#     # Opcional: transformar a lista de dicts
+#     grants = [
+#         {
+#             'id': row[0],
+#             'name': row[1],
+#             'default_action': row[2],
+#             'role_name': row[3]
+#         } for row in grant_templates
+#     ]
 
-    return render_template('grant_templates.html', grants=grants)
+#     return render_template('grant_templates.html', grants=grants)
 
 
 def delete_grant_template_by_id(grant_id, conn):
@@ -3162,22 +3162,6 @@ def delete_grant_template_by_id(grant_id, conn):
         DELETE FROM topics
         WHERE id NOT IN (SELECT topic_id FROM rule_topics)
     ''')
-
-
-@app.route('/delete_grant/<int:grant_id>', methods=['POST'])
-def delete_grant_template_html(grant_id):
-    conn = get_db_connection()
-    try:
-        delete_grant_template_by_id(grant_id, conn)
-        conn.commit()
-        flash(
-            f"Grant template con ID {grant_id} y sus datos asociados fueron eliminados correctamente.", 'success')
-    except Exception as e:
-        conn.rollback()
-        flash(f"Error al eliminar: {e}", 'danger')
-    finally:
-        conn.close()
-    return redirect(url_for('list_grant_templates'))
 
 
 @app.context_processor
