@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Asignar Rol{% endblock %}
-{% block header %}Asignar Rol a Usuario{% endblock %}
+
+{% block title %}Asignar Roles{% endblock %}
+{% block header %}Asignar Roles a Usuario{% endblock %}
 
 {% block path_main %}
 <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
-<li class="breadcrumb-item active">Asignar Rol</li>
+<li class="breadcrumb-item active">Asignar Roles</li>
 {% endblock %}
 
 {% block content %}
@@ -23,8 +24,9 @@
 
 <div class="card card-primary">
     <div class="card-header">
-        <h3 class="card-title">Formulario de Asignación</h3>
+        <h3 class="card-title">Formulario de Asignación de Roles</h3>
     </div>
+
     <form method="post">
         <div class="card-body">
             <div class="form-group">
@@ -38,18 +40,19 @@
             </div>
 
             <div class="form-group">
-                <label for="roleSelect">Rol</label>
-                <select class="form-control" id="roleSelect" name="role_id" required>
-                    <option value="" disabled selected>Seleccione un rol</option>
+                <label for="roleSelect">Roles</label>
+                <select class="form-control" id="roleSelect" name="role_ids" multiple required>
                     {% for role in roles %}
                     <option value="{{ role.id }}">{{ role.name }}</option>
                     {% endfor %}
                 </select>
+                <small class="form-text text-muted">Mantenga presionada Ctrl (Windows) o Cmd (Mac) para seleccionar
+                    múltiples roles.</small>
             </div>
         </div>
 
         <div class="card-footer">
-            <button type="submit" class="btn btn-success float-right">Asignar</button>
+            <button type="submit" class="btn btn-success float-right">Asignar Roles</button>
         </div>
     </form>
 </div>

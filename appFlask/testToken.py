@@ -65,6 +65,7 @@ with open(swagger_file, "r") as f:
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
 app.config['UPLOAD_FOLDER'] = 'uploads'
+app.secret_key = 'super secret key'
 JWT_SECRET = 'clave_jwt_segura'
 JWT_EXPIRATION_MINUTES = 60
 
@@ -3015,51 +3016,50 @@ def page_not_found(e):
 #             return render_template("access_denied.html"), 403
 
 
-@app.route("/asignar_rol", methods=["GET", "POST"])
-def asignar_rol():
 
-    user = verificar_jwt()
 
-    match user:
-        case None:
-            return redirect(url_for('login'))
-        case {"is_superuser": 1}:
-            if request.method == "POST":
-                user_id = request.form.get("user_id")
-                role_id = request.form.get("role_id")
-                if user_id and role_id:
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
 
-                    # Validar que el user_id existe
+@app.route('/role_assign', methods=['GET', 'POST'])
+def role_assign():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        try:
+            user_id = int(request.form.get('user_id'))
+            role_ids = list(map(int, request.form.getlist('role_ids')))
+        except (ValueError, TypeError):
+            flash('Datos inválidos. Asegúrese de seleccionar un usuario y al menos un rol.', 'danger')
+            return redirect(url_for('role_assign'))
+
+        if not role_ids:
+            flash('Debe seleccionar al menos un rol.', 'danger')
+        else:
+            roles_added = []
+            for role_id in role_ids:
+                cursor.execute('SELECT 1 FROM user_roles WHERE user_id=? AND role_id=?', (user_id, role_id))
+                if not cursor.fetchone():
                     cursor.execute(
-                        "SELECT username FROM users WHERE id = ?", (user_id,))
-                    user_row = cursor.fetchone()
+                        'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)',
+                        (user_id, role_id)
+                    )
+                    roles_added.append(role_id)
 
-                    # Validar que el role_id existe
-                    cursor.execute(
-                        "SELECT name FROM roles WHERE id = ?", (role_id,))
-                    role_row = cursor.fetchone()
+            conn.commit()
 
-                    if not user_row or not role_row:
-                        flash("❌ Usuario o rol no encontrado.", "danger")
-                        conn.close()
-                        return redirect(url_for("asignar_rol"))
+            if roles_added:
+                flash(f'Se asignaron los roles {roles_added} al usuario ID {user_id}.', 'success')
+            else:
+                flash('Ningún rol fue asignado (posiblemente ya estaban asociados).', 'info')
 
-                    # Asignar rol
-                    assign_role_to_user(user_id, role_id)
-                    conn.close()
+    # Cargar datos para GET y también después del POST
+    cursor.execute("SELECT id, username FROM users ORDER BY username")
+    users = cursor.fetchall()
+    cursor.execute("SELECT id, name FROM roles ORDER BY name")
+    roles = cursor.fetchall()
+    conn.close()
 
-                    username = user_row[0]
-                    role_name = role_row[0]
-                    flash(
-                        f"✅ Rol '{role_name}' asignado a '{username}' correctamente.", "success")
-                    return redirect(url_for("asignar_rol"))
-
-            users, roles = get_all_users_and_roles()
-            return render_template("asignar_rol.html", users=users, roles=roles)
-        case _:
-            return render_template("access_denied.html"), 403
+    return render_template('role_assign.html', users=users, roles=roles)
 
 
 @app.route('/dashboard')
