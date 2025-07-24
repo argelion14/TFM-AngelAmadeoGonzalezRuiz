@@ -1,79 +1,146 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block title %}Dashboard{% endblock %}
 
-{% block header %}Dashboard Overview{% endblock %}
+{% block active_module_DASHBOARD %}active{% endblock %}
+
+{% block header %}System Dashboard{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item active">Dashboard</li>
+{% endblock %}
 
 {% block content %}
-
-<div class="content-wrapper" style="margin-left: 0;">
-    <section class="content pt-3">
-        <div class="container">
-            <h1>Welcome, {{ username }}!</h1>
-            <h3>Your certificate:</h3>
-            <pre>{{ cert }}</pre>
-        </div>
-
-        <div class="content">
-            <div class="container-fluid">
-                <div class="row">
-                    <!-- Stored Data Chart -->
-                    <div class="col-lg-6">
-                        <div class="card card-info card-outline">
-                            <div class="card-header">
-                                <h3 class="card-title">
-                                    <i class="fas fa-database"></i> Stored Data
-                                </h3>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="donutChart"
-                                    style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"
-                                    class="chartjs-render-monitor"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Info and Roles -->
-                    <div class="col-lg-6">
-                        <!-- Project Info -->
-                        <div class="card card-info card-outline mb-3">
-                            <div class="card-header">
-                                <h5 class="m-0">
-                                    <i class="fas fa-circle-info"></i> Project Information
-                                </h5>
-                            </div>
-                            <div class="card-body">
-                                <p class="card-text">
-                                    This section provides useful information about the project and its current status.
-                                </p>
-                                <a href="{{ url_for('contact') }}" class="btn btn-info">More Information</a>
-                            </div>
-                        </div>
-
-                        <!-- User Roles -->
-                        <div class="card card-info card-outline">
-                            <div class="card-header">
-                                <h5 class="m-0">
-                                    <i class="fas fa-address-book"></i> User Roles
-                                </h5>
-                            </div>
-                            <div class="card-body">
-                                <p class="card-text">
-                                    Roles assigned to your user in this system.
-                                </p>
-                                <a href="{{ url_for('contact') }}" class="btn btn-info">View My Roles</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+<div class="row">
+    <!-- Usuarios -->
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-info">
+            <div class="inner">
+                <h3>{{ stats.total_users }}</h3>
+                <p>Total Users</p>
             </div>
+            <div class="icon"><i class="fas fa-users"></i></div>
         </div>
-    </section>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h3>{{ stats.total_superusers }}</h3>
+                <p>Superusers</p>
+            </div>
+            <div class="icon"><i class="fas fa-user-shield"></i></div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-primary">
+            <div class="inner">
+                <h3>{{ stats.users_with_keys }}</h3>
+                <p>Users with Active Keys</p>
+            </div>
+            <div class="icon"><i class="fas fa-key"></i></div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-success">
+            <div class="inner">
+                <h3>{{ stats.active_key_ratio }}%</h3>
+                <p>Key Activation Rate</p>
+            </div>
+            <div class="icon"><i class="fas fa-percentage"></i></div>
+        </div>
+    </div>
 </div>
 
-<!-- AdminLTE JS dependencies -->
-<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/plugins/jquery/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<div class="row">
+    <!-- Roles y Grants -->
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-dark">
+            <div class="inner">
+                <h3>{{ stats.total_roles }}</h3>
+                <p>Total Roles</p>
+            </div>
+            <div class="icon"><i class="fas fa-user-tag"></i></div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-secondary">
+            <div class="inner">
+                <h3>{{ stats.roles_with_grants }}</h3>
+                <p>Roles Linked to Grants</p>
+            </div>
+            <div class="icon"><i class="fas fa-link"></i></div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-danger">
+            <div class="inner">
+                <h3>{{ stats.total_grants }}</h3>
+                <p>Grant Templates</p>
+            </div>
+            <div class="icon"><i class="fas fa-certificate"></i></div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-info">
+            <div class="inner">
+                <h3>{{ stats.grant_rules_count }}</h3>
+                <p>Rules Linked to Grants</p>
+            </div>
+            <div class="icon"><i class="fas fa-random"></i></div>
+        </div>
+    </div>
+</div>
 
+<div class="row">
+    <!-- Dominios, Tópicos y Reglas -->
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-teal">
+            <div class="inner">
+                <h3>{{ stats.total_domains }}</h3>
+                <p>Domains</p>
+            </div>
+            <div class="icon"><i class="fas fa-globe"></i></div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-indigo">
+            <div class="inner">
+                <h3>{{ stats.total_topics }}</h3>
+                <p>Topics</p>
+            </div>
+            <div class="icon"><i class="fas fa-comments"></i></div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-light">
+            <div class="inner">
+                <h3>{{ stats.total_rules }}</h3>
+                <p>Total Rules</p>
+            </div>
+            <div class="icon"><i class="fas fa-gavel"></i></div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-lightblue">
+            <div class="inner">
+                <h3>{{ stats.rules_with_domains }}</h3>
+                <p>Rules with Domains</p>
+            </div>
+            <div class="icon"><i class="fas fa-network-wired"></i></div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-orange">
+            <div class="inner">
+                <h3>{{ stats.rules_with_topics }}</h3>
+                <p>Rules with Topics</p>
+            </div>
+            <div class="icon"><i class="fas fa-stream"></i></div>
+        </div>
+    </div>
+</div>
 {% endblock %}

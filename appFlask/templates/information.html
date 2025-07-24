@@ -1,56 +1,61 @@
 {% extends "base.html" %}
 
-{% block tittle %}
-Ori | Información
-{% endblock %}
+{% block title %}ORI | Information{% endblock %}
 
-{% block active_information %}
-active
-{% endblock %}
+{% block active_information %}active{% endblock %}
 
 {% block header %}Information{% endblock %}
 
 {% block path_main %}
 <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Dashboard</a></li>
-<li class="breadcrumb-item active">información</li>
+<li class="breadcrumb-item active">Information</li>
 {% endblock %}
 
-
 {% block content %}
-
 <div class="card-body">
-
     <div id="accordion">
+
+        <!-- Introduction -->
         <div class="card card-primary">
             <div class="card-header">
                 <h4 class="card-title w-100">
                     <a class="d-block w-100" data-toggle="collapse" href="#collapseOne" aria-expanded="true">
-                        <i class="fas fa-solid fa-rocket"></i> Uso de la aplicación ORI
+                        <i class="fas fa-rocket"></i> TFM
                     </a>
                 </h4>
             </div>
-            <!--data-parent="#accordion"-->
-            <div id="collapseOne" class="collapse show" style="">
+            <div id="collapseOne" class="collapse show">
                 <div class="card-body">
-                    <p class="">
-                        Tradicionalmente el control de accesos ha sido basado en roles (Role-Based Access Control) pero
-                        este paradigma es rígido y presenta poca granularidad. Actualmente se sigue un modelo basado en
-                        atributos (Attribute-Based Access Control) en el que se determinan los derechos de acceso a un
-                        servicio o sistema en función de una serie de atributos como pueden ser usuarios, departamentos,
-                        proyectos en los que se trabaja, permisos de lectura o escritura, etc.
+                    <p>
+                        Traditional access control models rely on roles (Role-Based Access Control, RBAC), which often
+                        lack flexibility and granularity. A more modern approach is Attribute-Based Access Control
+                        (ABAC), where access rights are granted based on user attributes like role, department, project,
+                        or operation type.
                     </p>
-                    <p class="">
-                        En este TFM se pretende en primer lugar explorar los distintos métodos de control de acceso
-                        actuales para determinar el más ventajoso dependiendo de las circunstancias de aplicación. Una
-                        vez tomada esta decisión se ha de implementar un prototipo de servidor de autenticación y
-                        control de acceso que suministre tokens de control de acceso en función de los atributos del
-                        usuario que los solicita. Por último, se ha de realizar una fase de experimentación en la que
-                        comprobar que los tokens se suministran de forma adecuada y que estos cumplen con los derechos
-                        de acceso que se pretendían dar a los usuarios.
+                    <p>
+                        ORI is a prototype authentication and access control server developed for a Master's Thesis. It
+                        issues access control tokens based on user attributes. The system includes authentication, token
+                        issuance, user/role/permission management, and a dynamic ruleset for DDS (Data Distribution
+                        Service) environments.
                     </p>
+                    <ul>
+                        <li><strong>User Management</strong>: Create, edit and delete users. Assign superuser roles.
+                        </li>
+                        <li><strong>Certificate Management</strong>: Store and display public certificates per user.
+                        </li>
+                        <li><strong>Role Templates</strong>: Define role-based permissions with expiration and grant
+                            rules.</li>
+                        <li><strong>Access Rules</strong>: Define allow/deny rules for topics/domains with
+                            publish/subscribe actions.</li>
+                        <li><strong>Token Generation</strong>: Token-based access using cryptographically signed
+                            permissions.</li>
+                        <li><strong>Dashboard</strong>: Visualize database statistics and system usage.</li>
+                    </ul>
                 </div>
             </div>
         </div>
+
+        <!-- Color Palette -->
         <div class="card card-teal">
             <div class="card-header">
                 <h4 class="card-title w-100">
@@ -254,30 +259,31 @@ active
             </div>
         </div>
 
+        <!-- License -->
         <div class="card card-info">
             <div class="card-header">
                 <h4 class="card-title w-100">
                     <a class="d-block w-100 collapsed" data-toggle="collapse" href="#collapseThree"
                         aria-expanded="false">
-                        <i class="fas fa-solid fa-file-contract"></i> Licencia
+                        <i class="fas fa-file-contract"></i> License
                     </a>
                 </h4>
             </div>
-            <div id="collapseThree" class="collapse" style="">
+            <div id="collapseThree" class="collapse">
                 <div class="card-body">
-                    <a href="https://opensource.org/licenses/MIT">MIT License</a>
+                    <a href="https://opensource.org/licenses/MIT">MIT License</a><br><br>
 
-                    Copyright (c) 2022 Ángel Amadeo González Ruiz
+                    Copyright (c) 2025 Ángel Amadeo González Ruiz<br><br>
 
                     Permission is hereby granted, free of charge, to any person obtaining a copy
                     of this software and associated documentation files (the "Software"), to deal
                     in the Software without restriction, including without limitation the rights
                     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
                     copies of the Software, and to permit persons to whom the Software is
-                    furnished to do so, subject to the following conditions:
+                    furnished to do so, subject to the following conditions:<br><br>
 
                     The above copyright notice and this permission notice shall be included in all
-                    copies or substantial portions of the Software.
+                    copies or substantial portions of the Software.<br><br>
 
                     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
                     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -289,22 +295,24 @@ active
                 </div>
             </div>
         </div>
+
+        <!-- Dependencies -->
         <div class="card card-lightblue">
             <div class="card-header">
                 <h4 class="card-title w-100">
                     <a class="d-block w-100 collapsed" data-toggle="collapse" href="#collapseFour"
                         aria-expanded="false">
-                        <i class="fas fa-solid fa-handshake"></i> Dependencias
+                        <i class="fas fa-handshake"></i> Dependencies
                     </a>
                 </h4>
             </div>
-            <div id="collapseFour" class="collapse" style="">
+            <div id="collapseFour" class="collapse">
                 <div class="card-body">
                     <div class="row px-3">
                         <div class="col-sm-3">
                             <ul class="list-unstyled">
                                 <li>
-                                    <h4>Tipografia</h4>
+                                    <h4>Typography</h4>
                                 </li>
                                 <li><a href="https://fonts.google.com/specimen/Source+Sans+Pro?query=sans+"
                                         rel="noopener" target="_blank">Google Fonts</a></li>
@@ -313,7 +321,7 @@ active
                         <div class="col-sm-3">
                             <ul class="list-unstyled">
                                 <li>
-                                    <h4>Packs de iconos</h4>
+                                    <h4>Icons</h4>
                                 </li>
                                 <li><a href="https://fontawesome.com/" rel="noopener" target="_blank">FontAwesome 5</a>
                                 </li>
@@ -324,7 +332,7 @@ active
                         <div class="col-sm-3">
                             <ul class="list-unstyled">
                                 <li>
-                                    <h4>Diseño</h4>
+                                    <h4>Design Tools</h4>
                                 </li>
                                 <li><a href="https://kingsora.github.io/OverlayScrollbars/" rel="noopener"
                                         target="_blank">Overlay Scrollbars</a></li>
@@ -334,7 +342,7 @@ active
                         <div class="col-sm-3">
                             <ul class="list-unstyled">
                                 <li>
-                                    <h4>Elementos de formularios</h4>
+                                    <h4>Form Elements</h4>
                                 </li>
                                 <li><a href="https://github.com/Johann-S/bs-custom-file-input#readme" rel="noopener"
                                         target="_blank">bs-custom-file-input</a></li>
@@ -346,7 +354,7 @@ active
                         <div class="col-sm-3">
                             <ul class="list-unstyled">
                                 <li>
-                                    <h4>CSS <i class="fas fa-solid fa-file-csv"></i></h4>
+                                    <h4>CSS</h4>
                                 </li>
                                 <li><a href="https://cdn.jsdelivr.net/npm/admin-lte@3.1/dist/css/adminlte.min.css"
                                         rel="noopener" target="_blank">css/adminlte</a></li>
@@ -355,19 +363,18 @@ active
                         <div class="col-sm-3">
                             <ul class="list-unstyled">
                                 <li>
-                                    <h4>JS <i class="fas fa-solid fa-file-code"></i></h4>
+                                    <h4>JavaScript</h4>
                                 </li>
                                 <li><a href="https://cdn.jsdelivr.net/npm/admin-lte@3.1/dist/js/adminlte.min.js"
                                         rel="noopener" target="_blank">js/adminlte</a></li>
                             </ul>
                         </div>
-
                     </div>
 
                 </div>
             </div>
         </div>
+
     </div>
 </div>
-
 {% endblock %}

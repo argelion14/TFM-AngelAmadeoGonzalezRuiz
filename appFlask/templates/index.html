@@ -1,16 +1,78 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Panel Principal{% endblock %}
+{% block title %}Welcome{% endblock %}
 
-{% block header %}Panel Principal{% endblock %}
+{% block header %}Welcome to the RTI Permissions Management System{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item active">Home</li>
+{% endblock %}
 
 {% block content %}
-<div class="card">
+<div class="card card-primary">
   <div class="card-header">
-    <h3 class="card-title">Bienvenido al Panel Principal</h3>
+    <h3 class="card-title">About the Project</h3>
   </div>
   <div class="card-body">
-    <p>Este es un ejemplo básico usando AdminLTE con Flask.</p>
+    <p>
+      This web application is the result of an academic final project that implements a comprehensive permission
+      management system based on <strong>DDS RTI Security XML policies</strong>. It enables the creation, assignment,
+      validation, and visualization of users, roles, and security permissions through JWT tokens.
+    </p>
+    <p>The project is built using:</p>
+    <ul>
+      <li>🌐 <strong>Flask</strong> for the backend and routing</li>
+      <li>🗂️ <strong>SQLite</strong> for lightweight data persistence</li>
+      <li>🎨 <strong>AdminLTE</strong> for responsive and professional UI components</li>
+    </ul>
+    <p>Its purpose is to simulate real-world RBAC and permission validation processes for distributed systems using
+      cryptographic certificates.</p>
+  </div>
+</div>
+
+<div class="card card-info">
+  <div class="card-header">
+    <h3 class="card-title">Available Features</h3>
+  </div>
+  <div class="card-body">
+    <ul>
+      <li><strong>Users</strong>:
+        <ul>
+          <li>Create, list, view details, and delete users</li>
+          <li>Generate and manage public/private certificates</li>
+        </ul>
+      </li>
+      <li><strong>Roles</strong>:
+        <ul>
+          <li>Define new roles with expiration time</li>
+          <li>Associate roles to users</li>
+          <li>Assign roles based on grant templates</li>
+        </ul>
+      </li>
+      <li><strong>Grant Templates</strong>:
+        <ul>
+          <li>Upload and parse DDS Permissions XML files</li>
+          <li>View associated rules, domains, and topics</li>
+        </ul>
+      </li>
+      <li><strong>JWT Token Management</strong>:
+        <ul>
+          <li>Create tokens with cryptographic signature</li>
+          <li>Validate tokens and decode payload</li>
+        </ul>
+      </li>
+      <li><strong>Dashboard</strong>:
+        <ul>
+          <li>See summary statistics about users, roles, grants, etc.</li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="card card-light">
+  <div class="card-footer text-center">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary"><i class="fas fa-chart-pie"></i> Go to Dashboard</a>
   </div>
 </div>
 {% endblock %}

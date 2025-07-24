@@ -2953,9 +2953,13 @@ def logout():
     return resp
 
 
+# @app.route('/')
+# def home():
+#     return render_template('home.html')
+
 @app.route('/')
 def home():
-    return render_template('home.html')
+    return redirect(url_for('index'))  # O el nombre de la función asociada a la ruta /home
 
 
 @app.route('/index')
@@ -3064,10 +3068,33 @@ def role_assign():
 
 @app.route('/dashboard')
 def dashboard():
-    user = verificar_jwt()
-    if user:
-        return render_template('dashboard.html', username=user['username'], cert=user['cert'])
-    return redirect(url_for('login'))
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    stats = {
+        "total_users": cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0],
+        "total_superusers": cursor.execute("SELECT COUNT(*) FROM users WHERE is_superuser = 1").fetchone()[0],
+        "users_with_keys": cursor.execute("SELECT COUNT(*) FROM user_keys WHERE is_active = 1").fetchone()[0],
+        "total_roles": cursor.execute("SELECT COUNT(*) FROM roles").fetchone()[0],
+        "roles_with_grants": cursor.execute("SELECT COUNT(*) FROM roles WHERE grant_id IS NOT NULL").fetchone()[0],
+        "total_grants": cursor.execute("SELECT COUNT(*) FROM grantTemplate").fetchone()[0],
+        "total_domains": cursor.execute("SELECT COUNT(*) FROM domains").fetchone()[0],
+        "total_topics": cursor.execute("SELECT COUNT(*) FROM topics").fetchone()[0],
+        "total_rules": cursor.execute("SELECT COUNT(*) FROM rules").fetchone()[0],
+        "rules_with_domains": cursor.execute("SELECT COUNT(DISTINCT rule_id) FROM rule_domains").fetchone()[0],
+        "rules_with_topics": cursor.execute("SELECT COUNT(DISTINCT rule_id) FROM rule_topics").fetchone()[0],
+        "grant_rules_count": cursor.execute("SELECT COUNT(*) FROM grant_rules").fetchone()[0],
+        "active_key_ratio": None
+    }
+
+    # Ratio de claves activas respecto a usuarios totales
+    if stats["total_users"] > 0:
+        stats["active_key_ratio"] = round((stats["users_with_keys"] / stats["total_users"]) * 100, 2)
+    else:
+        stats["active_key_ratio"] = 0
+
+    conn.close()
+    return render_template('dashboard.html', stats=stats)
 
 
 # @app.route('/new_grant', methods=['GET', 'POST'])
