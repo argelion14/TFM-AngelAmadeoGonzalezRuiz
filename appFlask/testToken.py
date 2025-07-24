@@ -69,7 +69,6 @@ app.secret_key = 'super secret key'
 JWT_SECRET = 'clave_jwt_segura'
 JWT_EXPIRATION_MINUTES = 60
 
-# TODO Mejorar la estructura de la base.html
 # TODO Hacer que todos los endpoint que necesiten de esto, lo usan en el swag_from de la misma manera, le tengo que añadir el bearer en el security
 
 #########################

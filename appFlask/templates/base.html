@@ -40,10 +40,12 @@
                     <a href="{{ url_for('contact') }}" class="nav-link">Contact</a>
                 </li>
                 <li class="nav-item d-none d-sm-inline-block">
-                    <a target="_blank" href="{{ url_for('redirigir_a_swagger_json') }}" class="nav-link">Swagger JSON</a>
+                    <a target="_blank" href="{{ url_for('redirigir_a_swagger_json') }}" class="nav-link">Swagger
+                        JSON</a>
                 </li>
                 <li class="nav-item d-none d-sm-inline-block">
-                    <a target="_blank"href="{{ url_for('redirigir_a_swagger_json_api') }}" class="nav-link">Swagger API</a>
+                    <a target="_blank" href="{{ url_for('redirigir_a_swagger_json_api') }}" class="nav-link">Swagger
+                        API</a>
                 </li>
             </ul>
 
@@ -85,7 +87,7 @@
         <aside class="main-sidebar sidebar-dark-primary elevation-4">
             <!-- Brand Logo -->
             <a title="dashboard" href="{{ url_for('index') }}" class="brand-link">
-                <img title="dashboard" src="{{ url_for('static', filename='img/RTI.png') }}" alt="Logo ORI"
+                <img title="dashboard" src="{{ url_for('static', filename='img/RTI.png') }}" alt="Logo RTI"
                     class="brand-image img-circle elevation-3" style="opacity: .8">
                 <span class="brand-text font-weight-light">My Flask App </span>
             </a>
@@ -112,7 +114,8 @@
                     <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview"
                         role="menu" data-accordion="false">
                         <li class="nav-item">
-                            <a href="{{ url_for('index') }}" class="nav-link {% block active_home_panel %} {% endblock %}">
+                            <a href="{{ url_for('index') }}"
+                                class="nav-link {% block active_home_panel %} {% endblock %}">
                                 <i class="nav-icon fas fa-th"></i>
                                 <p>Home Panel</p>
                             </a>
@@ -168,8 +171,7 @@
                             <a title="Human Resources Module" href="#"
                                 class="nav-link {% block active_module_user %}{% endblock %}">
                                 <i class="nav-icon fas fa-users"></i>
-                                <p>
-                                    User Management
+                                <p> User Management
                                     <i class="right fas fa-angle-left"></i>
                                 </p>
                             </a>
@@ -247,7 +249,7 @@
                             </ul>
                         </li>
                         {% endif %}
-                        <!--Documentación extra-->
+
                         <li class="nav-header">EXTRA</li>
                         <li class="nav-item  ">
                             <a title="Information" href="{{ url_for('information') }}"
@@ -262,7 +264,6 @@
             </div>
         </aside>
 
-        <!-- Contenido principal -->
         <div class="content-wrapper">
 
             <!-- Content Header (Page header) -->
@@ -278,11 +279,10 @@
                                 <li class="breadcrumb-item active">BASE</li>
                                 {% endblock %}
                             </ol>
-                        </div><!-- /.col -->
-                    </div><!-- /.row -->
-                </div><!-- /.container-fluid -->
+                        </div>
+                    </div>
+                </div>
             </div>
-            <!-- /.content-header -->
 
             <section class="content">
                 <div class="container-fluid">
@@ -304,7 +304,6 @@
                 <hr class="mb-2">
 
                 <h6><i class="fas fa-user-cog"></i> User Area</h6>
-                <!-- Puedes añadir enlaces aquí si los necesitas en el futuro -->
                 <hr class="mb-2">
 
                 <h6><i class="fas fa-puzzle-piece"></i> Modules Area</h6>
@@ -329,7 +328,6 @@
             </div>
         </aside>
         {%endif%}
-        <!-- /.control-sidebar -->
 
         <!-- Footer -->
         <footer class="main-footer text-center">
@@ -341,7 +339,6 @@
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
-
     {% block scripts %}
     {% endblock %}
 </body>
