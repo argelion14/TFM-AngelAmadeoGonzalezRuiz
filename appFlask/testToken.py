@@ -1907,7 +1907,7 @@ def get_roles_html():
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT 
+        SELECT
             roles.id,
             roles.name,
             roles.description,
@@ -1962,50 +1962,6 @@ def assign_role_to_user(user_id, role_id):
             "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
         conn.commit()
     conn.close()
-
-
-#########################
-# SECCIÓN DE HTML AUTENTICACIÓN JWT
-#########################
-
-# def generar_jwt(user):
-#     payload = {
-#         'username': user[0],
-#         'cert': user[2],
-#         'is_superuser': user[3] == 1,
-#         'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
-#     }
-#     token = jwt.encode(payload, CA_KEY, algorithm="ES256")
-#     return token
-
-
-# def verificar_jwt():
-#     """
-#     Verifica el JWT almacenado en la cookie 'token' de una solicitud HTML.
-
-#     Returns:
-#         dict | None: Los datos del token si es válido, o None si es inválido o no existe.
-#     """
-#     token = request.cookies.get("token")
-#     return decodificar_jwt(token)
-
-
-# def decodificar_jwt(token):
-#     """
-#     Intenta decodificar un token JWT.
-
-#     Args:
-#         token (str): El token JWT a decodificar.
-
-#     Returns:
-#         dict | None: Datos decodificados o None si el token es inválido o expirado.
-#     """
-#     if not token:
-#         return None
-#     try:
-#         return jwt.decode(token, CA_PUBLIC_KEY, algorithms=["ES256"])
-#     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-#         return None
 
 
 #########################
@@ -2799,15 +2755,6 @@ def xml_vality():
 # SECCIÓN DE AuthRole HTML
 #########################
 
-# @app.route('/authrole_create')
-# def authrole_create():
-#     return render_template('authrole_create.html')
-
-
-# @app.route('/authrole_vality')
-# def authrole_vality():
-#     return render_template('authrole_vality.html')
-
 
 @app.route('/auth-role', methods=['GET', 'POST'])
 def auth_role_html():
@@ -2959,7 +2906,7 @@ def logout():
 
 @app.route('/')
 def home():
-    return redirect(url_for('index'))  # O el nombre de la función asociada a la ruta /home
+    return redirect(url_for('index'))
 
 
 @app.route('/index')
@@ -2982,45 +2929,9 @@ def contact():
     return render_template('contact.html')
 
 
-# @app.route("/roles")
-# def roles():
-#     roles = get_roles2()
-#     return render_template("roles.html", roles=roles)
-
-
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template("404.html"), 404
-
-
-# @app.route('/mis_roles')
-# def mis_roles():
-#     user = verificar_jwt()
-#     if user:
-#         username = user.get('username')
-#         roles = get_roles_by_username(username)
-#         return render_template('mis_roles.html', username=username, roles=roles)
-#     return redirect(url_for('login'))
-
-
-# @app.route("/usuarios2")
-# def usuarios2():
-#     user = verificar_jwt()
-
-#     match user:
-#         case None:
-#             # No se encontró usuario, redirige al login
-#             return redirect(url_for('login'))
-#         case {"is_superuser": 1}:
-#             # Usuario válido y es superusuario
-#             users = get_users2()
-#             return render_template("borrar_usuarios_roles.html", usuarios=users)
-#         case _:
-#             # Usuario válido pero no es superusuario
-#             return render_template("access_denied.html"), 403
-
-
-
 
 
 @app.route('/role_assign', methods=['GET', 'POST'])
@@ -3056,7 +2967,6 @@ def role_assign():
             else:
                 flash('Ningún rol fue asignado (posiblemente ya estaban asociados).', 'info')
 
-    # Cargar datos para GET y también después del POST
     cursor.execute("SELECT id, username FROM users ORDER BY username")
     users = cursor.fetchall()
     cursor.execute("SELECT id, name FROM roles ORDER BY name")
@@ -3095,66 +3005,6 @@ def dashboard():
 
     conn.close()
     return render_template('dashboard.html', stats=stats)
-
-
-# @app.route('/new_grant', methods=['GET', 'POST'])
-# def new_grant():
-#     import os
-#     from flask import request, flash, redirect, url_for, render_template
-#     conn = get_db_connection()
-#     cursor = conn.cursor()
-#     cursor.execute("SELECT id, name FROM roles")
-#     roles = [dict(id=row[0], name=row[1]) for row in cursor.fetchall()]
-#     conn.close()
-
-#     if request.method == 'POST':
-#         f = request.files.get('xml_file')
-#         role_id = request.form.get('role_id')
-
-#         if not f or not role_id:
-#             flash('Falta fichero o rol', 'danger')
-#             return redirect(request.url)
-
-#         try:
-#             os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-#             path = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
-#             f.save(path)
-
-#             grant_id, name, default_action = insert_grant_from_xml(
-#                 path, role_id)
-#             flash(
-#                 f'Grant "{name}", con id {grant_id}, creado con default="{default_action}" y rol asignado.', 'success')
-#             return redirect(url_for('new_grant'))
-#         except Exception as e:
-#             flash(f'Error: {e}', 'danger')
-
-#     return render_template('new_grant.html', roles=roles)
-
-
-# TODO: Añadir que solo los superuser puedan listar los grants
-# @app.route('/list_grant_templates')
-# def list_grant_templates():
-#     conn = get_db_connection()
-#     cursor = conn.cursor()
-#     query = '''
-#         SELECT gt.id, gt.name, gt.default_action, r.name as role_name
-#         FROM grantTemplate gt
-#         JOIN roles r ON gt.role_id = r.id
-#     '''
-#     cursor.execute(query)
-#     grant_templates = cursor.fetchall()  # Devuelve lista de tuplas
-
-#     # Opcional: transformar a lista de dicts
-#     grants = [
-#         {
-#             'id': row[0],
-#             'name': row[1],
-#             'default_action': row[2],
-#             'role_name': row[3]
-#         } for row in grant_templates
-#     ]
-
-#     return render_template('grant_templates.html', grants=grants)
 
 
 def delete_grant_template_by_id(grant_id, conn):

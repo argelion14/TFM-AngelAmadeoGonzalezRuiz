@@ -37,16 +37,13 @@
                     </a>
                 </li>
                 <li class="nav-item d-none d-sm-inline-block">
-                    <a href="{{ url_for('home') }}" class="nav-link">Home</a>
-                </li>
-                <li class="nav-item d-none d-sm-inline-block">
                     <a href="{{ url_for('contact') }}" class="nav-link">Contact</a>
                 </li>
                 <li class="nav-item d-none d-sm-inline-block">
-                    <a href="{{ url_for('redirigir_a_swagger_json') }}" class="nav-link">Swagger JSON</a>
+                    <a target="_blank" href="{{ url_for('redirigir_a_swagger_json') }}" class="nav-link">Swagger JSON</a>
                 </li>
                 <li class="nav-item d-none d-sm-inline-block">
-                    <a href="{{ url_for('redirigir_a_swagger_json_api') }}" class="nav-link">Swagger API</a>
+                    <a target="_blank"href="{{ url_for('redirigir_a_swagger_json_api') }}" class="nav-link">Swagger API</a>
                 </li>
             </ul>
 
@@ -115,16 +112,9 @@
                     <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview"
                         role="menu" data-accordion="false">
                         <li class="nav-item">
-                            <a href="{{ url_for('index') }}" class="nav-link">
+                            <a href="{{ url_for('index') }}" class="nav-link {% block active_home_panel %} {% endblock %}">
                                 <i class="nav-icon fas fa-th"></i>
                                 <p>Home Panel</p>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
-                            <a href="{{ url_for('decode') }}" class="nav-link">
-                                <i class="nav-icon fas fa-unlock-alt"></i>
-                                <p>Data Decoder</p>
                             </a>
                         </li>
 
@@ -330,8 +320,8 @@
                 <a target="_blank" href="{{ url_for('index') }}" class="nav-link">
                     <i class="fas fa-calendar-alt"></i> <span>Add Frequencies</span>
                 </a>
-                <a target="_blank" href="{{ url_for('index') }}" class="nav-link">
-                    <i class="fas fa-user-tag"></i> <span>Add Roles</span>
+                <a target="_blank" href="{{ url_for('decode') }}" class="nav-link">
+                    <i class="fas fa-user-tag"></i> <span>Decode</span>
                 </a>
                 <a target="_blank" href="{{ url_for('role_assign') }}" class="nav-link">
                     <i class="fas fa-user-tag"></i> <span>Add Roles</span>
