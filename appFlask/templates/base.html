@@ -122,7 +122,7 @@
                         </li>
 
                         <li class="nav-item">
-                            <a href="{{ url_for('dashboard') }}" class="nav-link">
+                            <a href="{{ url_for('dashboard') }}" class="nav-link {% block active_dashboard %} {% endblock %}">
                                 <i class="nav-icon fas fa-chart-pie"></i>
                                 <p>Dashboard</p>
                             </a>

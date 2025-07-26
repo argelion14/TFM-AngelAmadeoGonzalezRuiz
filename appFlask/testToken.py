@@ -128,17 +128,6 @@ def login_api():
         return jsonify({'error': 'Usuario o contraseña incorrectos'}), 401
 
 
-# def verificar_jwt_api():
-#     """
-#     Verifies the JWT sent in the Authorization header of an API request.
-
-#     Returns:
-#         dict | None: The token data if valid, or None if invalid or missing.
-#     """
-#     token = request.headers.get("Authorization", "").replace("Bearer ", "")
-#     return decodificar_jwt(token)
-
-
 def superadmin_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
@@ -159,20 +148,10 @@ def user_required(f):
     return wrapper
 
 
-# def get_db_connection():
-#     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-#     db_path = os.path.join(BASE_DIR, "TFM.db")
-
-#     conn = sqlite3.connect(db_path)
-#     conn.execute('PRAGMA foreign_keys = ON')
-#     return conn
-
 #########################
 # SECCIÓN DE GrantTemplate
 # Funciones auxiliares para gestión de GrantTemplate
 #########################
-
-# TODO Pensar si tiene que ser algo protegido
 
 
 @app.route('/api/grant-templates', methods=['GET'])
@@ -541,12 +520,14 @@ def verify_role_token():
 # Funciones auxiliares para gestión de roles
 #########################
 
-
+# TODO Add the new minute_exp data of the table
 @app.route('/api/roles', methods=['GET'])
+@user_required
 @swag_from({
     'tags': ['Roles'],
     'summary': 'Get all roles',
     'description': 'Returns the details of all existing roles',
+    'security': [{'BearerAuth': []}],
     'responses': {
         200: {
             'description': 'List of roles',
@@ -576,10 +557,12 @@ def get_roles():
 
 
 @app.route('/api/roles/<int:role_id>', methods=['GET'])
+@user_required
 @swag_from({
     'tags': ['Roles'],
     'summary': 'Get role by ID',
     'description': 'Returns role details if it exists, otherwise returns a 404 error.',
+    'security': [{'BearerAuth': []}],
     'parameters': [
         {
             'name': 'role_id',
@@ -821,7 +804,6 @@ def update_role(role_id):
         conn.close()
         return jsonify({"error": "Role not found"}), 404
 
-    # Si hay grant_id, validar que exista
     if 'grant_id' in data and data['grant_id'] is not None:
         cursor.execute(
             "SELECT id FROM grantTemplate WHERE id = ?", (data['grant_id'],))
@@ -829,7 +811,6 @@ def update_role(role_id):
             conn.close()
             return jsonify({"error": "grantTemplate not found"}), 400
 
-    # Build dynamic update
     fields = []
     values = []
     if 'name' in data:
@@ -867,10 +848,12 @@ def update_role(role_id):
 # TODO cambiar todos los metodos para que se adapten a la nueva tabla que tienen los users, revisar uno a uno
 
 @app.route('/api/users', methods=['GET'])
+@user_required
 @swag_from({
     'tags': ['Users'],
     'summary': 'Retrieve all users',
-    'description': 'Returns a list of all users with their ID, username, certificate, and superuser status.',
+    'description': 'Returns a list of all users with their ID, username, certificate, superuser status, and public certificate.',
+    'security': [{'BearerAuth': []}],
     'responses': {
         200: {
             'description': 'List of users',
@@ -882,7 +865,8 @@ def update_role(role_id):
                         'id': {'type': 'integer'},
                         'username': {'type': 'string'},
                         'cert': {'type': 'string'},
-                        'is_superuser': {'type': 'boolean'}
+                        'is_superuser': {'type': 'boolean'},
+                        'public_cert': {'type': 'string'}
                     }
                 }
             }
@@ -892,7 +876,16 @@ def update_role(role_id):
 def list_users():
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
-    cursor = conn.execute("SELECT id, username, cert, is_superuser FROM users")
+    cursor = conn.execute('''
+        SELECT
+            u.id,
+            u.username,
+            u.cert,
+            u.is_superuser,
+            uk.public_cert
+        FROM users u
+        LEFT JOIN user_keys uk ON u.id = uk.user_id AND uk.is_active = 1
+    ''')
     users = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return jsonify(users)
@@ -918,7 +911,8 @@ def get_user(user_id):
     cursor = conn.cursor()
 
     # Obtener datos del usuario
-    cursor.execute("SELECT id, username, cert, is_superuser FROM users WHERE id = ?", (user_id,))
+    cursor.execute(
+        "SELECT id, username, cert, is_superuser FROM users WHERE id = ?", (user_id,))
     user_row = cursor.fetchone()
 
     if not user_row:
@@ -927,8 +921,8 @@ def get_user(user_id):
 
     user_data = dict(user_row)
 
-    # Obtener certificado público si existe
-    cursor.execute("SELECT public_cert FROM user_keys WHERE user_id = ?", (user_id,))
+    cursor.execute(
+        "SELECT public_cert FROM user_keys WHERE user_id = ?", (user_id,))
     key_row = cursor.fetchone()
 
     if key_row and 'public_cert' in key_row.keys():
@@ -945,7 +939,7 @@ def get_user(user_id):
 @swag_from({
     'tags': ['Users'],
     'summary': 'Create a new user',
-    'description': 'Creates a new user with the provided username, password, certificate, and superuser status. Requires superadmin privileges.',
+    'description': 'Creates a new user with certificate and key generation. Requires superadmin privileges.',
     'security': [{'BearerAuth': []}],
     'parameters': [
         {
@@ -957,7 +951,6 @@ def get_user(user_id):
                 'properties': {
                     'username': {'type': 'string'},
                     'password': {'type': 'string'},
-                    'cert': {'type': 'string'},
                     'is_superuser': {'type': 'boolean'}
                 },
                 'required': ['username', 'password']
@@ -966,14 +959,14 @@ def get_user(user_id):
     ],
     'responses': {
         201: {'description': 'User created successfully'},
-        400: {'description': 'Error creating user, e.g., username already exists or missing required fields'}
+        400: {'description': 'Error creating user, e.g., username already exists or missing required fields'},
+        500: {'description': 'Internal server error'}
     }
 })
 def create_user():
     data = request.json
     username = data.get('username')
     password = data.get('password')
-    cert = data.get('cert', '')
     is_superuser = 1 if data.get('is_superuser', False) else 0
 
     if not username or not password:
@@ -984,14 +977,81 @@ def create_user():
 
     conn = get_db_connection()
     try:
-        conn.execute(
-            "INSERT INTO users (username, password, cert, is_superuser) VALUES (?, ?, ?, ?)",
-            (username, hashed_pw, cert, is_superuser)
-        )
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO users (username, password, is_superuser)
+            VALUES (?, ?, ?)
+        ''', (username, hashed_pw, is_superuser))
+        user_id = cursor.lastrowid
         conn.commit()
-        return jsonify({'message': 'User created successfully'}), 201
+
+        # ==== GENERACIÓN DE CLAVES Y CERTIFICADO ====
+        ca_cert = os.getenv("CA_CERT_PATH")
+        ca_key = os.getenv("CA_KEY_PATH")
+        base_dir = os.path.join("appFlask", "certs", username)
+        os.makedirs(base_dir, exist_ok=True)
+
+        key_path = os.path.join(base_dir, "private.key")
+        csr_path = os.path.join(base_dir, "request.csr")
+        cert_path = os.path.join(base_dir, "certificate.pem")
+
+        # TODO: Modificar para entorno Docker si es necesario
+        OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+
+        # 1. Clave privada
+        subprocess.run([
+            OPENSSL_PATH, "genpkey", "-algorithm", "EC",
+            "-pkeyopt", "ec_paramgen_curve:P-256",
+            "-out", key_path
+        ], check=True)
+
+        # 2. CSR
+        subj = f"/C=US/ST=CA/O=RTI Demo/CN={username}"
+        subprocess.run([
+            OPENSSL_PATH, "req", "-new", "-key", key_path,
+            "-out", csr_path, "-subj", subj
+        ], check=True)
+
+        # 3. Certificado firmado
+        subprocess.run([
+            OPENSSL_PATH, "x509", "-req", "-in", csr_path,
+            "-CA", ca_cert, "-CAkey", ca_key,
+            "-CAcreateserial", "-out", cert_path,
+            "-days", "365"
+        ], check=True)
+
+        # 4. Leer contenido del certificado
+        with open(cert_path, 'r') as f:
+            cert_pem = f.read()
+
+        # 4.1 Extraer subject real
+        result = subprocess.run([
+            OPENSSL_PATH, "x509", "-in", cert_path, "-noout", "-subject"
+        ], capture_output=True, text=True, check=True)
+
+        subject_line = result.stdout.strip()
+        subject_clean = subject_line.replace("subject=", "").strip()
+
+        # 4.2 Actualizar campo cert en la tabla users
+        cursor.execute('''
+            UPDATE users SET cert = ? WHERE id = ?
+        ''', (subject_clean, user_id))
+
+        # 5. Insertar en tabla user_keys
+        cursor.execute('''
+            INSERT INTO user_keys (user_id, public_cert, private_key_path)
+            VALUES (?, ?, ?)
+        ''', (user_id, cert_pem, key_path))
+
+        conn.commit()
+        return jsonify({'message': 'User and certificate created successfully'}), 201
+
     except sqlite3.IntegrityError:
         return jsonify({'error': 'Username already exists'}), 400
+    except subprocess.CalledProcessError as e:
+        return jsonify({'error': f'Certificate generation failed: {e}'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     finally:
         conn.close()
 
@@ -1001,25 +1061,39 @@ def create_user():
 @swag_from({
     'tags': ['Users'],
     'summary': 'Delete a user',
-    'description': 'Deletes the user identified by the provided user ID. Requires superadmin privileges.',
+    'description': 'Deletes the user and their associated keys from the database. Requires superadmin privileges.',
     'security': [{'BearerAuth': []}],
     'parameters': [
         {'name': 'user_id', 'in': 'path', 'type': 'integer',
             'required': True, 'description': 'ID of the user to delete'}
     ],
     'responses': {
-        200: {'description': 'User deleted successfully'},
+        200: {'description': 'User and keys deleted successfully'},
         404: {'description': 'User not found'}
     }
 })
 def delete_user(user_id):
     conn = get_db_connection()
-    cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    cursor = conn.cursor()
+
+    # Verificar si el usuario existe
+    cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+    user = cursor.fetchone()
+
+    if not user:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+
+    # Eliminar claves asociadas al usuario (si existen)
+    cursor.execute('DELETE FROM user_keys WHERE user_id = ?', (user_id,))
+
+    # Eliminar el usuario
+    cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+
     conn.commit()
     conn.close()
-    if cursor.rowcount:
-        return jsonify({'message': 'User deleted successfully'})
-    return jsonify({'error': 'User not found'}), 404
+
+    return jsonify({'message': 'User and associated keys deleted successfully'}), 200
 
 
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
@@ -1027,7 +1101,7 @@ def delete_user(user_id):
 @swag_from({
     'tags': ['Users'],
     'summary': 'Update a user',
-    'description': 'Updates the details of the user identified by the given user ID. Requires superadmin privileges.',
+    'description': 'Updates username and superuser status. Requires superadmin privileges.',
     'security': [{'BearerAuth': []}],
     'parameters': [
         {
@@ -1045,53 +1119,47 @@ def delete_user(user_id):
                 'type': 'object',
                 'properties': {
                     'username': {'type': 'string', 'description': 'New username'},
-                    'password': {'type': 'string', 'description': 'New password'},
-                    'cert': {'type': 'string', 'description': 'Certificate info'},
                     'is_superuser': {'type': 'boolean', 'description': 'Superuser status'}
-                }
+                },
+                'required': ['username']  # username es obligatorio
             }
         }
     ],
     'responses': {
         200: {'description': 'User updated successfully'},
-        400: {'description': 'No fields provided for update'},
+        400: {'description': 'Invalid input or user not found'},
         404: {'description': 'User not found'}
     }
 })
 def update_user(user_id):
-    data = request.json
-    fields = []
-    values = []
+    data = request.get_json()
 
-    if 'username' in data:
-        fields.append("username = ?")
-        values.append(data['username'])
-    if 'password' in data:
-        hashed_pw = bcrypt.hashpw(data['password'].encode(
-            'utf-8'), bcrypt.gensalt()).decode('utf-8')
-        fields.append("password = ?")
-        values.append(hashed_pw)
-    if 'cert' in data:
-        fields.append("cert = ?")
-        values.append(data['cert'])
-    if 'is_superuser' in data:
-        fields.append("is_superuser = ?")
-        values.append(1 if data['is_superuser'] else 0)
+    if not data or 'username' not in data:
+        return jsonify({'error': 'Username is required'}), 400
 
-    if not fields:
-        return jsonify({'error': 'No fields provided for update'}), 400
-
-    values.append(user_id)
+    username = data['username']
+    is_superuser = 1 if data.get('is_superuser', False) else 0
 
     conn = get_db_connection()
-    cursor = conn.execute(
-        f"UPDATE users SET {', '.join(fields)} WHERE id = ?", values)
+    cursor = conn.cursor()
+
+    # Verificar si el usuario existe
+    cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+
+    # Realizar la actualización
+    cursor.execute("""
+        UPDATE users
+        SET username = ?, is_superuser = ?
+        WHERE id = ?
+    """, (username, is_superuser, user_id))
+
     conn.commit()
     conn.close()
 
-    if cursor.rowcount:
-        return jsonify({'message': 'User updated successfully'})
-    return jsonify({'error': 'User not found'}), 404
+    return jsonify({'message': 'User updated successfully'}), 200
 
 #########################
 # SECCIÓN DE XML
@@ -1168,6 +1236,7 @@ def validate_xml_api():
 
 
 @app.route('/api/export_grant/<int:grant_id>', methods=['GET'])
+@user_required
 @swag_from({
     'tags': ['XML'],
     'summary': 'Export a grant as an XML file',
@@ -2252,6 +2321,8 @@ def user_list():
     return redirect(url_for('login'))
 
 # TODO Hacer que aparezcan los roles tambien
+
+
 @app.route('/user/<int:id>')
 @superuser_required
 def user_detail(id):
@@ -2259,10 +2330,12 @@ def user_detail(id):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    cursor.execute('SELECT Username, is_superuser, cert FROM users WHERE id = ?', (id,))
+    cursor.execute(
+        'SELECT Username, is_superuser, cert FROM users WHERE id = ?', (id,))
     user = cursor.fetchone()
 
-    cursor.execute('SELECT user_id, public_cert FROM user_keys WHERE user_id = ?', (id,))
+    cursor.execute(
+        'SELECT user_id, public_cert FROM user_keys WHERE user_id = ?', (id,))
     keys = cursor.fetchone()
 
     conn.close()
@@ -2274,6 +2347,8 @@ def user_detail(id):
     return render_template('user_detail.html', user=user, keys=keys)
 
 # TODO Hacer que si se edita el name se ha de generar un nuevo certificado
+
+
 @app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
 @superuser_required
 def editar_usuario(id):
@@ -2300,7 +2375,8 @@ def editar_usuario(id):
     usuario = cursor.fetchone()
 
     # Obtener el certificado público (sin la clave privada)
-    cursor.execute('SELECT public_cert FROM user_keys WHERE user_id = ?', (id,))
+    cursor.execute(
+        'SELECT public_cert FROM user_keys WHERE user_id = ?', (id,))
     key_data = cursor.fetchone()
 
     conn.close()
@@ -2311,6 +2387,8 @@ def editar_usuario(id):
     return render_template('user_update.html', usuario=usuario, cert=key_data['public_cert'] if key_data else None)
 
 # TODO He de borrar también los certificados
+
+
 @app.route('/usuarios/<int:id>/eliminar', methods=['POST'])
 @superuser_required
 def eliminar_usuario(id):
@@ -2384,7 +2462,8 @@ def user_create():
             flash("Usuario y contraseña son obligatorios", "danger")
             return redirect(url_for('user_create'))
 
-        hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        hashed_pw = bcrypt.hashpw(password.encode(
+            'utf-8'), bcrypt.gensalt()).decode('utf-8')
 
         try:
             # ====== INSERCIÓN PREVIA EN TABLA users ======
@@ -2441,7 +2520,8 @@ def user_create():
                 OPENSSL_PATH, "x509", "-in", cert_path, "-noout", "-subject"
             ], capture_output=True, text=True, check=True)
 
-            subject_line = result.stdout.strip()  # ejemplo: "subject= C=US, ST=CA, O=RTI Demo, CN=bobby"
+            # ejemplo: "subject= C=US, ST=CA, O=RTI Demo, CN=bobby"
+            subject_line = result.stdout.strip()
             subject_clean = subject_line.replace("subject=", "").strip()
 
             # 4.2 Actualizar el campo cert en la tabla users
@@ -2469,7 +2549,6 @@ def user_create():
             return redirect(url_for('user_create'))
 
     return render_template('user_create.html')
-
 
 
 #########################
@@ -2825,7 +2904,8 @@ def authrole_vality():
             result = {'valid': False, 'error': 'Token not provided'}
         else:
             try:
-                payload = jwt.decode(token, CA_PUBLIC_KEY, algorithms=["ES256"])
+                payload = jwt.decode(token, CA_PUBLIC_KEY,
+                                     algorithms=["ES256"])
             except jwt.ExpiredSignatureError:
                 result = {'valid': False, 'error': 'Token expired'}
             except jwt.InvalidTokenError:
@@ -2840,19 +2920,26 @@ def authrole_vality():
                     conn = get_db_connection()
                     cursor = conn.cursor()
 
-                    cursor.execute('SELECT 1 FROM users WHERE id = ?', (user_id,))
+                    cursor.execute(
+                        'SELECT 1 FROM users WHERE id = ?', (user_id,))
                     if cursor.fetchone() is None:
-                        result = {'valid': False, 'error': 'User does not exist'}
+                        result = {'valid': False,
+                                  'error': 'User does not exist'}
                     else:
-                        cursor.execute('SELECT 1 FROM roles WHERE id = ?', (role_id,))
+                        cursor.execute(
+                            'SELECT 1 FROM roles WHERE id = ?', (role_id,))
                         if cursor.fetchone() is None:
-                            result = {'valid': False, 'error': 'Role does not exist'}
+                            result = {'valid': False,
+                                      'error': 'Role does not exist'}
                         else:
-                            cursor.execute('SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+                            cursor.execute(
+                                'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
                             if cursor.fetchone() is None:
-                                result = {'valid': False, 'error': 'User does not have this role'}
+                                result = {
+                                    'valid': False, 'error': 'User does not have this role'}
                             else:
-                                result = {'valid': True, 'user_id': user_id, 'role_id': role_id}
+                                result = {'valid': True,
+                                          'user_id': user_id, 'role_id': role_id}
 
                     conn.close()
 
@@ -2867,6 +2954,7 @@ def authrole_vality():
 @app.route('/swagger-json')
 def redirigir_a_swagger_json():
     return redirect('/api-docs.json')
+
 
 @app.route('/swagger-json-api')
 def redirigir_a_swagger_json_api():
@@ -2943,7 +3031,8 @@ def role_assign():
             user_id = int(request.form.get('user_id'))
             role_ids = list(map(int, request.form.getlist('role_ids')))
         except (ValueError, TypeError):
-            flash('Datos inválidos. Asegúrese de seleccionar un usuario y al menos un rol.', 'danger')
+            flash(
+                'Datos inválidos. Asegúrese de seleccionar un usuario y al menos un rol.', 'danger')
             return redirect(url_for('role_assign'))
 
         if not role_ids:
@@ -2951,7 +3040,8 @@ def role_assign():
         else:
             roles_added = []
             for role_id in role_ids:
-                cursor.execute('SELECT 1 FROM user_roles WHERE user_id=? AND role_id=?', (user_id, role_id))
+                cursor.execute(
+                    'SELECT 1 FROM user_roles WHERE user_id=? AND role_id=?', (user_id, role_id))
                 if not cursor.fetchone():
                     cursor.execute(
                         'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)',
@@ -2962,9 +3052,11 @@ def role_assign():
             conn.commit()
 
             if roles_added:
-                flash(f'Se asignaron los roles {roles_added} al usuario ID {user_id}.', 'success')
+                flash(
+                    f'Se asignaron los roles {roles_added} al usuario ID {user_id}.', 'success')
             else:
-                flash('Ningún rol fue asignado (posiblemente ya estaban asociados).', 'info')
+                flash(
+                    'Ningún rol fue asignado (posiblemente ya estaban asociados).', 'info')
 
     cursor.execute("SELECT id, username FROM users ORDER BY username")
     users = cursor.fetchall()
@@ -2998,7 +3090,8 @@ def dashboard():
 
     # Ratio de claves activas respecto a usuarios totales
     if stats["total_users"] > 0:
-        stats["active_key_ratio"] = round((stats["users_with_keys"] / stats["total_users"]) * 100, 2)
+        stats["active_key_ratio"] = round(
+            (stats["users_with_keys"] / stats["total_users"]) * 100, 2)
     else:
         stats["active_key_ratio"] = 0
 
@@ -3009,31 +3102,24 @@ def dashboard():
 def delete_grant_template_by_id(grant_id, conn):
     cursor = conn.cursor()
 
-    # Activar claves foráneas
     cursor.execute('PRAGMA foreign_keys = ON')
 
-    # 1. Obtener todas las rule_ids asociadas al grant
     cursor.execute(
         'SELECT rule_id FROM grant_rules WHERE grant_id = ?', (grant_id,))
     rule_ids = [row[0] for row in cursor.fetchall()]
 
-    # 2. Eliminar relaciones en grant_rules (por si no hay ON DELETE CASCADE)
     cursor.execute('DELETE FROM grant_rules WHERE grant_id = ?', (grant_id,))
 
-    # 3. Eliminar reglas (esto borrará también rule_domains y rule_topics por cascada)
     for rule_id in rule_ids:
         cursor.execute('DELETE FROM rules WHERE id = ?', (rule_id,))
 
-    # 4. Eliminar el grantTemplate
     cursor.execute('DELETE FROM grantTemplate WHERE id = ?', (grant_id,))
 
-    # 5. Limpieza opcional de domains sin uso
     cursor.execute('''
         DELETE FROM domains
         WHERE id NOT IN (SELECT domain_id FROM rule_domains)
     ''')
 
-    # 6. Limpieza opcional de topics sin uso
     cursor.execute('''
         DELETE FROM topics
         WHERE id NOT IN (SELECT topic_id FROM rule_topics)
@@ -3049,6 +3135,7 @@ def inyectar_datos_token():
         if datos:
             datos_token = datos  # Contiene username, cert, is_superuser, etc.
     return {'token_data': datos_token}
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
