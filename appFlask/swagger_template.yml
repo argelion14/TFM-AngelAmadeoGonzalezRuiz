@@ -34,8 +34,6 @@ tags:
     description: "Role management operations"
   - name: Users
     description: "User management endpoints"
-  - name: UserKeys
-    description: "Manage public certificates and keys for users"
 
 securityDefinitions:
   BearerAuth:

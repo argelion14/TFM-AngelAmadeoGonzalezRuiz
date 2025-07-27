@@ -1712,7 +1712,7 @@ def sign_grant_by_role(role_id):
     signed_output_path = os.path.join(
         tempfile.gettempdir(), f"{grant_name}.p7s")
 
-    # TODO Cambiarlo cuando uses docker
+    # TODO: Modificar para entorno Docker si es necesario
     OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
 
     result = subprocess.run([
@@ -1782,7 +1782,7 @@ def verify_signed_file():
     # Temporal para la salida verificada
     verified_path = signed_path + ".verified"
 
-    # TODO Modificarlo a cuando se use docker
+    # TODO: Modificar para entorno Docker si es necesario
     OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
 
     try:
@@ -2270,8 +2270,6 @@ def user_list():
 
     conn.close()
     return render_template('user_list.html', usuarios=users_with_roles)
-
-# TODO Hacer que aparezcan los roles tambien
 
 
 @app.route('/user/<int:id>')
