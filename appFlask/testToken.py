@@ -2242,10 +2242,34 @@ def get_users():
 @app.route('/user_list')
 def user_list():
     user = verificar_jwt()
-    if user:
-        users = get_users()
-        return render_template('user_list.html', usuarios=users)
-    return redirect(url_for('login'))
+    if not user:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT * FROM users')
+    users = cursor.fetchall()
+
+    # Obtener los roles asociados a cada usuario
+    users_with_roles = []
+    for u in users:
+        cursor.execute('''
+            SELECT r.name
+            FROM roles r
+            INNER JOIN user_roles ur ON ur.role_id = r.id
+            WHERE ur.user_id = ?
+        ''', (u['id'],))
+        roles = [row['name'] for row in cursor.fetchall()]
+        users_with_roles.append({
+            'id': u['id'],
+            'username': u['username'],
+            'cert': u['cert'],
+            'roles': roles
+        })
+
+    conn.close()
+    return render_template('user_list.html', usuarios=users_with_roles)
 
 # TODO Hacer que aparezcan los roles tambien
 
@@ -2258,20 +2282,26 @@ def user_detail(id):
     cursor = conn.cursor()
 
     cursor.execute(
-        'SELECT Username, is_superuser, cert FROM users WHERE id = ?', (id,))
+        'SELECT username, is_superuser, cert FROM users WHERE id = ?', (id,))
     user = cursor.fetchone()
 
     cursor.execute(
         'SELECT user_id, public_cert FROM user_keys WHERE user_id = ?', (id,))
     keys = cursor.fetchone()
 
+    cursor.execute(
+        '''SELECT r.name FROM roles r
+           INNER JOIN user_roles ur ON ur.role_id = r.id
+           WHERE ur.user_id = ?''', (id,))
+    roles = [row['name'] for row in cursor.fetchall()]
+
     conn.close()
 
     if not user:
-        flash("Usuario no encontrado", "danger")
+        flash("User not found", "danger")
         return redirect(url_for('user_list'))
 
-    return render_template('user_detail.html', user=user, keys=keys)
+    return render_template('user_detail.html', user=user, keys=keys, roles=roles)
 
 
 @app.route('/user_create', methods=['GET', 'POST'])

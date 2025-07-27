@@ -1,22 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}
-Users
-{% endblock %}
-
-{% block active_module_user %}
-active
-{% endblock %}
-
+{% block title %}Users{% endblock %}
+{% block active_module_user %}active{% endblock %}
 {% block open_users %}-open{% endblock %}
-
-{% block active_users %}
-active
-{% endblock %}
-
-{% block header %}
-Registered Users
-{% endblock %}
+{% block active_users %}active{% endblock %}
+{% block header %}Registered Users{% endblock %}
 
 {% block path_main %}
 <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
@@ -48,6 +36,7 @@ Registered Users
           <th>ID</th>
           <th>Username</th>
           <th>Certificate</th>
+          <th>Roles</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -61,6 +50,20 @@ Registered Users
             <code>{{ user['cert'] }}</code>
             {% else %}
             <span class="text-muted">No certificate</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if user['roles'] %}
+            <div
+              style="max-height: 100px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.25rem; padding: 0.25rem; background-color: #f8f9fa;">
+              <ul class="mb-0 pl-3">
+                {% for role in user['roles'] %}
+                <li style="font-size: 0.9rem;">{{ role }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% else %}
+            <span class="text-muted">No roles</span>
             {% endif %}
           </td>
           <td>
@@ -83,4 +86,7 @@ Registered Users
     </table>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}

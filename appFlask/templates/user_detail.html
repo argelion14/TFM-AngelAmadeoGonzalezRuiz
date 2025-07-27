@@ -52,6 +52,21 @@ User Details: {{ user['username'] }}
                 <span class="text-muted">Not available</span>
                 {% endif %}
             </dd>
+            <dt class="col-sm-3">Roles</dt>
+            <dd class="col-sm-9">
+                {% if roles %}
+                <div
+                    style="max-height: 120px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.25rem; padding: 0.5rem; background-color: #f8f9fa;">
+                    <ul class="mb-0 pl-3">
+                        {% for role in roles %}
+                        <li>{{ role }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
+                <span class="text-muted">No roles assigned</span>
+                {% endif %}
+            </dd>
         </dl>
         <a href="{{ url_for('user_list') }}" class="btn btn-secondary">Back to List</a>
     </div>
