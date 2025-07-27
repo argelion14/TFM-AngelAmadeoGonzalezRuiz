@@ -206,8 +206,8 @@ def list_grant_templates_api():
 @swag_from({
     'tags': ['Grant Templates'],
     'summary': 'Create a new grant from an XML DDS Permissions file',
-    'security': [{'BearerAuth': []}],
     'description': 'Allows uploading an XML file to create a grant template and its associated rules.',
+    'security': [{'BearerAuth': []}],
     'consumes': ['multipart/form-data'],
     'parameters': [
         {
@@ -266,9 +266,9 @@ def create_grant_api():
 @superadmin_required
 @swag_from({
     'tags': ['Grant Templates'],
-    'security': [{'BearerAuth': []}],
     'summary': 'Delete a grant template by its ID',
     'description': 'Deletes a grant template and all its associated data, including rules, unused domains, and topics.',
+    'security': [{'BearerAuth': []}],
     'parameters': [
         {
             'name': 'grant_id',
@@ -608,6 +608,7 @@ def get_role(role_id):
     'tags': ['Roles'],
     'summary': 'Add a new role (superadmin only)',
     'description': 'Allows a superadmin to create a new role by providing a name, optional description, and a required grant_id.',
+    'security': [{'BearerAuth': []}],
     'parameters': [
         {
             'in': 'body',
@@ -643,10 +644,7 @@ def get_role(role_id):
         403: {
             'description': 'Access denied'
         }
-    },
-    'security': [
-        {'BearerAuth': []}
-    ]
+    }
 })
 def add_role():
     data = request.get_json()
@@ -687,6 +685,7 @@ def add_role():
     'tags': ['Roles'],
     'summary': 'Delete a role by ID (superadmin only)',
     'description': 'Allows a superadmin to delete an existing role by its ID. The grantTemplate associated to the role, if any, will NOT be deleted.',
+    'security': [{'BearerAuth': []}],
     'parameters': [
         {
             'name': 'role_id',
@@ -706,10 +705,7 @@ def add_role():
         403: {
             'description': 'Access denied'
         }
-    },
-    'security': [
-        {'BearerAuth': []}
-    ]
+    }
 })
 def delete_role(role_id):
     conn = get_db_connection()
@@ -742,6 +738,7 @@ def delete_role(role_id):
     'tags': ['Roles'],
     'summary': 'Update a role by ID (superadmin only)',
     'description': 'Allows a superadmin to update the name, description or associated grantTemplate of an existing role by its ID.',
+    'security': [{'BearerAuth': []}],
     'parameters': [
         {
             'name': 'role_id',
@@ -786,10 +783,7 @@ def delete_role(role_id):
         403: {
             'description': 'Access denied'
         }
-    },
-    'security': [
-        {'BearerAuth': []}
-    ]
+    }
 })
 def update_role(role_id):
     data = request.get_json()
