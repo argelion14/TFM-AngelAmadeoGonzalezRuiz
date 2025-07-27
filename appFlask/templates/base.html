@@ -15,6 +15,10 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700" rel="stylesheet" />
 
+    <!-- Bootstrap Dual Listbox CSS actualizado -->
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap4-duallistbox@4.0.2/dist/bootstrap-duallistbox.min.css" />
+
     {% block head %}{% endblock %}
 </head>
 
@@ -343,6 +347,27 @@
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+    <!-- jQuery (si no está ya incluido) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Bootstrap 4 JS (si AdminLTE no lo carga ya) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Bootstrap Dual Listbox JS actualizado -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap4-duallistbox@4.0.2/dist/jquery.bootstrap-duallistbox.min.js"></script>
+
+    <!-- Inicializar Dual Listbox -->
+    <script>
+        $(document).ready(function () {
+            $('select.duallistbox').bootstrapDualListbox({
+                nonSelectedListLabel: 'Available Roles',
+                selectedListLabel: 'Assigned Roles',
+                preserveSelectionOnMove: 'moved',
+                moveOnSelect: false
+            });
+        });
+    </script>
     {% block scripts %}
     {% endblock %}
 </body>

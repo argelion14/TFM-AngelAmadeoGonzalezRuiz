@@ -70,8 +70,6 @@ app.secret_key = 'super secret key'
 JWT_SECRET = 'clave_jwt_segura'
 JWT_EXPIRATION_MINUTES = 60
 
-# TODO Hacer que todos los endpoint que necesiten de esto, lo usan en el swag_from de la misma manera, le tengo que añadir el bearer en el security
-
 #########################
 # SECCIÓN DE AUTENTICACION JWT PARA LA API
 # Funciones auxiliares para gestión de seguridad
@@ -521,7 +519,6 @@ def verify_role_token():
 # Funciones auxiliares para gestión de roles
 #########################
 
-# TODO Add the new minute_exp data of the table
 @app.route('/api/roles', methods=['GET'])
 @user_required
 @swag_from({
@@ -1249,6 +1246,55 @@ def assign_roles_to_user(user_id):
         'roles_added': roles_added
     }), 200
 
+
+@app.route('/api/users/<int:user_id>/roles', methods=['GET'])
+@swag_from({
+    'tags': ['Users'],
+    'summary': 'Get roles assigned to a user',
+    'description': 'Returns a list of role IDs assigned to the given user.',
+    'parameters': [
+        {
+            'name': 'user_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID of the user'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'List of assigned role IDs',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'assigned_role_ids': {
+                        'type': 'array',
+                        'items': {'type': 'integer'}
+                    }
+                }
+            }
+        },
+        404: {
+            'description': 'User not found'
+        }
+    }
+})
+def get_user_roles(user_id):
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    # Comprueba si el usuario existe
+    user_check = conn.execute(
+        "SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not user_check:
+        conn.close()
+        return jsonify({"error": "User not found"}), 404
+
+    # Extrae los roles del usuario
+    cursor = conn.execute(
+        "SELECT role_id FROM user_roles WHERE user_id = ?", (user_id,))
+    roles = [row['role_id'] for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'assigned_role_ids': roles})
 
 #########################
 # SECCIÓN DE XML
@@ -2112,6 +2158,7 @@ def edit_role(role_id):
 
 
 @app.route('/role_assign', methods=['GET', 'POST'])
+@superuser_required
 def role_assign():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -2119,42 +2166,56 @@ def role_assign():
     if request.method == 'POST':
         try:
             user_id = int(request.form.get('user_id'))
-            role_ids = list(map(int, request.form.getlist('role_ids')))
+            selected_roles = set(map(int, request.form.getlist('role_ids')))
         except (ValueError, TypeError):
-            flash(
-                'Datos inválidos. Asegúrese de seleccionar un usuario y al menos un rol.', 'danger')
+            flash('Invalid data. Please select a user and roles.', 'danger')
             return redirect(url_for('role_assign'))
 
-        if not role_ids:
-            flash('Debe seleccionar al menos un rol.', 'danger')
+        cursor.execute(
+            'SELECT role_id FROM user_roles WHERE user_id = ?', (user_id,))
+        current_roles = set(row['role_id'] for row in cursor.fetchall())
+
+        to_add = selected_roles - current_roles
+        to_remove = current_roles - selected_roles
+
+        for role_id in to_add:
+            cursor.execute(
+                'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', (user_id, role_id))
+
+        for role_id in to_remove:
+            cursor.execute(
+                'DELETE FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+
+        conn.commit()
+
+        if to_add or to_remove:
+            messages = []
+            if to_add:
+                messages.append(f'added: {sorted(to_add)}')
+            if to_remove:
+                messages.append(f'removed: {sorted(to_remove)}')
+            flash(
+                f'Roles updated ({", ".join(messages)}) for user ID {user_id}.', 'success')
         else:
-            roles_added = []
-            for role_id in role_ids:
-                cursor.execute(
-                    'SELECT 1 FROM user_roles WHERE user_id=? AND role_id=?', (user_id, role_id))
-                if not cursor.fetchone():
-                    cursor.execute(
-                        'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)',
-                        (user_id, role_id)
-                    )
-                    roles_added.append(role_id)
-
-            conn.commit()
-
-            if roles_added:
-                flash(
-                    f'Se asignaron los roles {roles_added} al usuario ID {user_id}.', 'success')
-            else:
-                flash(
-                    'Ningún rol fue asignado (posiblemente ya estaban asociados).', 'info')
+            flash('No changes were made to the user roles.', 'info')
 
     cursor.execute("SELECT id, username FROM users ORDER BY username")
     users = cursor.fetchall()
+
     cursor.execute("SELECT id, name FROM roles ORDER BY name")
     roles = cursor.fetchall()
+
+    user_roles_map = {}
+    for user in users:
+        cursor.execute(
+            "SELECT role_id FROM user_roles WHERE user_id = ?", (user['id'],))
+        user_roles_map[user['id']] = [row['role_id']
+                                      for row in cursor.fetchall()]
+
     conn.close()
 
-    return render_template('role_assign.html', users=users, roles=roles)
+    return render_template('role_assign.html', users=users, roles=roles, user_roles_map=user_roles_map)
+
 
 #########################
 # SECCIÓN DE USER HTML
