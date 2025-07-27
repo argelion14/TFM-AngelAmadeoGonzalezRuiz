@@ -2108,7 +2108,7 @@ def edit_role(role_id):
     grant_templates = cursor.fetchall()
     conn.close()
 
-    return render_template("edit_role.html", role=role, grant_templates=grant_templates)
+    return render_template("role_edit.html", role=role, grant_templates=grant_templates)
 
 
 @app.route('/role_assign', methods=['GET', 'POST'])

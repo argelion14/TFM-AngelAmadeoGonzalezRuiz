@@ -13,13 +13,14 @@
       <form method="post">
         <div class="form-group">
           <label for="jwtInput">Paste your JWT token here:</label>
-          <textarea id="jwtInput" name="jwt_token" class="form-control" rows="4" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">{{ request.form.jwt_token }}</textarea>
+          <textarea id="jwtInput" name="jwt_token" class="form-control" rows="4"
+            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">{{ request.form.jwt_token }}</textarea>
         </div>
         <button type="submit" class="btn btn-primary">Decode Token</button>
       </form>
 
       {% if error %}
-        <div class="mt-3 text-danger font-weight-bold">{{ error }}</div>
+      <div class="mt-3 text-danger font-weight-bold">{{ error }}</div>
       {% endif %}
 
       {% if payload %}
@@ -36,9 +37,9 @@
             <td>{{ key }}</td>
             <td>
               {% if value is iterable and value is not string %}
-                {{ value | join(', ') }}
+              {{ value | join(', ') }}
               {% else %}
-                {{ value }}
+              {{ value }}
               {% endif %}
             </td>
           </tr>

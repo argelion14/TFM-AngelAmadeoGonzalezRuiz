@@ -12,6 +12,46 @@
 {% endblock %}
 
 {% block content %}
+
+
+<div class="row mt-4">
+    <!-- User Statistics Chart -->
+    <div class="col-md-6">
+        <div class="card card-primary">
+            <div class="card-header">
+                <h3 class="card-title">User Overview</h3>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="userChart"
+                    style="min-height: 250px; height: 250px; max-height: 300px; width: 100%;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rule Distribution Chart -->
+    <div class="col-md-6">
+        <div class="card card-danger">
+            <div class="card-header">
+                <h3 class="card-title">Rule Distribution</h3>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="ruleChart"
+                    style="min-height: 250px; height: 250px; max-height: 300px; width: 100%;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row">
     <!-- Usuarios -->
     <div class="col-lg-3 col-6">
@@ -143,4 +183,69 @@
         </div>
     </div>
 </div>
+
+
+{% endblock %}
+
+{% block scripts %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const stats = {{ stats | tojson }};
+
+    const userChartCtx = document.getElementById('userChart').getContext('2d');
+    new Chart(userChartCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Total Users', 'Superusers', 'Users w/ Keys', 'Active Key Ratio (%)'],
+            datasets: [{
+                label: 'User Stats',
+                data: [
+                    stats.total_users,
+                    stats.total_superusers,
+                    stats.users_with_keys,
+                    stats.active_key_ratio
+                ],
+                backgroundColor: ['#17a2b8', '#ffc107', '#007bff', '#28a745']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'User Overview'
+                }
+            }
+        }
+    });
+
+    const ruleChartCtx = document.getElementById('ruleChart').getContext('2d');
+    new Chart(ruleChartCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Total Rules', 'Rules w/ Domains', 'Rules w/ Topics', 'Grant Rules'],
+            datasets: [{
+                label: 'Rule Stats',
+                data: [
+                    stats.total_rules,
+                    stats.rules_with_domains,
+                    stats.rules_with_topics,
+                    stats.grant_rules_count
+                ],
+                backgroundColor: ['#d3d3d3', '#17a2b8', '#6f42c1', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Rule Distribution'
+                }
+            }
+        }
+    });
+</script>
+
 {% endblock %}

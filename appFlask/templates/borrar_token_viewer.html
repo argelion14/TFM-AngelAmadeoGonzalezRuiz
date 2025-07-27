@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <title>Visor de Token JWT - ArGeL</title>
@@ -9,15 +10,18 @@
             background-color: #f8f9fa;
             padding: 20px;
         }
+
         .container {
             background: white;
             padding: 20px;
             border-radius: 15px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             max-width: 700px;
             margin: auto;
         }
-        textarea, button {
+
+        textarea,
+        button {
             width: 100%;
             padding: 10px;
             margin-top: 10px;
@@ -25,25 +29,31 @@
             border-radius: 8px;
             border: 1px solid #ccc;
         }
+
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
         }
-        th, td {
+
+        th,
+        td {
             padding: 10px;
             border-bottom: 1px solid #ddd;
             text-align: left;
         }
+
         th {
             background-color: #f1f1f1;
         }
+
         .error {
             color: red;
             margin-top: 10px;
         }
     </style>
 </head>
+
 <body>
 
     <div class="container">
@@ -53,7 +63,10 @@
         <div id="error" class="error"></div>
         <table id="resultTable" style="display:none;">
             <thead>
-                <tr><th>Campo</th><th>Valor</th></tr>
+                <tr>
+                    <th>Campo</th>
+                    <th>Valor</th>
+                </tr>
             </thead>
             <tbody id="resultBody"></tbody>
         </table>
@@ -115,4 +128,5 @@
     </script>
 
 </body>
+
 </html>

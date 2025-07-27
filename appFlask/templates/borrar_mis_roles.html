@@ -5,16 +5,16 @@
     <h2>Roles de {{ username }}</h2>
 
     {% if roles %}
-        <ul class="list-group">
+    <ul class="list-group">
         {% for rol in roles %}
-            <li class="list-group-item">
-                <strong>{{ rol.name }}</strong><br>
-                <small>{{ rol.description }}</small>
-            </li>
+        <li class="list-group-item">
+            <strong>{{ rol.name }}</strong><br>
+            <small>{{ rol.description }}</small>
+        </li>
         {% endfor %}
-        </ul>
+    </ul>
     {% else %}
-        <p>No tienes roles asignados.</p>
+    <p>No tienes roles asignados.</p>
     {% endif %}
 </div>
 {% endblock %}

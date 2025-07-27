@@ -29,20 +29,20 @@
           <td>{{ user['username'] }}</td>
           <td>
             {% if user['cert'] %}
-              <code>{{ user['cert'] }}</code>
+            <code>{{ user['cert'] }}</code>
             {% else %}
-              <span class="text-muted">Sin certificado</span>
+            <span class="text-muted">Sin certificado</span>
             {% endif %}
           </td>
           <td>
             {% if user['roles'] %}
-              <ul class="mb-0">
-                {% for rol in user['roles'] %}
-                  <li>{{ rol }}</li>
-                {% endfor %}
-              </ul>
+            <ul class="mb-0">
+              {% for rol in user['roles'] %}
+              <li>{{ rol }}</li>
+              {% endfor %}
+            </ul>
             {% else %}
-              <span class="text-muted">Sin roles</span>
+            <span class="text-muted">Sin roles</span>
             {% endif %}
           </td>
         </tr>

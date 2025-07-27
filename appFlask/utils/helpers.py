@@ -65,6 +65,7 @@ def decodificar_jwt(token):
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
         return None
 
+
 def generar_jwt(user):
     payload = {
         'username': user[0],
