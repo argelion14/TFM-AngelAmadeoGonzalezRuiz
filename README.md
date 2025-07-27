@@ -131,3 +131,24 @@ Máster: [Master propio de ciberseguridad]
 Curso: [2025]
 
 ---
+
+# Resumen de la aplicación Flask (`appFlask`)
+
+La aplicación Flask incluida en este repositorio implementa un sistema de control de acceso basado en roles (RBAC) y certificados digitales, orientado a entornos distribuidos que utilizan el estándar DDS Security. Su objetivo principal es gestionar usuarios, roles y permisos de manera centralizada y segura, facilitando la administración de políticas de acceso y la generación/validación de documentos de permisos en formato XML.
+
+## Funcionalidades principales
+
+- **Autenticación y autorización JWT:** Permite a los usuarios autenticarse mediante usuario y contraseña, obteniendo un token JWT para acceder a los distintos endpoints protegidos.
+- **Gestión de usuarios y roles:** Incluye endpoints para crear, listar, modificar y eliminar usuarios y roles, así como asociar roles a usuarios.
+- **Gestión de plantillas de permisos (Grant Templates):** Permite importar, exportar y eliminar plantillas de permisos en formato XML, siguiendo el esquema DDS Permissions.
+- **Certificados digitales:** Genera y gestiona certificados X.509 para los usuarios, firmando los documentos de permisos y validando firmas digitales.
+- **Validación y exportación de XML:** Valida archivos XML de permisos contra el esquema DDS y permite exportar permisos asociados a roles o usuarios en formato XML o firmado (PKCS#7).
+- **Swagger UI:** Documentación interactiva de la API disponible en `/docs`.
+
+## Casos de uso
+
+- **Administradores** pueden gestionar usuarios, roles y permisos de forma centralizada.
+- **Integración con sistemas DDS:** Facilita la generación y validación de documentos de permisos requeridos por RTI Connext DDS u otros middlewares compatibles.
+- **Auditoría y seguridad:** Uso de JWT y certificados para garantizar la autenticidad y trazabilidad de las operaciones.
+
+Esta aplicación es ideal como backend de referencia para proyectos que requieran control de acceso granular y gestión de identidades en entornos distribuidos y seguros.
