@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Asignar Roles{% endblock %}
-{% block header %}Asignar Roles a Usuario{% endblock %}
+{% block title %}Assign Roles{% endblock %}
+{% block header %}Assign Roles to User{% endblock %}
 
 {% block path_main %}
-<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
-<li class="breadcrumb-item active">Asignar Roles</li>
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item active">Assign Roles</li>
 {% endblock %}
 
 {% block content %}
@@ -24,7 +24,7 @@
 
 <div class="card card-primary">
     <div class="card-header">
-        <h3 class="card-title">Formulario de Asignación de Roles</h3>
+        <h3 class="card-title">Role Assignment Form</h3>
     </div>
 
     <form method="post">

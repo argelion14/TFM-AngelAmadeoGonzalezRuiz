@@ -34,6 +34,8 @@ tags:
     description: "Role management operations"
   - name: Users
     description: "User management endpoints"
+  - name: UserKeys
+    description: "Manage public certificates and keys for users"
 
 securityDefinitions:
   BearerAuth:
@@ -42,9 +44,8 @@ securityDefinitions:
     in: header
     description: "JWT token in format: **Bearer <token>**"
 
-
-
 definitions:
+
   User:
     type: object
     required:
@@ -72,6 +73,35 @@ definitions:
         example: false
         description: "Whether the user is a superuser"
 
+  UserKey:
+    type: object
+    required:
+      - user_id
+      - public_cert
+    properties:
+      id:
+        type: integer
+        format: int64
+        readOnly: true
+      user_id:
+        type: integer
+        format: int64
+        example: 1
+        description: "Associated user ID"
+      public_cert:
+        type: string
+        example: "-----BEGIN CERTIFICATE-----..."
+        description: "User's public certificate"
+      created_at:
+        type: string
+        format: date-time
+        example: "2025-07-27T12:00:00Z"
+        description: "Timestamp of key registration"
+      is_active:
+        type: boolean
+        example: true
+        description: "Whether the key is active"
+
   Role:
     type: object
     required:
@@ -94,6 +124,11 @@ definitions:
         format: int32
         example: 60
         description: "Token expiration time in minutes"
+      grant_id:
+        type: integer
+        format: int64
+        example: 2
+        description: "Associated grant template ID"
 
   UserRole:
     type: object
@@ -117,7 +152,6 @@ definitions:
     required:
       - name
       - default_action
-      - role_id
     properties:
       id:
         type: integer
@@ -132,11 +166,6 @@ definitions:
         enum: ["ALLOW", "DENY"]
         example: "DENY"
         description: "Default action if no matching rule is found"
-      role_id:
-        type: integer
-        format: int64
-        example: 2
-        description: "ID of the role associated with the template"
 
   Domain:
     type: object
@@ -237,4 +266,3 @@ definitions:
         format: int64
         example: 2
         description: "ID of the linked rule"
-

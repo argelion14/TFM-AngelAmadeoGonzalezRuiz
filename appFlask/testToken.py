@@ -1,3 +1,4 @@
+import base64
 import os
 import io
 import sqlite3
@@ -15,7 +16,7 @@ import xml.etree.ElementTree as ET
 from cryptography.x509 import load_pem_x509_certificate
 
 from flask import (
-    Flask, abort, render_template, request, redirect, url_for,
+    Flask, abort, json, render_template, request, redirect, url_for,
     flash, make_response, g, jsonify, send_file
 )
 from werkzeug.utils import secure_filename
@@ -845,7 +846,6 @@ def update_role(role_id):
 # SECCIÓN DE USERS
 # Funciones auxiliares para gestión de usuarios
 #########################
-# TODO cambiar todos los metodos para que se adapten a la nueva tabla que tienen los users, revisar uno a uno
 
 @app.route('/api/users', methods=['GET'])
 @user_required
@@ -1161,6 +1161,101 @@ def update_user(user_id):
 
     return jsonify({'message': 'User updated successfully'}), 200
 
+
+@app.route('/api/users/<int:user_id>/roles', methods=['POST'])
+@swag_from({
+    'tags': ['asociarolauser'],
+    'summary': 'Associate roles to a user',
+    'description': 'Adds one or more roles to the specified user. Skips any roles already associated.',
+    'parameters': [
+        {
+            'name': 'user_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID of the user to update'
+        },
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'role_ids': {
+                        'type': 'array',
+                        'items': {'type': 'integer'},
+                        'description': 'List of role IDs to associate with the user'
+                    }
+                },
+                'required': ['role_ids']
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Roles associated successfully',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string'},
+                    'user_id': {'type': 'integer'},
+                    'roles_added': {
+                        'type': 'array',
+                        'items': {'type': 'integer'}
+                    }
+                }
+            }
+        },
+        400: {
+            'description': 'Invalid user_id or role_ids'
+        },
+        404: {
+            'description': 'User not found'
+        }
+    }
+})
+def assign_roles_to_user(user_id):
+    data = request.get_json()
+    role_ids = data.get('role_ids')
+
+    if not role_ids or not isinstance(role_ids, list):
+        return jsonify({'error': 'role_ids must be a non-empty list'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Verificar existencia del usuario
+    cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+
+    roles_added = []
+    for role_id in role_ids:
+        # Verificar si el rol existe
+        cursor.execute("SELECT id FROM roles WHERE id=?", (role_id,))
+        if not cursor.fetchone():
+            continue  # Ignora roles inexistentes
+
+        # Verificar si ya está asociado
+        cursor.execute(
+            "SELECT 1 FROM user_roles WHERE user_id=? AND role_id=?", (user_id, role_id))
+        if not cursor.fetchone():
+            cursor.execute(
+                "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
+            roles_added.append(role_id)
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'message': 'Roles associated successfully',
+        'user_id': user_id,
+        'roles_added': roles_added
+    }), 200
+
+
 #########################
 # SECCIÓN DE XML
 # Funciones auxiliares para gestión de XML
@@ -1394,7 +1489,6 @@ def generar_xml_grant(role_id, user_data, conn):
     subject = ET.SubElement(grant_elem, 'subject_name')
     subject.text = user_data.get('cert', 'CN=Unknown')
 
-    # Fechas
     cursor.execute('SELECT exp_time FROM roles WHERE id = ?', (role_id,))
     exp_minutes = cursor.fetchone()
     exp_minutes = exp_minutes[0] if exp_minutes else 60
@@ -1408,7 +1502,6 @@ def generar_xml_grant(role_id, user_data, conn):
     ET.SubElement(validity, 'not_before').text = not_before_str
     ET.SubElement(validity, 'not_after').text = not_after_str
 
-    # Reglas
     cursor.execute('''
         SELECT rules.id, rules.permiso
         FROM rules
@@ -1516,6 +1609,12 @@ def export_grant_by_role(role_id):
     response.headers[
         'Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
     return response
+
+
+#########################
+# SECCIÓN DE TEST
+# Funciones auxiliares para gestión de TEST
+#########################
 
 
 @app.route('/api/sign-grant-by-role/<int:role_id>', methods=['GET'])
@@ -1680,7 +1779,6 @@ def verify_signed_file():
 # Funciones auxiliares para interacción entre roles y grantTemplate
 #########################
 
-# TODO Llevarlo al frontal
 @app.route('/api/roles/<int:role_id>/grant', methods=['PATCH'])
 @swag_from({
     'tags': ['asociarrolcongrantid'],
@@ -1740,21 +1838,18 @@ def update_role_grant(role_id):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Verificar que el rol existe
     cursor.execute("SELECT * FROM roles WHERE id=?", (role_id,))
     role = cursor.fetchone()
     if not role:
         conn.close()
         return jsonify({'error': 'Role not found'}), 404
 
-    # Verificar que el grant_id existe
     cursor.execute("SELECT id FROM grantTemplate WHERE id=?", (grant_id,))
     grant = cursor.fetchone()
     if not grant:
         conn.close()
         return jsonify({'error': 'Invalid grant_id'}), 400
 
-    # Actualizar grant_id del rol
     cursor.execute("UPDATE roles SET grant_id=? WHERE id=?",
                    (grant_id, role_id))
     conn.commit()
@@ -1771,101 +1866,6 @@ def update_role_grant(role_id):
 # Funciones auxiliares para interacción entre usuarios y roles
 #########################
 
-# TODO Mejorar en el frontal
-
-
-@app.route('/api/users/<int:user_id>/roles', methods=['POST'])
-@swag_from({
-    'tags': ['asociarolauser'],
-    'summary': 'Associate roles to a user',
-    'description': 'Adds one or more roles to the specified user. Skips any roles already associated.',
-    'parameters': [
-        {
-            'name': 'user_id',
-            'in': 'path',
-            'type': 'integer',
-            'required': True,
-            'description': 'ID of the user to update'
-        },
-        {
-            'name': 'body',
-            'in': 'body',
-            'required': True,
-            'schema': {
-                'type': 'object',
-                'properties': {
-                    'role_ids': {
-                        'type': 'array',
-                        'items': {'type': 'integer'},
-                        'description': 'List of role IDs to associate with the user'
-                    }
-                },
-                'required': ['role_ids']
-            }
-        }
-    ],
-    'responses': {
-        200: {
-            'description': 'Roles associated successfully',
-            'schema': {
-                'type': 'object',
-                'properties': {
-                    'message': {'type': 'string'},
-                    'user_id': {'type': 'integer'},
-                    'roles_added': {
-                        'type': 'array',
-                        'items': {'type': 'integer'}
-                    }
-                }
-            }
-        },
-        400: {
-            'description': 'Invalid user_id or role_ids'
-        },
-        404: {
-            'description': 'User not found'
-        }
-    }
-})
-def assign_roles_to_user(user_id):
-    data = request.get_json()
-    role_ids = data.get('role_ids')
-
-    if not role_ids or not isinstance(role_ids, list):
-        return jsonify({'error': 'role_ids must be a non-empty list'}), 400
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Verificar existencia del usuario
-    cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))
-    if not cursor.fetchone():
-        conn.close()
-        return jsonify({'error': 'User not found'}), 404
-
-    roles_added = []
-    for role_id in role_ids:
-        # Verificar si el rol existe
-        cursor.execute("SELECT id FROM roles WHERE id=?", (role_id,))
-        if not cursor.fetchone():
-            continue  # Ignora roles inexistentes
-
-        # Verificar si ya está asociado
-        cursor.execute(
-            "SELECT 1 FROM user_roles WHERE user_id=? AND role_id=?", (user_id, role_id))
-        if not cursor.fetchone():
-            cursor.execute(
-                "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
-            roles_added.append(role_id)
-
-    conn.commit()
-    conn.close()
-
-    return jsonify({
-        'message': 'Roles associated successfully',
-        'user_id': user_id,
-        'roles_added': roles_added
-    }), 200
 
 # TODO Hacerlo en el front
 
@@ -1933,7 +1933,6 @@ def remove_roles_from_user(user_id):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Verificar existencia del usuario
     cursor.execute("SELECT id FROM users WHERE id=?", (user_id,))
     if not cursor.fetchone():
         conn.close()
@@ -1958,6 +1957,18 @@ def remove_roles_from_user(user_id):
 #########################
 ########## HTML #########
 #########################
+
+
+def superuser_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = verificar_jwt()
+        if not user:
+            return redirect(url_for('login'))
+        if not user.get('is_superuser', False):
+            return render_template("access_denied.html"), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 #########################
 # SECCIÓN DE HTML ROLES
@@ -2005,206 +2016,11 @@ def get_roles_by_username(username):
     return roles
 
 
-def get_all_users_and_roles():
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username FROM users")
-    users = cursor.fetchall()
-
-    cursor.execute("SELECT id, name FROM roles")
-    roles = cursor.fetchall()
-
-    conn.close()
-    return users, roles
-
-
-def assign_role_to_user(user_id, role_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    # Comprobamos si ya está asignado
-    cursor.execute(
-        "SELECT * FROM user_roles WHERE user_id = ? AND role_id = ?", (user_id, role_id))
-    if not cursor.fetchone():
-        cursor.execute(
-            "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", (user_id, role_id))
-        conn.commit()
-    conn.close()
-
-
-#########################
-# SECCIÓN DE HTML OTROS
-#########################
-
-
-def get_users():
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username, cert FROM users")
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
-
-
-def get_user(username):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT username, password, cert, is_superuser FROM users WHERE username = ?", (username,))
-    user = cursor.fetchone()
-    conn.close()
-    return user  # Será una tupla (username, password, cert, is_superuser)
-
-
-def get_users2():
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    # Recuperamos todos los usuarios
-    cursor.execute("""
-        SELECT u.id, u.username, u.cert,
-               GROUP_CONCAT(r.name) AS roles
-        FROM users u
-        LEFT JOIN user_roles ur ON u.id = ur.user_id
-        LEFT JOIN roles r ON ur.role_id = r.id
-        GROUP BY u.id
-    """)
-    rows = cursor.fetchall()
-    conn.close()
-
-    # Transformamos roles en lista
-    usuarios = []
-    for row in rows:
-        usuarios.append({
-            'id': row['id'],
-            'username': row['username'],
-            'cert': row['cert'],
-            'roles': row['roles'].split(',') if row['roles'] else []
-        })
-
-    return usuarios
-
-
-def insert_grant_from_xml(xml_path):
-    if not os.path.exists(xml_path):
-        raise FileNotFoundError(f"The file {xml_path} does not exist")
-
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
-
-    default_elem = root.find('.//default')
-    if default_elem is None or default_elem.text is None:
-        raise ValueError("Element <default> not found in the XML")
-
-    default_action = default_elem.text.strip().upper()
-    if default_action not in ('ALLOW', 'DENY'):
-        raise ValueError(f"Invalid default value: {default_action}")
-
-    grant_elem = root.find('.//grant')
-    name = grant_elem.attrib.get('name', 'unnamed_grant')
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    try:
-        # Insert into grantTemplate (sin role_id)
-        cursor.execute('''
-            INSERT INTO grantTemplate (name, default_action)
-            VALUES (?, ?)
-        ''', (name, default_action))
-        grant_id = cursor.lastrowid
-
-        # Procesar reglas
-        for rule_type in ['allow_rule', 'deny_rule']:
-            for rule in root.findall(f'.//grant/{rule_type}'):
-                permiso = rule_type
-
-                cursor.execute(
-                    'INSERT INTO rules (permiso) VALUES (?)', (permiso,)
-                )
-                rule_id = cursor.lastrowid
-
-                # Domains
-                for domain in rule.findall('./domains/id'):
-                    if domain.text:
-                        domain_name = domain.text.strip()
-                        cursor.execute(
-                            'INSERT OR IGNORE INTO domains (name) VALUES (?)', (domain_name,))
-                        cursor.execute(
-                            'SELECT id FROM domains WHERE name = ?', (domain_name,))
-                        domain_id = cursor.fetchone()[0]
-
-                        cursor.execute('''
-                            INSERT INTO rule_domains (rule_id, domain_id)
-                            VALUES (?, ?)
-                        ''', (rule_id, domain_id))
-
-                # Topics - Publish
-                for topic in rule.findall('./publish/topics/topic'):
-                    if topic.text:
-                        topic_name = topic.text.strip()
-                        cursor.execute(
-                            'INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
-                        cursor.execute(
-                            'SELECT id FROM topics WHERE name = ?', (topic_name,))
-                        topic_id = cursor.fetchone()[0]
-
-                        cursor.execute('''
-                            INSERT INTO rule_topics (rule_id, topic_id, action)
-                            VALUES (?, ?, 'publish')
-                        ''', (rule_id, topic_id))
-
-                # Topics - Subscribe
-                for topic in rule.findall('./subscribe/topics/topic'):
-                    if topic.text:
-                        topic_name = topic.text.strip()
-                        cursor.execute(
-                            'INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
-                        cursor.execute(
-                            'SELECT id FROM topics WHERE name = ?', (topic_name,))
-                        topic_id = cursor.fetchone()[0]
-
-                        cursor.execute('''
-                            INSERT INTO rule_topics (rule_id, topic_id, action)
-                            VALUES (?, ?, 'subscribe')
-                        ''', (rule_id, topic_id))
-
-                # Enlazar regla con grantTemplate
-                cursor.execute('''
-                    INSERT INTO grant_rules (grant_id, rule_id)
-                    VALUES (?, ?)
-                ''', (grant_id, rule_id))
-
-        conn.commit()
-        return grant_id, name, default_action
-
-    except (sqlite3.IntegrityError, sqlite3.OperationalError) as e:
-        conn.rollback()
-        raise ValueError(f"Database error: {e}")
-    finally:
-        conn.close()
-
-
-#########################
-# SECCIÓN DE RUTAS
-#########################
-
-def superuser_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        user = verificar_jwt()
-        if not user:
-            return redirect(url_for('login'))
-        if not user.get('is_superuser', False):
-            return render_template("access_denied.html"), 403
-        return f(*args, **kwargs)
-    return decorated_function
-
-#########################
-# SECCIÓN DE ROLES HTML
-#########################
+@app.route('/role_list', methods=['GET'])
+@superuser_required
+def role_list():
+    roles = get_roles_html()
+    return render_template("role_list.html", roles=roles)
 
 
 @app.route('/create_role', methods=['GET', 'POST'])
@@ -2240,13 +2056,6 @@ def create_role():
 
     conn.close()
     return render_template("role_create.html", templates=templates)
-
-
-@app.route('/role_list', methods=['GET'])
-@superuser_required
-def role_list():
-    roles = get_roles_html()
-    return render_template("role_list.html", roles=roles)
 
 
 @app.route('/delete_role/<int:role_id>', methods=['POST'])
@@ -2308,9 +2117,75 @@ def edit_role(role_id):
     return render_template("edit_role.html", role=role, grant_templates=grant_templates)
 
 
+@app.route('/role_assign', methods=['GET', 'POST'])
+def role_assign():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        try:
+            user_id = int(request.form.get('user_id'))
+            role_ids = list(map(int, request.form.getlist('role_ids')))
+        except (ValueError, TypeError):
+            flash(
+                'Datos inválidos. Asegúrese de seleccionar un usuario y al menos un rol.', 'danger')
+            return redirect(url_for('role_assign'))
+
+        if not role_ids:
+            flash('Debe seleccionar al menos un rol.', 'danger')
+        else:
+            roles_added = []
+            for role_id in role_ids:
+                cursor.execute(
+                    'SELECT 1 FROM user_roles WHERE user_id=? AND role_id=?', (user_id, role_id))
+                if not cursor.fetchone():
+                    cursor.execute(
+                        'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)',
+                        (user_id, role_id)
+                    )
+                    roles_added.append(role_id)
+
+            conn.commit()
+
+            if roles_added:
+                flash(
+                    f'Se asignaron los roles {roles_added} al usuario ID {user_id}.', 'success')
+            else:
+                flash(
+                    'Ningún rol fue asignado (posiblemente ya estaban asociados).', 'info')
+
+    cursor.execute("SELECT id, username FROM users ORDER BY username")
+    users = cursor.fetchall()
+    cursor.execute("SELECT id, name FROM roles ORDER BY name")
+    roles = cursor.fetchall()
+    conn.close()
+
+    return render_template('role_assign.html', users=users, roles=roles)
+
 #########################
 # SECCIÓN DE USER HTML
 #########################
+
+
+def get_user(username):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT username, password, cert, is_superuser FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    conn.close()
+    return user
+
+
+def get_users():
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, cert FROM users")
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
 
 @app.route('/user_list')
 def user_list():
@@ -2345,109 +2220,6 @@ def user_detail(id):
         return redirect(url_for('user_list'))
 
     return render_template('user_detail.html', user=user, keys=keys)
-
-# TODO Hacer que si se edita el name se ha de generar un nuevo certificado
-
-
-@app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
-@superuser_required
-def editar_usuario(id):
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row  # <- Esta línea permite usar ['columna']
-    cursor = conn.cursor()
-
-    if request.method == 'POST':
-        username = request.form['username']
-        is_superuser = 1 if request.form.get('is_superuser') == 'on' else 0
-
-        cursor.execute('''
-            UPDATE users
-            SET username = ?, is_superuser = ?
-            WHERE id = ?
-        ''', (username, is_superuser, id))
-        conn.commit()
-        conn.close()
-        flash('Usuario actualizado correctamente', 'success')
-        return redirect(url_for('user_list'))
-
-    # GET: cargar datos del usuario
-    cursor.execute('SELECT * FROM users WHERE id = ?', (id,))
-    usuario = cursor.fetchone()
-
-    # Obtener el certificado público (sin la clave privada)
-    cursor.execute(
-        'SELECT public_cert FROM user_keys WHERE user_id = ?', (id,))
-    key_data = cursor.fetchone()
-
-    conn.close()
-
-    if usuario is None:
-        abort(404)
-
-    return render_template('user_update.html', usuario=usuario, cert=key_data['public_cert'] if key_data else None)
-
-# TODO He de borrar también los certificados
-
-
-@app.route('/usuarios/<int:id>/eliminar', methods=['POST'])
-@superuser_required
-def eliminar_usuario(id):
-    # Evitar eliminarse a sí mismo (opcional: descomenta si se quiere proteger)
-    # current_user = verificar_jwt()
-    # if current_user['id'] == id:
-    #     flash('No puedes eliminar tu propio usuario.', 'warning')
-    #     return redirect(url_for('user_list'))
-
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    # Eliminar claves asociadas al usuario (si existen)
-    cursor.execute('DELETE FROM user_keys WHERE user_id = ?', (id,))
-
-    # Eliminar el usuario
-    cursor.execute('DELETE FROM users WHERE id = ?', (id,))
-
-    conn.commit()
-    conn.close()
-
-    flash('Usuario y claves asociadas eliminados correctamente', 'success')
-    return redirect(url_for('user_list'))
-
-
-# @app.route('/user_create', methods=['GET', 'POST'])
-# @superuser_required
-# def user_create():
-#     if request.method == 'POST':
-#         username = request.form.get('username')
-#         password = request.form.get('password')
-#         cert = request.form.get('cert')
-#         is_superuser = 1 if request.form.get('is_superuser') == 'on' else 0
-
-#         if not username or not password:
-#             flash("Usuario y contraseña son obligatorios", "danger")
-#             return redirect(url_for('user_create'))
-
-#         # Encriptamos la contraseña usando bcrypt (igual que en la API)
-#         hashed_pw = bcrypt.hashpw(password.encode(
-#             'utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-#         try:
-#             conn = get_db_connection()
-#             cursor = conn.cursor()
-#             cursor.execute('''
-#                 INSERT INTO users (username, password, cert, is_superuser)
-#                 VALUES (?, ?, ?, ?)
-#             ''', (username, hashed_pw, cert, is_superuser))
-#             conn.commit()
-#             conn.close()
-#             flash('Usuario creado correctamente', 'success')
-#             return redirect(url_for('user_list'))
-#         except sqlite3.IntegrityError:
-#             flash('El nombre de usuario ya existe', 'danger')
-#             return redirect(url_for('user_create'))
-
-#     return render_template('user_create.html')
 
 
 @app.route('/user_create', methods=['GET', 'POST'])
@@ -2550,11 +2322,78 @@ def user_create():
 
     return render_template('user_create.html')
 
+# TODO He de borrar también los certificados
+
+
+@app.route('/usuarios/<int:id>/eliminar', methods=['POST'])
+@superuser_required
+def eliminar_usuario(id):
+    # Evitar eliminarse a sí mismo (opcional: descomenta si se quiere proteger)
+    # current_user = verificar_jwt()
+    # if current_user['id'] == id:
+    #     flash('No puedes eliminar tu propio usuario.', 'warning')
+    #     return redirect(url_for('user_list'))
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # Eliminar claves asociadas al usuario (si existen)
+    cursor.execute('DELETE FROM user_keys WHERE user_id = ?', (id,))
+
+    # Eliminar el usuario
+    cursor.execute('DELETE FROM users WHERE id = ?', (id,))
+
+    conn.commit()
+    conn.close()
+
+    flash('Usuario y claves asociadas eliminados correctamente', 'success')
+    return redirect(url_for('user_list'))
+
+# TODO Hacer que si se edita el name se ha de generar un nuevo certificado
+
+
+@app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
+@superuser_required
+def editar_usuario(id):
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row  # <- Esta línea permite usar ['columna']
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        username = request.form['username']
+        is_superuser = 1 if request.form.get('is_superuser') == 'on' else 0
+
+        cursor.execute('''
+            UPDATE users
+            SET username = ?, is_superuser = ?
+            WHERE id = ?
+        ''', (username, is_superuser, id))
+        conn.commit()
+        conn.close()
+        flash('Usuario actualizado correctamente', 'success')
+        return redirect(url_for('user_list'))
+
+    # GET: cargar datos del usuario
+    cursor.execute('SELECT * FROM users WHERE id = ?', (id,))
+    usuario = cursor.fetchone()
+
+    # Obtener el certificado público (sin la clave privada)
+    cursor.execute(
+        'SELECT public_cert FROM user_keys WHERE user_id = ?', (id,))
+    key_data = cursor.fetchone()
+
+    conn.close()
+
+    if usuario is None:
+        abort(404)
+
+    return render_template('user_update.html', usuario=usuario, cert=key_data['public_cert'] if key_data else None)
+
 
 #########################
 # SECCIÓN DE GrantTemplate HTML
 #########################
-
 
 def get_grant_templates():
     conn = get_db_connection()
@@ -2577,6 +2416,133 @@ def get_grant_templates():
     return rows
 
 
+def insert_grant_from_xml(xml_path):
+    if not os.path.exists(xml_path):
+        raise FileNotFoundError(f"The file {xml_path} does not exist")
+
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    default_elem = root.find('.//default')
+    if default_elem is None or default_elem.text is None:
+        raise ValueError("Element <default> not found in the XML")
+
+    default_action = default_elem.text.strip().upper()
+    if default_action not in ('ALLOW', 'DENY'):
+        raise ValueError(f"Invalid default value: {default_action}")
+
+    grant_elem = root.find('.//grant')
+    name = grant_elem.attrib.get('name', 'unnamed_grant')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Insert into grantTemplate (sin role_id)
+        cursor.execute('''
+            INSERT INTO grantTemplate (name, default_action)
+            VALUES (?, ?)
+        ''', (name, default_action))
+        grant_id = cursor.lastrowid
+
+        # Procesar reglas
+        for rule_type in ['allow_rule', 'deny_rule']:
+            for rule in root.findall(f'.//grant/{rule_type}'):
+                permiso = rule_type
+
+                cursor.execute(
+                    'INSERT INTO rules (permiso) VALUES (?)', (permiso,)
+                )
+                rule_id = cursor.lastrowid
+
+                # Domains
+                for domain in rule.findall('./domains/id'):
+                    if domain.text:
+                        domain_name = domain.text.strip()
+                        cursor.execute(
+                            'INSERT OR IGNORE INTO domains (name) VALUES (?)', (domain_name,))
+                        cursor.execute(
+                            'SELECT id FROM domains WHERE name = ?', (domain_name,))
+                        domain_id = cursor.fetchone()[0]
+
+                        cursor.execute('''
+                            INSERT INTO rule_domains (rule_id, domain_id)
+                            VALUES (?, ?)
+                        ''', (rule_id, domain_id))
+
+                # Topics - Publish
+                for topic in rule.findall('./publish/topics/topic'):
+                    if topic.text:
+                        topic_name = topic.text.strip()
+                        cursor.execute(
+                            'INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
+                        cursor.execute(
+                            'SELECT id FROM topics WHERE name = ?', (topic_name,))
+                        topic_id = cursor.fetchone()[0]
+
+                        cursor.execute('''
+                            INSERT INTO rule_topics (rule_id, topic_id, action)
+                            VALUES (?, ?, 'publish')
+                        ''', (rule_id, topic_id))
+
+                # Topics - Subscribe
+                for topic in rule.findall('./subscribe/topics/topic'):
+                    if topic.text:
+                        topic_name = topic.text.strip()
+                        cursor.execute(
+                            'INSERT OR IGNORE INTO topics (name) VALUES (?)', (topic_name,))
+                        cursor.execute(
+                            'SELECT id FROM topics WHERE name = ?', (topic_name,))
+                        topic_id = cursor.fetchone()[0]
+
+                        cursor.execute('''
+                            INSERT INTO rule_topics (rule_id, topic_id, action)
+                            VALUES (?, ?, 'subscribe')
+                        ''', (rule_id, topic_id))
+
+                # Enlazar regla con grantTemplate
+                cursor.execute('''
+                    INSERT INTO grant_rules (grant_id, rule_id)
+                    VALUES (?, ?)
+                ''', (grant_id, rule_id))
+
+        conn.commit()
+        return grant_id, name, default_action
+
+    except (sqlite3.IntegrityError, sqlite3.OperationalError) as e:
+        conn.rollback()
+        raise ValueError(f"Database error: {e}")
+    finally:
+        conn.close()
+
+
+def delete_grant_template_by_id(grant_id, conn):
+    cursor = conn.cursor()
+
+    cursor.execute('PRAGMA foreign_keys = ON')
+
+    cursor.execute(
+        'SELECT rule_id FROM grant_rules WHERE grant_id = ?', (grant_id,))
+    rule_ids = [row[0] for row in cursor.fetchall()]
+
+    cursor.execute('DELETE FROM grant_rules WHERE grant_id = ?', (grant_id,))
+
+    for rule_id in rule_ids:
+        cursor.execute('DELETE FROM rules WHERE id = ?', (rule_id,))
+
+    cursor.execute('DELETE FROM grantTemplate WHERE id = ?', (grant_id,))
+
+    cursor.execute('''
+        DELETE FROM domains
+        WHERE id NOT IN (SELECT domain_id FROM rule_domains)
+    ''')
+
+    cursor.execute('''
+        DELETE FROM topics
+        WHERE id NOT IN (SELECT topic_id FROM rule_topics)
+    ''')
+
+
 @app.route('/grant_templates')
 @superuser_required
 def grant_template_list():
@@ -2586,61 +2552,6 @@ def grant_template_list():
 
     templates = get_grant_templates()
     return render_template('grant_template_list.html', templates=templates)
-
-
-@app.route('/grant_templates/delete/<int:grant_id>', methods=['POST'])
-@superuser_required
-def delete_grant_template(grant_id):
-    user = verificar_jwt()
-    if not user:
-        return redirect(url_for('login'))
-
-    conn = get_db_connection()
-    try:
-        delete_grant_template_by_id(grant_id, conn)
-        conn.commit()
-        flash(f'Grant template {grant_id} eliminado correctamente.', 'success')
-    except Exception as e:
-        conn.rollback()
-        flash(f'Error al eliminar el grant template: {e}', 'danger')
-    finally:
-        conn.close()
-
-    return redirect(url_for('grant_template_list'))
-
-# @app.route('/grant_templates/<int:grant_id>')
-# @superuser_required
-# def grant_template_detail(grant_id):
-#     user = verificar_jwt()
-#     if not user:
-#         return redirect(url_for('login'))
-
-#     conn = get_db_connection()
-#     conn.row_factory = sqlite3.Row
-#     cursor = conn.cursor()
-
-#     # Obtener el grantTemplate
-#     cursor.execute('''
-#         SELECT id, name, default_action
-#         FROM grantTemplate
-#         WHERE id = ?
-#     ''', (grant_id,))
-#     grant = cursor.fetchone()
-
-#     if not grant:
-#         conn.close()
-#         return render_template('404.html'), 404
-
-#     # Obtener roles asociados
-#     cursor.execute('''
-#         SELECT name, description, exp_time
-#         FROM roles
-#         WHERE grant_id = ?
-#     ''', (grant_id,))
-#     roles = cursor.fetchall()
-#     conn.close()
-
-#     return render_template('grant_template_detail.html', grant=grant, roles=roles)
 
 
 @app.route('/grant_templates/<int:grant_id>')
@@ -2745,9 +2656,30 @@ def new_grant_template():
     return render_template('new_grantTemplate.html')
 
 
+@app.route('/grant_templates/delete/<int:grant_id>', methods=['POST'])
+@superuser_required
+def delete_grant_template(grant_id):
+    user = verificar_jwt()
+    if not user:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    try:
+        delete_grant_template_by_id(grant_id, conn)
+        conn.commit()
+        flash(f'Grant template {grant_id} eliminado correctamente.', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error al eliminar el grant template: {e}', 'danger')
+    finally:
+        conn.close()
+
+    return redirect(url_for('grant_template_list'))
+
 #########################
 # SECCIÓN DE XML HTML
 #########################
+
 
 @app.route('/xml_export_grant', methods=['GET', 'POST'])
 def xml_export_grant():
@@ -3001,9 +2933,36 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/decode')
+@app.route('/decode', methods=['GET', 'POST'])
 def decode():
-    return render_template('decode.html')
+    payload_data = None
+    error = None
+
+    if request.method == 'POST':
+        token = request.form.get('jwt_token', '').strip()
+        parts = token.split('.')
+        if len(parts) != 3:
+            error = "❌ Invalid token: it must have 3 parts (header.payload.signature)."
+        else:
+            try:
+                padded_payload = parts[1] + '=' * (-len(parts[1]) % 4)
+                decoded_bytes = base64.urlsafe_b64decode(padded_payload)
+                payload_data = json.loads(decoded_bytes)
+
+                # Formatear los campos que son timestamps UNIX
+                for key in ['exp', 'iat', 'nbf']:
+                    if key in payload_data:
+                        try:
+                            timestamp = int(payload_data[key])
+                            payload_data[key] = datetime.utcfromtimestamp(
+                                timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')
+                        except:
+                            pass  # Si no es un entero, lo dejamos como está
+
+            except Exception as e:
+                error = f"❌ Failed to decode token payload: {str(e)}"
+
+    return render_template('decode.html', payload=payload_data, error=error)
 
 
 @app.route('/information')
@@ -3019,52 +2978,6 @@ def contact():
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template("404.html"), 404
-
-
-@app.route('/role_assign', methods=['GET', 'POST'])
-def role_assign():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    if request.method == 'POST':
-        try:
-            user_id = int(request.form.get('user_id'))
-            role_ids = list(map(int, request.form.getlist('role_ids')))
-        except (ValueError, TypeError):
-            flash(
-                'Datos inválidos. Asegúrese de seleccionar un usuario y al menos un rol.', 'danger')
-            return redirect(url_for('role_assign'))
-
-        if not role_ids:
-            flash('Debe seleccionar al menos un rol.', 'danger')
-        else:
-            roles_added = []
-            for role_id in role_ids:
-                cursor.execute(
-                    'SELECT 1 FROM user_roles WHERE user_id=? AND role_id=?', (user_id, role_id))
-                if not cursor.fetchone():
-                    cursor.execute(
-                        'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)',
-                        (user_id, role_id)
-                    )
-                    roles_added.append(role_id)
-
-            conn.commit()
-
-            if roles_added:
-                flash(
-                    f'Se asignaron los roles {roles_added} al usuario ID {user_id}.', 'success')
-            else:
-                flash(
-                    'Ningún rol fue asignado (posiblemente ya estaban asociados).', 'info')
-
-    cursor.execute("SELECT id, username FROM users ORDER BY username")
-    users = cursor.fetchall()
-    cursor.execute("SELECT id, name FROM roles ORDER BY name")
-    roles = cursor.fetchall()
-    conn.close()
-
-    return render_template('role_assign.html', users=users, roles=roles)
 
 
 @app.route('/dashboard')
@@ -3097,33 +3010,6 @@ def dashboard():
 
     conn.close()
     return render_template('dashboard.html', stats=stats)
-
-
-def delete_grant_template_by_id(grant_id, conn):
-    cursor = conn.cursor()
-
-    cursor.execute('PRAGMA foreign_keys = ON')
-
-    cursor.execute(
-        'SELECT rule_id FROM grant_rules WHERE grant_id = ?', (grant_id,))
-    rule_ids = [row[0] for row in cursor.fetchall()]
-
-    cursor.execute('DELETE FROM grant_rules WHERE grant_id = ?', (grant_id,))
-
-    for rule_id in rule_ids:
-        cursor.execute('DELETE FROM rules WHERE id = ?', (rule_id,))
-
-    cursor.execute('DELETE FROM grantTemplate WHERE id = ?', (grant_id,))
-
-    cursor.execute('''
-        DELETE FROM domains
-        WHERE id NOT IN (SELECT domain_id FROM rule_domains)
-    ''')
-
-    cursor.execute('''
-        DELETE FROM topics
-        WHERE id NOT IN (SELECT topic_id FROM rule_topics)
-    ''')
 
 
 @app.context_processor
