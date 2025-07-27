@@ -1155,7 +1155,7 @@ def update_user(user_id):
 
 @app.route('/api/users/<int:user_id>/roles', methods=['POST'])
 @swag_from({
-    'tags': ['asociarolauser'],
+    'tags': ['TEST'],
     'summary': 'Associate roles to a user',
     'description': 'Adds one or more roles to the specified user. Skips any roles already associated.',
     'parameters': [
@@ -1821,7 +1821,7 @@ def verify_signed_file():
 
 @app.route('/api/roles/<int:role_id>/grant', methods=['PATCH'])
 @swag_from({
-    'tags': ['asociarrolcongrantid'],
+    'tags': ['TEST'],
     'summary': 'Associate or update a grantTemplate to a role',
     'description': 'Updates the grantTemplate (grant_id) associated with a given role.',
     'parameters': [
@@ -1907,12 +1907,9 @@ def update_role_grant(role_id):
 #########################
 
 
-# TODO Hacerlo en el front
-
-
 @app.route('/api/users/<int:user_id>/roles', methods=['DELETE'])
 @swag_from({
-    'tags': ['desasociarrolauser'],
+    'tags': ['TEST'],
     'summary': 'Remove roles from a user',
     'description': 'Removes one or more roles associated with a user. Ignores roles that are not currently associated.',
     'parameters': [
