@@ -172,11 +172,99 @@ docker run -it --entrypoint /bin/sh mi_app_flask
 
 ```mermaid
 flowchart TD
-    A[Users] -->|Has a| R[Roles]
-    A -->|Owns| K[Keys]
-    R -->|Associated with| G[Grant Template]
-    G -->|Contains| Rules[Rules]
-    Rules -->|Is applied in| D[Domain]
-    Rules -->|Allows an action| T[Topics]
+    A[Users] --- R[Roles]
+    A --- K[Keys]
+    R --- G[Grant Template]
+    G --- Rules[Rules]
+    Rules --- D[Domain]
+    Rules --- T[Topics]
 
 ```
+
+### Otro esquema
+
+```mermaid
+classDiagram
+    class Users {
+        int id
+        string username
+        string password
+        string cert
+        int is_superuser
+    }
+
+    class UserKeys {
+        int id
+        int user_id
+        string public_cert
+        string private_key_path
+        timestamp created_at
+        int is_active
+    }
+
+    class Roles {
+        int id
+        string name
+        string description
+        int exp_time
+        int grant_id
+    }
+
+    class UserRoles {
+        int user_id
+        int role_id
+    }
+
+    class GrantTemplate {
+        int id
+        string name
+        string default_action [ALLOW | DENY]
+    }
+
+    class Rules {
+        int id
+        string permiso [allow_rule | deny_rule]
+    }
+
+    class GrantRules {
+        int grant_id
+        int rule_id
+    }
+
+    class Domains {
+        int id
+        string name
+    }
+
+    class RuleDomains {
+        int rule_id
+        int domain_id
+    }
+
+    class Topics {
+        int id
+        string name
+    }
+
+    class RuleTopics {
+        int rule_id
+        int topic_id
+        string action [publish | subscribe]
+    }
+
+    %% Relaciones
+    Users "1" --> "0..1" UserKeys : owns
+    Users "1" --> "0..*" UserRoles
+    Roles "1" --> "0..*" UserRoles
+    Roles "0..1" --> "1" GrantTemplate
+    GrantTemplate --> GrantRules
+    Rules --> GrantRules
+    Rules --> RuleDomains
+    Domains --> RuleDomains
+    Rules --> RuleTopics
+    Topics --> RuleTopics
+```
+
+
+
+
