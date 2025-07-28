@@ -162,3 +162,27 @@ Esta aplicación es ideal como backend de referencia para proyectos que requiera
 docker build -t mi_app_flask .
 
 docker run -it --entrypoint /bin/sh mi_app_flask
+
+
+
+
+
+
+
+
+```mermaid
+flowchart TD
+    A["Users"] --- n1["Has a"]
+    n1 --- n3["Roles"]
+    n3 --- n4["Associated with"]
+    n4 --- n5["Grant Template"]
+    n5 --- n6["Contains"]
+    n6 --- n7["Rules"]
+    n7 --- n9["Is applied in"]
+    n7 --- n10["Allows an action"]
+    n10 --- n8["Topics"]
+    n9 --> n11["Domain"]
+    A --> n12["Owns"]
+    n12 --> n2["Keys"]
+```
+
