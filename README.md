@@ -179,7 +179,4 @@ flowchart TD
     Rules -->|Is applied in| D[Domain]
     Rules -->|Allows an action| T[Topics]
 
-    classDef whitefill fill:#ffffff,stroke:#333,stroke-width:2px;
-
-    class A,R,G,Rules,D,T,K whitefill;
 ```
