@@ -4,6 +4,7 @@ import io
 import sqlite3
 import subprocess
 import tempfile
+import platform
 import functools
 from functools import wraps
 from datetime import datetime, timedelta
@@ -986,8 +987,11 @@ def create_user():
         csr_path = os.path.join(base_dir, "request.csr")
         cert_path = os.path.join(base_dir, "certificate.pem")
 
-        # TODO: Modificar para entorno Docker si es necesario
-        OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+        # Detectar entorno
+        if platform.system() == "Windows":
+            OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+        else:
+            OPENSSL_PATH = "/usr/bin/openssl"  # Se espera que esté en el PATH (como en Docker)
 
         # 1. Clave privada
         subprocess.run([
@@ -1712,8 +1716,11 @@ def sign_grant_by_role(role_id):
     signed_output_path = os.path.join(
         tempfile.gettempdir(), f"{grant_name}.p7s")
 
-    # TODO: Modificar para entorno Docker si es necesario
-    OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+    # Detectar entorno
+    if platform.system() == "Windows":
+        OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+    else:
+        OPENSSL_PATH = "/usr/bin/openssl"  # Se espera que esté en el PATH (como en Docker)
 
     result = subprocess.run([
         OPENSSL_PATH, "smime", "-sign",
@@ -1782,8 +1789,11 @@ def verify_signed_file():
     # Temporal para la salida verificada
     verified_path = signed_path + ".verified"
 
-    # TODO: Modificar para entorno Docker si es necesario
-    OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+    # Detectar entorno
+    if platform.system() == "Windows":
+        OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+    else:
+        OPENSSL_PATH = "/usr/bin/openssl"  # Se espera que esté en el PATH (como en Docker)
 
     try:
         result = subprocess.run([
@@ -2348,8 +2358,11 @@ def user_create():
             csr_path = os.path.join(base_dir, "request.csr")
             cert_path = os.path.join(base_dir, "certificate.pem")
 
-            # TODO: Modificar para entorno Docker si es necesario
-            OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+            # Detectar entorno
+            if platform.system() == "Windows":
+                OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+            else:
+                OPENSSL_PATH = "/usr/bin/openssl"  # Se espera que esté en el PATH (como en Docker)
 
             # 1. Clave privada
             subprocess.run([

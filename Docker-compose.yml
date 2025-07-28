@@ -22,3 +22,6 @@ services:
       - no-new-privileges
     cap_drop:
       - ALL
+    volumes:
+      # Bind mount desde Windows (convertido a formato compatible con Docker Desktop)
+      - /d/REPOS/TFM-AngelAmadeoGonzalezRuiz/appFlask:/app/appFlask

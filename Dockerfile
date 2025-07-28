@@ -5,15 +5,14 @@ FROM python:3.11-slim
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/home/appuser/.local/bin:$PATH" \
-    CA_CERT_PATH=appFlask/certs/ecdsa01RootCaCert.pem \
-    CA_KEY_PATH=appFlask/certs/ecdsa01RootCaKey.pem
+    PATH="/home/appuser/.local/bin:/usr/bin:$PATH"
 
-# Install only required system dependencies and remove build tools afterward
+# Install required system dependencies including OpenSSL
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libffi-dev \
     libssl-dev \
+    openssl \
     build-essential \
     && apt-get purge -y --auto-remove gcc build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -31,9 +30,6 @@ COPY --chown=appuser:appuser requirements.txt .
 # Install Python dependencies
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
-
-# Copy application code with correct ownership
-COPY --chown=appuser:appuser appFlask ./appFlask
 
 # Switch to non-root user
 USER appuser

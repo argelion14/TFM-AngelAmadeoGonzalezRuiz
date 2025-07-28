@@ -152,3 +152,13 @@ La aplicación Flask incluida en este repositorio implementa un sistema de contr
 - **Auditoría y seguridad:** Uso de JWT y certificados para garantizar la autenticidad y trazabilidad de las operaciones.
 
 Esta aplicación es ideal como backend de referencia para proyectos que requieran control de acceso granular y gestión de identidades en entornos distribuidos y seguros.
+
+
+
+
+
+
+
+docker build -t mi_app_flask .
+
+docker run -it --entrypoint /bin/sh mi_app_flask
