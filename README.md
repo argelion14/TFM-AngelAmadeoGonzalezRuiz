@@ -172,17 +172,20 @@ docker run -it --entrypoint /bin/sh mi_app_flask
 
 ```mermaid
 flowchart TD
-    A["Users"] --- n1["Has a"]
-    n1 --- n3["Roles"]
-    n3 --- n4["Associated with"]
-    n4 --- n5["Grant Template"]
-    n5 --- n6["Contains"]
-    n6 --- n7["Rules"]
-    n7 --- n9["Is applied in"]
-    n7 --- n10["Allows an action"]
-    n10 --- n8["Topics"]
-    n9 --> n11["Domain"]
-    A --> n12["Owns"]
-    n12 --> n2["Keys"]
-```
+    %% Relaciones
+    A[Users] -->|Has a| R[Roles]
+    A -->|Owns| K[Keys]
+    R -->|Associated with| G[Grant Template]
+    G -->|Contains| Rules[Rules]
+    Rules -->|Is applied in| D[Domain]
+    Rules -->|Allows an action| T[Topics]
 
+    %% Estilos
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style R fill:#bbf,stroke:#333,stroke-width:2px
+    style G fill:#bfb,stroke:#333,stroke-width:2px
+    style Rules fill:#ffd,stroke:#333,stroke-width:2px
+    style D fill:#fcc,stroke:#333,stroke-width:2px
+    style T fill:#ccf,stroke:#333,stroke-width:2px
+    style K fill:#fcf,stroke:#333,stroke-width:2px
+```
