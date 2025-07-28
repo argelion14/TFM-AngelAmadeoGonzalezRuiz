@@ -137,7 +137,7 @@ def superadmin_required(f):
     return wrapper
 
 
-def user_required(f):
+def user_required_api(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         user = verificar_jwt_api()
@@ -154,7 +154,7 @@ def user_required(f):
 
 
 @app.route('/api/grant-templates', methods=['GET'])
-@user_required
+@user_required_api
 @swag_from({
     'tags': ['Grant Templates'],
     'summary': 'Lists all grant templates',
@@ -326,7 +326,7 @@ def delete_grant_api(grant_id):
 
 
 @app.route('/api/auth-role', methods=['POST'])
-@user_required
+@user_required_api
 @swag_from({
     'tags': ['Auth_role_JWT'],
     'summary': 'Authenticate a specific role for an already authenticated user',
@@ -520,7 +520,7 @@ def verify_role_token():
 #########################
 
 @app.route('/api/roles', methods=['GET'])
-@user_required
+@user_required_api
 @swag_from({
     'tags': ['Roles'],
     'summary': 'Get all roles',
@@ -555,7 +555,7 @@ def get_roles():
 
 
 @app.route('/api/roles/<int:role_id>', methods=['GET'])
-@user_required
+@user_required_api
 @swag_from({
     'tags': ['Roles'],
     'summary': 'Get role by ID',
@@ -839,7 +839,7 @@ def update_role(role_id):
 #########################
 
 @app.route('/api/users', methods=['GET'])
-@user_required
+@user_required_api
 @swag_from({
     'tags': ['Users'],
     'summary': 'Retrieve all users',
@@ -1371,7 +1371,7 @@ def validate_xml_api():
 
 
 @app.route('/api/export_grant/<int:grant_id>', methods=['GET'])
-@user_required
+@user_required_api
 @swag_from({
     'tags': ['XML'],
     'summary': 'Export a grant as an XML file',
@@ -1598,7 +1598,7 @@ def generar_xml_grant(role_id, user_data, conn):
 
 
 @app.route('/api/export-grantbyrole/<int:role_id>', methods=['GET'])
-@user_required
+@user_required_api
 @swag_from({
     'tags': ['XML'],
     'summary': 'Export a grantTemplate in XML format associated with a role',
@@ -1658,7 +1658,7 @@ def export_grant_by_role(role_id):
 
 
 @app.route('/api/sign-grant-by-role/<int:role_id>', methods=['GET'])
-@user_required
+@user_required_api
 @swag_from({
     'tags': ['TEST'],
     'summary': 'Sign and export a grantTemplate as a PKCS#7 (.p7s) file',
@@ -2004,6 +2004,16 @@ def superuser_required(f):
             return redirect(url_for('login'))
         if not user.get('is_superuser', False):
             return render_template("access_denied.html"), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def user_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = verificar_jwt()
+        if not user:
+            return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -2762,30 +2772,35 @@ def delete_grant_template(grant_id):
 
 
 @app.route('/xml_export_grant', methods=['GET', 'POST'])
+@user_required
 def xml_export_grant():
     xml_output = None
     grant_name = None
 
     user_data = verificar_jwt()
     if not user_data:
-        flash("No tienes autorización para acceder a esta página", "danger")
+        flash("You are not authorized to access this page", "danger")
         return redirect(url_for("login"))
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     if user_data["is_superuser"]:
+        # Superusers see all roles with grant_id
         cursor.execute("""
             SELECT r.id, r.name
             FROM roles r
             WHERE r.grant_id IS NOT NULL
         """)
     else:
+        # Normal users see only their roles with grant_id
         cursor.execute("""
             SELECT r.id, r.name
             FROM roles r
+            JOIN user_roles ur ON ur.role_id = r.id
+            JOIN users u ON u.id = ur.user_id
             WHERE r.grant_id IS NOT NULL
-              AND r.user = ?
+              AND u.username = ?
         """, (user_data["username"],))
 
     roles = cursor.fetchall()
@@ -2793,13 +2808,13 @@ def xml_export_grant():
     if request.method == 'POST':
         role_id = request.form.get('role_id', type=int)
         if not role_id:
-            flash('Por favor selecciona un rol.', 'danger')
+            flash('Please select a role.', 'danger')
         else:
             xml_data, grant_name, error = generar_xml_grant(
                 role_id, user_data, conn)
 
             if error:
-                flash(f'Error al generar el XML: {error}', 'danger')
+                flash(f'Error generating XML: {error}', 'danger')
             else:
                 xml_output = xml_data.decode('utf-8')
 
@@ -2807,7 +2822,26 @@ def xml_export_grant():
     return render_template('xml_export_grant.html', roles=roles, xml_output=xml_output, grant_name=grant_name)
 
 
+@app.route('/public/export-grantbyrole/<int:role_id>', methods=['GET'])
+@user_required
+def public_export_grant_by_role(role_id):
+    conn = get_db_connection()
+    user_data = {"username": "public_user", "is_superuser": False}
+    xml_data, _, error = generar_xml_grant(role_id, user_data, conn)
+    conn.close()
+
+    if error:
+        return jsonify({'error': error}), 404
+
+    response = make_response(xml_data)
+    response.headers['Content-Type'] = 'application/xml'
+    response.headers[
+        'Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
+    return response
+
+
 @app.route('/xml_vality', methods=['GET', 'POST'])
+@user_required
 def xml_vality():
     if request.method == 'POST':
         xml_file = request.files.get('xml_file')
@@ -2847,14 +2881,10 @@ def xml_vality():
 
 
 @app.route('/auth-role', methods=['GET', 'POST'])
+@user_required
 def auth_role_html():
     user_data = verificar_jwt()
-    if not user_data:
-        return redirect(url_for('login'))
-
     username = user_data.get('username')
-    if not username:
-        return redirect(url_for('login'))
 
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
@@ -2868,26 +2898,26 @@ def auth_role_html():
         return redirect(url_for('login'))
     user_id = user['id']
 
-    # Obtener roles con grant_id directamente
+    # Obtener roles del usuario con grant_id asignado
     cursor.execute('''
         SELECT r.id, r.name, r.description, r.grant_id
-        FROM users u
-        JOIN user_roles ur ON u.id = ur.user_id
+        FROM user_roles ur
         JOIN roles r ON ur.role_id = r.id
-        WHERE u.username = ?
-    ''', (username,))
-    roles_dict = [dict(r) for r in cursor.fetchall()]
+        WHERE ur.user_id = ?
+    ''', (user_id,))
+    roles = [dict(r) for r in cursor.fetchall()]
 
     error = None
     token = None
 
     if request.method == 'POST':
-        role_id = int(request.form.get('role_id'))
-        selected = next((r for r in roles_dict if r['id'] == role_id), None)
+        role_id = request.form.get('role_id', type=int)
+        selected = next((r for r in roles if r['id'] == role_id), None)
+
         if not selected:
-            error = 'Rol inválido o no disponible'
+            error = 'Invalid or unauthorized role.'
         elif selected['grant_id'] is None:
-            error = 'El rol no está vinculado a una grantTemplate'
+            error = 'The selected role is not linked to a grantTemplate.'
         else:
             payload = {
                 'user_id': user_id,
@@ -2896,13 +2926,8 @@ def auth_role_html():
             }
             token = jwt.encode(payload, CA_KEY, algorithm="ES256")
 
-    user = verificar_jwt()
-    if user:
-        username = user.get('username')
-        roles2 = get_roles_by_username(username)
-
     conn.close()
-    return render_template('authrole_create.html', roles=roles_dict, error=error, token=token)
+    return render_template('authrole_create.html', roles=roles, error=error, token=token)
 
 
 @app.route('/authrole_vality', methods=['GET', 'POST'])

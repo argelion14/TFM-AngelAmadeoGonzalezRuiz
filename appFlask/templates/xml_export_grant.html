@@ -67,7 +67,7 @@ active
       </div>
       <div class="card-body">
         <pre style="white-space: pre-wrap; word-break: break-word;">{{ xml_output }}</pre>
-        <a href="{{ url_for('export_grant_by_role', role_id=request.form.get('role_id')) }}"
+        <a href="{{ url_for('public_export_grant_by_role', role_id=request.form.get('role_id')) }}"
           class="btn btn-success mt-3">
           <i class="fas fa-download"></i> Download XML
         </a>
