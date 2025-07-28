@@ -172,7 +172,6 @@ docker run -it --entrypoint /bin/sh mi_app_flask
 
 ```mermaid
 flowchart TD
-    %% Relaciones
     A[Users] -->|Has a| R[Roles]
     A -->|Owns| K[Keys]
     R -->|Associated with| G[Grant Template]
@@ -180,12 +179,7 @@ flowchart TD
     Rules -->|Is applied in| D[Domain]
     Rules -->|Allows an action| T[Topics]
 
-    %% Estilos
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style R fill:#bbf,stroke:#333,stroke-width:2px
-    style G fill:#bfb,stroke:#333,stroke-width:2px
-    style Rules fill:#ffd,stroke:#333,stroke-width:2px
-    style D fill:#fcc,stroke:#333,stroke-width:2px
-    style T fill:#ccf,stroke:#333,stroke-width:2px
-    style K fill:#fcf,stroke:#333,stroke-width:2px
+    classDef whitefill fill:#ffffff,stroke:#333,stroke-width:2px;
+
+    class A,R,G,Rules,D,T,K whitefill;
 ```
