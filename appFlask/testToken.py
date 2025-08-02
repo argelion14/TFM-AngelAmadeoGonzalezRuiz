@@ -71,6 +71,12 @@ app.secret_key = 'super secret key'
 JWT_SECRET = 'clave_jwt_segura'
 JWT_EXPIRATION_MINUTES = 60
 
+
+# TODO: Hacer que para pedir un GrantTemplate de un usuario solo te de los de dando el JWT de roles que se pide y no dando tu el rol, también hacer que
+# el tiempo de expiración sea el mismo que el de la validez del token JWT, y que este token JWT le puedas dar una validez personalizada que como
+# máximo dura el tiempo de validez del rol, no más
+
+
 #########################
 # SECCIÓN DE AUTENTICACION JWT PARA LA API
 # Funciones auxiliares para gestión de seguridad
@@ -325,7 +331,7 @@ def delete_grant_api(grant_id):
 # Funciones auxiliares para gestión token de roles
 #########################
 
-
+# TODO: Cambiar el tiempo que dura, que sea personalizado que no supere el tiempo por defecto del rol y cambiar que no te pida un JSON que es incomodo
 @app.route('/api/auth-role', methods=['POST'])
 @user_required_api
 @swag_from({
@@ -991,7 +997,8 @@ def create_user():
         if platform.system() == "Windows":
             OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
         else:
-            OPENSSL_PATH = "/usr/bin/openssl"  # Se espera que esté en el PATH (como en Docker)
+            # Se espera que esté en el PATH (como en Docker)
+            OPENSSL_PATH = "/usr/bin/openssl"
 
         # 1. Clave privada
         subprocess.run([
@@ -1720,7 +1727,8 @@ def sign_grant_by_role(role_id):
     if platform.system() == "Windows":
         OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
     else:
-        OPENSSL_PATH = "/usr/bin/openssl"  # Se espera que esté en el PATH (como en Docker)
+        # Se espera que esté en el PATH (como en Docker)
+        OPENSSL_PATH = "/usr/bin/openssl"
 
     result = subprocess.run([
         OPENSSL_PATH, "smime", "-sign",
@@ -1793,7 +1801,8 @@ def verify_signed_file():
     if platform.system() == "Windows":
         OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
     else:
-        OPENSSL_PATH = "/usr/bin/openssl"  # Se espera que esté en el PATH (como en Docker)
+        # Se espera que esté en el PATH (como en Docker)
+        OPENSSL_PATH = "/usr/bin/openssl"
 
     try:
         result = subprocess.run([
@@ -2362,7 +2371,8 @@ def user_create():
             if platform.system() == "Windows":
                 OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
             else:
-                OPENSSL_PATH = "/usr/bin/openssl"  # Se espera que esté en el PATH (como en Docker)
+                # Se espera que esté en el PATH (como en Docker)
+                OPENSSL_PATH = "/usr/bin/openssl"
 
             # 1. Clave privada
             subprocess.run([
@@ -2892,56 +2902,76 @@ def xml_vality():
 # SECCIÓN DE AuthRole HTML
 #########################
 
-
 @app.route('/auth-role', methods=['GET', 'POST'])
 @user_required
 def auth_role_html():
     user_data = verificar_jwt()
-    username = user_data.get('username')
+    if not user_data:
+        flash("You are not authorized to access this page", "danger")
+        return redirect(url_for("login"))
 
     conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Obtener id del usuario
-    cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
-    user = cursor.fetchone()
-    if not user:
+    # Obtener user_id
+    cursor.execute("SELECT id FROM users WHERE username = ?", (user_data["username"],))
+    user_row = cursor.fetchone()
+    if not user_row:
         conn.close()
-        return redirect(url_for('login'))
-    user_id = user['id']
+        flash("User not found in database", "danger")
+        return redirect(url_for("login"))
+    user_id = user_row[0]
 
-    # Obtener roles del usuario con grant_id asignado
-    cursor.execute('''
-        SELECT r.id, r.name, r.description, r.grant_id
-        FROM user_roles ur
-        JOIN roles r ON ur.role_id = r.id
-        WHERE ur.user_id = ?
-    ''', (user_id,))
+    # Obtener roles y exp_time
+    if user_data["is_superuser"]:
+        cursor.execute("""
+            SELECT r.id, r.name, r.description, r.grant_id, r.exp_time
+            FROM roles r
+            WHERE r.grant_id IS NOT NULL
+        """)
+    else:
+        cursor.execute("""
+            SELECT r.id, r.name, r.description, r.grant_id, r.exp_time
+            FROM roles r
+            JOIN user_roles ur ON ur.role_id = r.id
+            JOIN users u ON u.id = ur.user_id
+            WHERE r.grant_id IS NOT NULL
+              AND u.username = ?
+        """, (user_data["username"],))
+
     roles = [dict(r) for r in cursor.fetchall()]
-
     error = None
     token = None
+    warning = None
 
     if request.method == 'POST':
         role_id = request.form.get('role_id', type=int)
+        requested_minutes = request.form.get('exp_minutes', type=int)
+
         selected = next((r for r in roles if r['id'] == role_id), None)
 
         if not selected:
             error = 'Invalid or unauthorized role.'
-        elif selected['grant_id'] is None:
-            error = 'The selected role is not linked to a grantTemplate.'
+        elif not requested_minutes:
+            error = 'You must specify an expiration time.'
         else:
+            max_minutes = selected['exp_time']
+            final_minutes = min(requested_minutes, max_minutes)
+
+            if requested_minutes > max_minutes:
+                warning = (f"Requested expiration time ({requested_minutes} min) "
+                           f"exceeds the role's limit ({max_minutes} min). "
+                           f"Token created with maximum allowed time.")
+
             payload = {
                 'user_id': user_id,
                 'role_id': role_id,
-                'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
+                'exp': datetime.now() + timedelta(minutes=final_minutes)
             }
             token = jwt.encode(payload, CA_KEY, algorithm="ES256")
 
     conn.close()
-    return render_template('authrole_create.html', roles=roles, error=error, token=token)
-
+    return render_template('authrole_create.html', roles=roles, error=error, warning=warning, token=token)
 
 @app.route('/authrole_vality', methods=['GET', 'POST'])
 def authrole_vality():
@@ -3139,6 +3169,92 @@ def inyectar_datos_token():
         if datos:
             datos_token = datos  # Contiene username, cert, is_superuser, etc.
     return {'token_data': datos_token}
+
+
+@app.route('/download-signed-grant/<path:filename>')
+@user_required
+def download_signed_grant(filename):
+    path = os.path.join(tempfile.gettempdir(), filename)
+    if not os.path.exists(path):
+        flash('File not found', 'danger')
+        return redirect(url_for('role_list'))
+    return send_file(path, as_attachment=True, mimetype='application/pkcs7-signature')
+
+
+@app.route('/sign_grant_by_role_html', methods=['GET', 'POST'])
+@user_required
+def sign_grant_by_role_html():
+    xml_output = None
+    grant_name = None
+
+    user_data = verificar_jwt()
+    if not user_data:
+        flash("You are not authorized to access this page", "danger")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if user_data["is_superuser"]:
+        cursor.execute("""
+            SELECT r.id, r.name
+            FROM roles r
+            WHERE r.grant_id IS NOT NULL
+        """)
+    else:
+        cursor.execute("""
+            SELECT r.id, r.name
+            FROM roles r
+            JOIN user_roles ur ON ur.role_id = r.id
+            JOIN users u ON u.id = ur.user_id
+            WHERE r.grant_id IS NOT NULL
+              AND u.username = ?
+        """, (user_data["username"],))
+
+    roles = cursor.fetchall()
+
+    if request.method == 'POST':
+        role_id = request.form.get('role_id', type=int)
+        if not role_id:
+            flash('Please select a role.', 'danger')
+        else:
+            xml_data, grant_name, error = generar_xml_grant(
+                role_id, user_data, conn)
+
+            if error:
+                flash(f'Error generating XML: {error}', 'danger')
+            else:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as xml_file:
+                    xml_file.write(xml_data)
+                    xml_path = xml_file.name
+
+                signed_output_path = os.path.join(
+                    tempfile.gettempdir(), f"{grant_name}.p7s")
+
+                if platform.system() == "Windows":
+                    OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+                else:
+                    OPENSSL_PATH = "/usr/bin/openssl"
+
+                result = subprocess.run([
+                    OPENSSL_PATH, "smime", "-sign",
+                    "-in", xml_path,
+                    "-out", signed_output_path,
+                    "-signer", CA_CERT_PATH,
+                    "-inkey", CA_KEY_PATH,
+                    "-outform", "DER",
+                    "-nodetach"
+                ], capture_output=True)
+
+                os.remove(xml_path)
+
+                if result.returncode != 0:
+                    flash("Signing failed: " + result.stderr.decode(), "danger")
+                else:
+                    flash("Grant signed successfully!", "success")
+
+    conn.close()
+    return render_template('sign_grant_by_role.html', roles=roles, grant_name=grant_name)
 
 
 if __name__ == '__main__':

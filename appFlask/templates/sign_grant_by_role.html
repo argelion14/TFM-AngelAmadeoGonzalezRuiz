@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Grant{% endblock %}
+
+{% block active_sign_grant_by_role %}active{% endblock %}
+
+{% block header %}Sign Grant by Role{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item active">Sign Grant</li>
+{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <h1>Sign Grant (.p7s)</h1>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="card card-primary">
+      <div class="card-header">
+        <h3 class="card-title">Select a Role</h3>
+      </div>
+      <form method="POST">
+        <div class="card-body">
+          <div class="form-group">
+            <label for="role_id">Available Roles</label>
+            <select class="form-control" name="role_id" id="role_id" required>
+              <option value="" disabled selected>-- Select a role --</option>
+              {% for id, name in roles %}
+              <option value="{{ id }}">{{ name }} (ID: {{ id }})</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-file-signature"></i> Sign Grant</button>
+        </div>
+      </form>
+    </div>
+
+    {% if grant_name %}
+    <div class="card card-success">
+      <div class="card-header">
+        <h3 class="card-title">Download Signed Grant</h3>
+      </div>
+      <div class="card-body">
+        <a href="{{ url_for('download_signed_grant', filename=grant_name ~ '.p7s') }}" class="btn btn-success">
+          <i class="fas fa-download"></i> Download {{ grant_name }}.p7s
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</section>
+{% endblock %}
