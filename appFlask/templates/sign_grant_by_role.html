@@ -2,7 +2,7 @@
 
 {% block title %}Sign Grant{% endblock %}
 
-{% block active_sign_grant_by_role %}active{% endblock %}
+{% block active_export_signgrantbyrole %}active{% endblock %}
 
 {% block header %}Sign Grant by Role{% endblock %}
 
@@ -14,7 +14,7 @@
 {% block content %}
 <section class="content-header">
   <div class="container-fluid">
-    <h1>Sign Grant (.p7s)</h1>
+    <h1>Sign Grant (.p7s or XML)</h1>
   </div>
 </section>
 
@@ -36,27 +36,45 @@
 
     <div class="card card-primary">
       <div class="card-header">
-        <h3 class="card-title">Select a Role</h3>
+        <h3 class="card-title">Paste Role Token</h3>
       </div>
       <form method="POST">
         <div class="card-body">
           <div class="form-group">
-            <label for="role_id">Available Roles</label>
-            <select class="form-control" name="role_id" id="role_id" required>
-              <option value="" disabled selected>-- Select a role --</option>
-              {% for id, name in roles %}
-              <option value="{{ id }}">{{ name }} (ID: {{ id }})</option>
-              {% endfor %}
-            </select>
+            <label for="token">JWT Token (signed with CA_KEY)</label>
+            <textarea id="token" name="token" rows="4" class="form-control" placeholder="Paste the signed token here..."
+              required></textarea>
+            <small class="form-text text-muted">The token must contain <code>role_id</code> and
+              <code>exp</code>.</small>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="sign" name="sign" checked>
+            <label class="form-check-label" for="sign">
+              Sign the XML and download as .p7s (recommended)
+            </label>
           </div>
         </div>
         <div class="card-footer">
-          <button type="submit" class="btn btn-primary"><i class="fas fa-file-signature"></i> Sign Grant</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-file-signature"></i> Generate Grant
+          </button>
         </div>
       </form>
     </div>
 
-    {% if grant_name %}
+    {% if grant_name and xml_output %}
+    <div class="card card-info">
+      <div class="card-header">
+        <h3 class="card-title">Generated Grant (unsigned XML)</h3>
+      </div>
+      <div class="card-body">
+        <pre
+          style="white-space: pre-wrap; background-color: #f8f9fa; padding: 1rem; border-radius: 0.25rem;">{{ xml_output | e }}</pre>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if grant_name and not xml_output %}
     <div class="card card-success">
       <div class="card-header">
         <h3 class="card-title">Download Signed Grant</h3>

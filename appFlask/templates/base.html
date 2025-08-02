@@ -51,10 +51,6 @@
                     <a target="_blank" href="{{ url_for('redirigir_a_swagger_json_api') }}" class="nav-link">Swagger
                         API</a>
                 </li>
-                <li class="nav-item d-none d-sm-inline-block">
-                    <a target="_blank" href="{{ url_for('sign_grant_by_role_html') }}"
-                        class="nav-link">sign_grant_by_role_html</a>
-                </li>
             </ul>
 
             <!-- Right -->
@@ -156,7 +152,7 @@
                         </li>
 
                         <li class="nav-item">
-                            <a href="{{ url_for('xml_export_grant') }}"
+                            <a href="{{ url_for('sign_grant_by_role_html') }}"
                                 class="nav-link {% block active_export_signgrantbyrole %} {% endblock %}">
                                 <i class="nav-icon fas fa-file-export"></i>
                                 <p>Export sign Grant by auth role</p>

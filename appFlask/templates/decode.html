@@ -36,10 +36,14 @@
           <tr>
             <td>{{ key }}</td>
             <td>
-              {% if value is iterable and value is not string %}
-              {{ value | join(', ') }}
+              {% if value is mapping %}
+                <ul class="mb-0">
+                  {% for subkey, subval in value.items() %}
+                    <li><strong>{{ subkey|capitalize }}:</strong> {{ subval }}</li>
+                  {% endfor %}
+                </ul>
               {% else %}
-              {{ value }}
+                {{ value }}
               {% endif %}
             </td>
           </tr>

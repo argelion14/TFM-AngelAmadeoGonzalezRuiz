@@ -1,6 +1,6 @@
 # utils/helpers.py
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import sqlite3
 
@@ -71,7 +71,7 @@ def generar_jwt(user):
         'username': user[0],
         'cert': user[2],
         'is_superuser': user[3] == 1,
-        'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
+        'exp': datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRATION_MINUTES)
     }
     token = jwt.encode(payload, CA_KEY, algorithm="ES256")
     return token

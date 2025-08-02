@@ -7,7 +7,8 @@ import tempfile
 import platform
 import functools
 from functools import wraps
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 import yaml
 import bcrypt
 import jwt
@@ -332,6 +333,8 @@ def delete_grant_api(grant_id):
 #########################
 
 # TODO: Cambiar el tiempo que dura, que sea personalizado que no supere el tiempo por defecto del rol y cambiar que no te pida un JSON que es incomodo
+
+
 @app.route('/api/auth-role', methods=['POST'])
 @user_required_api
 @swag_from({
@@ -413,7 +416,7 @@ def auth_role():
     payload = {
         'user_id': user_id,
         'role_id': role_id,
-        'exp': datetime.now() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
+        'exp': datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRATION_MINUTES)
     }
     token = jwt.encode(payload, CA_KEY, algorithm="ES256")
 
@@ -1512,7 +1515,7 @@ def export_grant(grant_id):
     response.headers['Content-Disposition'] = f'attachment; filename=grant_{grant_id}.xml'
     return response
 
-
+# TODO Modificarlo en todos lados
 def generar_xml_grant(role_id, user_data, conn):
     cursor = conn.cursor()
 
@@ -2902,6 +2905,7 @@ def xml_vality():
 # SECCIÓN DE AuthRole HTML
 #########################
 
+
 @app.route('/auth-role', methods=['GET', 'POST'])
 @user_required
 def auth_role_html():
@@ -2914,7 +2918,8 @@ def auth_role_html():
     cursor = conn.cursor()
 
     # Obtener user_id
-    cursor.execute("SELECT id FROM users WHERE username = ?", (user_data["username"],))
+    cursor.execute("SELECT id FROM users WHERE username = ?",
+                   (user_data["username"],))
     user_row = cursor.fetchone()
     if not user_row:
         conn.close()
@@ -2964,14 +2969,15 @@ def auth_role_html():
                            f"Token created with maximum allowed time.")
 
             payload = {
-                'user_id': user_id,
-                'role_id': role_id,
-                'exp': datetime.now() + timedelta(minutes=final_minutes)
+               'user_id': user_id,
+               'role_id': role_id,
+               'exp': datetime.now(timezone.utc) + timedelta(minutes=final_minutes)
             }
             token = jwt.encode(payload, CA_KEY, algorithm="ES256")
 
     conn.close()
     return render_template('authrole_create.html', roles=roles, error=error, warning=warning, token=token)
+
 
 @app.route('/authrole_vality', methods=['GET', 'POST'])
 def authrole_vality():
@@ -3098,14 +3104,19 @@ def decode():
                 payload_data = json.loads(decoded_bytes)
 
                 # Formatear los campos que son timestamps UNIX
+                madrid_tz = ZoneInfo('Europe/Madrid')
                 for key in ['exp', 'iat', 'nbf']:
                     if key in payload_data:
                         try:
                             timestamp = int(payload_data[key])
-                            payload_data[key] = datetime.utcfromtimestamp(
-                                timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')
-                        except:
-                            pass  # Si no es un entero, lo dejamos como está
+                            utc_dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                            madrid_dt = utc_dt.astimezone(madrid_tz)
+                            payload_data[key] = {
+                                'utc': utc_dt.strftime('%Y-%m-%d %H:%M:%S UTC'),
+                                'madrid': madrid_dt.strftime('%Y-%m-%d %H:%M:%S Europe/Madrid')
+                            }
+                        except Exception:
+                            pass
 
             except Exception as e:
                 error = f"❌ Failed to decode token payload: {str(e)}"
@@ -3180,61 +3191,161 @@ def download_signed_grant(filename):
         return redirect(url_for('role_list'))
     return send_file(path, as_attachment=True, mimetype='application/pkcs7-signature')
 
+# TODO: El sujeto lo tomo de la tabla usuario
+def generar_xml_grant2(role_id, user_data, conn, not_before, not_after):
+    cursor = conn.cursor()
+
+    # Obtener el grant_id y datos del grant
+    cursor.execute('''
+        SELECT g.id, g.name, g.default_action
+        FROM roles r
+        JOIN grantTemplate g ON r.grant_id = g.id
+        WHERE r.id = ?
+    ''', (role_id,))
+    row = cursor.fetchone()
+    if not row:
+        return None, None, 'No grant associated with this role'
+
+    grant_id, grant_name, default_action = row
+
+    # Construcción del XML
+    dds = ET.Element('dds', {
+        'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
+        'xsi:noNamespaceSchemaLocation': "http://community.rti.com/schema/7.3.0/dds_security_permissions.xsd"
+    })
+    permissions = ET.SubElement(dds, 'permissions')
+    grant_elem = ET.SubElement(permissions, 'grant', {'name': grant_name})
+
+    subject = ET.SubElement(grant_elem, 'subject_name')
+    subject.text = user_data.get('cert', 'CN=Unknown')
+
+    # Insertar fechas de validez desde parámetros
+    validity = ET.SubElement(grant_elem, 'validity')
+    ET.SubElement(validity, 'not_before').text = not_before.strftime(
+        '%Y-%m-%dT%H:%M:%S')
+    ET.SubElement(validity, 'not_after').text = not_after.strftime(
+        '%Y-%m-%dT%H:%M:%S')
+
+    # Reglas del grant
+    cursor.execute('''
+        SELECT rules.id, rules.permiso
+        FROM rules
+        JOIN grant_rules ON rules.id = grant_rules.rule_id
+        WHERE grant_rules.grant_id = ?
+    ''', (grant_id,))
+    rules = cursor.fetchall()
+
+    for rule_id, permiso in rules:
+        rule_tag = ET.SubElement(grant_elem, permiso)
+
+        cursor.execute('''
+            SELECT domains.name FROM rule_domains
+            JOIN domains ON rule_domains.domain_id = domains.id
+            WHERE rule_domains.rule_id = ?
+        ''', (rule_id,))
+        domain_rows = cursor.fetchall()
+        if domain_rows:
+            domains_elem = ET.SubElement(rule_tag, 'domains')
+            for (domain,) in domain_rows:
+                ET.SubElement(domains_elem, 'id').text = domain
+
+        cursor.execute('''
+            SELECT topics.name FROM rule_topics
+            JOIN topics ON rule_topics.topic_id = topics.id
+            WHERE rule_topics.rule_id = ? AND rule_topics.action = 'publish'
+        ''', (rule_id,))
+        publish_rows = cursor.fetchall()
+        if publish_rows:
+            pub_elem = ET.SubElement(rule_tag, 'publish')
+            topics_elem = ET.SubElement(pub_elem, 'topics')
+            for (topic,) in publish_rows:
+                ET.SubElement(topics_elem, 'topic').text = topic
+
+        cursor.execute('''
+            SELECT topics.name FROM rule_topics
+            JOIN topics ON rule_topics.topic_id = topics.id
+            WHERE rule_topics.rule_id = ? AND rule_topics.action = 'subscribe'
+        ''', (rule_id,))
+        subscribe_rows = cursor.fetchall()
+        if subscribe_rows:
+            sub_elem = ET.SubElement(rule_tag, 'subscribe')
+            topics_elem = ET.SubElement(sub_elem, 'topics')
+            for (topic,) in subscribe_rows:
+                ET.SubElement(topics_elem, 'topic').text = topic
+
+    ET.SubElement(grant_elem, 'default').text = default_action
+
+    xml_str = ET.tostring(dds, encoding='utf-8')
+    pretty_xml = minidom.parseString(xml_str).toprettyxml(
+        indent="  ", encoding='utf-8')
+
+    return pretty_xml, grant_name, None
+
 
 @app.route('/sign_grant_by_role_html', methods=['GET', 'POST'])
 @user_required
 def sign_grant_by_role_html():
     xml_output = None
     grant_name = None
-
-    user_data = verificar_jwt()
-    if not user_data:
-        flash("You are not authorized to access this page", "danger")
-        return redirect(url_for("login"))
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    if user_data["is_superuser"]:
-        cursor.execute("""
-            SELECT r.id, r.name
-            FROM roles r
-            WHERE r.grant_id IS NOT NULL
-        """)
-    else:
-        cursor.execute("""
-            SELECT r.id, r.name
-            FROM roles r
-            JOIN user_roles ur ON ur.role_id = r.id
-            JOIN users u ON u.id = ur.user_id
-            WHERE r.grant_id IS NOT NULL
-              AND u.username = ?
-        """, (user_data["username"],))
-
-    roles = cursor.fetchall()
+    token = None
+    role_id = None
 
     if request.method == 'POST':
-        role_id = request.form.get('role_id', type=int)
-        if not role_id:
-            flash('Please select a role.', 'danger')
-        else:
-            xml_data, grant_name, error = generar_xml_grant(
-                role_id, user_data, conn)
+        token = request.form.get("token")
+        sign = request.form.get("sign")  # "on" si está marcado
 
-            if error:
-                flash(f'Error generating XML: {error}', 'danger')
-            else:
+        if not token:
+            flash("Token is required", "danger")
+            return redirect(request.url)
+
+        try:
+            payload = jwt.decode(token, CA_KEY, algorithms=["ES256"])
+            role_id = payload.get("role_id")
+            exp = payload.get("exp")
+            if not role_id or not exp:
+                flash("Invalid token: missing role_id or expiration", "danger")
+                return redirect(request.url)
+
+            not_before = datetime.now()
+            not_after = datetime.fromtimestamp(exp)
+
+        except jwt.ExpiredSignatureError:
+            flash("Token has expired", "danger")
+            return redirect(request.url)
+        except jwt.InvalidTokenError:
+            flash("Invalid token", "danger")
+            return redirect(request.url)
+
+        user_data = verificar_jwt()
+        if not user_data:
+            flash("You are not authorized", "danger")
+            return redirect(url_for("login"))
+
+        conn = get_db_connection()
+        xml_data, grant_name, error = generar_xml_grant2(
+            role_id, user_data, conn,
+            not_before=not_before,
+            not_after=not_after
+        )
+
+        if error:
+            flash(f'Error generating XML: {error}', 'danger')
+        else:
+            if sign == "on":
+                # Firmar el XML como .p7s
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as xml_file:
                     xml_file.write(xml_data)
                     xml_path = xml_file.name
 
                 signed_output_path = os.path.join(
-                    tempfile.gettempdir(), f"{grant_name}.p7s")
+                    tempfile.gettempdir(), f"{grant_name}.p7s"
+                )
 
-                if platform.system() == "Windows":
-                    OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
-                else:
-                    OPENSSL_PATH = "/usr/bin/openssl"
+                OPENSSL_PATH = (
+                    r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+                    if platform.system() == "Windows"
+                    else "/usr/bin/openssl"
+                )
 
                 result = subprocess.run([
                     OPENSSL_PATH, "smime", "-sign",
@@ -3252,9 +3363,19 @@ def sign_grant_by_role_html():
                     flash("Signing failed: " + result.stderr.decode(), "danger")
                 else:
                     flash("Grant signed successfully!", "success")
+            else:
+                xml_output = xml_data.decode("utf-8")
+                flash("Grant generated without signature.", "info")
 
-    conn.close()
-    return render_template('sign_grant_by_role.html', roles=roles, grant_name=grant_name)
+        conn.close()
+
+    return render_template('sign_grant_by_role.html', grant_name=grant_name, xml_output=xml_output)
+
+    return render_template(
+        'sign_grant_by_role.html',
+        grant_name=grant_name,
+        xml_output=xml_output
+    )
 
 
 if __name__ == '__main__':
