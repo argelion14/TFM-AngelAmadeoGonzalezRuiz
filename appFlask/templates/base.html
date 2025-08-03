@@ -133,32 +133,6 @@
                             </a>
                         </li>
 
-                        <li class="nav-header">XML Tools</li>
-
-                        <li class="nav-item">
-                            <a href="{{ url_for('xml_vality') }}"
-                                class="nav-link {% block active_validar_xml %} {% endblock %}">
-                                <i class="nav-icon fas fa-file-code"></i>
-                                <p>Validate XML</p>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
-                            <a href="{{ url_for('xml_export_grant') }}"
-                                class="nav-link {% block active_export_grantbyrole %} {% endblock %}">
-                                <i class="nav-icon fas fa-file-export"></i>
-                                <p>Export Grant by Role</p>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
-                            <a href="{{ url_for('sign_grant_by_role_html') }}"
-                                class="nav-link {% block active_export_signgrantbyrole %} {% endblock %}">
-                                <i class="nav-icon fas fa-file-export"></i>
-                                <p>Export sign Grant by auth role</p>
-                            </a>
-                        </li>
-
                         <li class="nav-header">ROLE JWT</li>
 
                         <li class="nav-item">
@@ -174,6 +148,24 @@
                                 class="nav-link {% block active_verify_role_token %} {% endblock %}">
                                 <i class="nav-icon fas fa-shield-alt"></i>
                                 <p>Verify Role Token</p>
+                            </a>
+                        </li>
+
+                        <li class="nav-header">XML Tools</li>
+
+                        <li class="nav-item">
+                            <a href="{{ url_for('xml_sign_grant_by_role_html') }}"
+                                class="nav-link {% block active_export_signgrantbyrole %} {% endblock %}">
+                                <i class="nav-icon fas fa-file-export"></i>
+                                <p>Export sign Grant by JWT role</p>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a href="{{ url_for('xml_vality') }}"
+                                class="nav-link {% block active_validar_xml %} {% endblock %}">
+                                <i class="nav-icon fas fa-file-code"></i>
+                                <p>Validate XML</p>
                             </a>
                         </li>
 
@@ -316,6 +308,9 @@
                 </a>
                 <a target="_blank" href="{{ url_for('decode') }}" class="nav-link">
                     <i class="fas fa-user-tag"></i> <span>Decode</span>
+                </a>
+                <a target="_blank" href="{{ url_for('xml_export_grant') }}" class="nav-link">
+                    <i class="nav-icon fas fa-file-export"></i> <span>Export Grant by Role</span>
                 </a>
                 <hr class="mb-2">
 

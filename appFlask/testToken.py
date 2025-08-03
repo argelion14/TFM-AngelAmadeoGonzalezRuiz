@@ -2013,6 +2013,91 @@ def remove_roles_from_user(user_id):
         'roles_removed': roles_removed
     }), 200
 
+
+#########################
+########## Decode API #########
+#########################
+
+@app.route('/api/decode', methods=['POST'])
+@swag_from({
+    'tags': ['JWT Utilities'],
+    'summary': 'Decode JWT payload',
+    'description': 'Decodes the payload of a JWT token and shows UNIX timestamp fields in UTC and Madrid time (UTC+2 fixed offset).',
+    'parameters': [
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'token': {
+                        'type': 'string',
+                        'description': 'JWT token to decode',
+                        'example': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjE3MDEwMjAwMDB9.abc123'
+                    }
+                },
+                'required': ['token']
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Decoded token payload with formatted timestamps',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'payload': {'type': 'object'}
+                }
+            }
+        },
+        400: {
+            'description': 'Invalid or malformed token',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                }
+            }
+        }
+    }
+})
+def api_decode():
+    data = request.get_json()
+    token = data.get('token', '').strip()
+    parts = token.split('.')
+
+    if len(parts) != 3:
+        return jsonify({'error': '❌ Invalid token: it must have 3 parts (header.payload.signature).'}), 400
+
+    try:
+        padded_payload = parts[1] + '=' * (-len(parts[1]) % 4)
+        decoded_bytes = base64.urlsafe_b64decode(padded_payload)
+        payload_data = json.loads(decoded_bytes)
+
+        madrid_offset = timedelta(hours=2)  # Simula horario de verano manualmente
+        madrid_tz = timezone(madrid_offset)
+
+        for key in ['exp', 'iat', 'nbf']:
+            if key in payload_data:
+                try:
+                    timestamp = int(payload_data[key])
+                    utc_dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                    madrid_dt = utc_dt.astimezone(madrid_tz)
+
+                    payload_data[key] = {
+                        'utc': utc_dt.strftime('%Y-%m-%d %H:%M:%S UTC'),
+                        'madrid': madrid_dt.strftime('%Y-%m-%d %H:%M:%S +02:00 Europe/Madrid (fixed offset)')
+                    }
+                except Exception:
+                    pass
+
+        return jsonify({'payload': payload_data})
+
+    except Exception as e:
+        return jsonify({'error': f'❌ Failed to decode token payload: {str(e)}'}), 400
+
+
 #########################
 ########## HTML #########
 #########################
@@ -2798,7 +2883,7 @@ def delete_grant_template(grant_id):
 
 
 @app.route('/xml_export_grant', methods=['GET', 'POST'])
-@user_required
+@superuser_required
 def xml_export_grant():
     xml_output = None
     grant_name = None
@@ -3281,10 +3366,11 @@ def generar_xml_grant2(role_id, user_data, conn, not_before, not_after):
 
     return pretty_xml, grant_name, None
 
-
-@app.route('/sign_grant_by_role_html', methods=['GET', 'POST'])
+# TODO: Cambiarle el nombre para qu siga la regla de los XML
+# TODO: Poner un boton para poder descargar el XML que se genera cuando no se firma por la CA
+@app.route('/xml_sign_grant_by_role_html', methods=['GET', 'POST'])
 @user_required
-def sign_grant_by_role_html():
+def xml_sign_grant_by_role_html():
     xml_output = None
     grant_name = None
     token = None
@@ -3369,14 +3455,7 @@ def sign_grant_by_role_html():
 
         conn.close()
 
-    return render_template('sign_grant_by_role.html', grant_name=grant_name, xml_output=xml_output)
-
-    return render_template(
-        'sign_grant_by_role.html',
-        grant_name=grant_name,
-        xml_output=xml_output
-    )
-
+    return render_template('xml_sign_grant_by_role.html', grant_name=grant_name, xml_output=xml_output)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
