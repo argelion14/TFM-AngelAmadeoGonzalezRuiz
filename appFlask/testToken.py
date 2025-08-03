@@ -71,6 +71,7 @@ app.secret_key = 'super secret key'
 
 
 # TODO: Verificar todos los métodos de la API que funcionan correctamente
+# TODO: Mejorar la estructura de los certificados, ponerlo bien para el docker
 
 #########################
 # SECCIÓN DE AUTENTICACION JWT PARA LA API
@@ -437,24 +438,17 @@ def auth_role():
     'tags': ['Auth_role_JWT'],
     'summary': 'Verify a role JWT token',
     'description': 'Checks whether the provided JWT token is valid and whether the user has the role specified in the token.',
+    'consumes': ['application/x-www-form-urlencoded'],
     'parameters': [
         {
-            'name': 'body',
-            'in': 'body',
+            'name': 'token',
+            'in': 'formData',
+            'type': 'string',
             'required': True,
-            'schema': {
-                'type': 'object',
-                'properties': {
-                    'token': {
-                        'type': 'string',
-                        'description': 'JWT containing user_id and role_id',
-                        'example': 'eyJhbGciOiJIUzI1NiIsInR5cCI6...'
-                    }
-                },
-                'required': ['token']
-            }
+            'description': 'JWT containing user_id and role_id'
         }
     ],
+    'security': [{'BearerAuth': []}],
     'responses': {
         200: {
             'description': 'Valid token',
@@ -490,8 +484,7 @@ def auth_role():
     }
 })
 def verify_role_token():
-    data = request.get_json()
-    token = data.get('token')
+    token = request.form.get('token')
 
     if not token:
         return jsonify({'valid': False, 'error': 'Token not provided'}), 400
@@ -596,7 +589,9 @@ def get_roles():
                 'properties': {
                     'id': {'type': 'integer'},
                     'name': {'type': 'string'},
-                    'description': {'type': 'string'}
+                    'description': {'type': 'string'},
+                    'exp_time': {'type': 'integer', 'description': 'Expiration time in minutes'},
+                    'grant_id': {'type': 'integer', 'nullable': True}
                 }
             }
         },
@@ -622,7 +617,7 @@ def get_role(role_id):
 @swag_from({
     'tags': ['Roles'],
     'summary': 'Add a new role (superadmin only)',
-    'description': 'Allows a superadmin to create a new role by providing a name, optional description, and a required grant_id.',
+    'description': 'Allows a superadmin to create a new role by providing a name, optional description, expiration time, and a required grant_id.',
     'security': [{'BearerAuth': []}],
     'parameters': [
         {
@@ -631,7 +626,7 @@ def get_role(role_id):
             'required': True,
             'schema': {
                 'type': 'object',
-                'required': ['name', 'grant_id'],
+                'required': ['name', 'grant_id', 'exp_time'],
                 'properties': {
                     'name': {
                         'type': 'string',
@@ -644,6 +639,10 @@ def get_role(role_id):
                     'grant_id': {
                         'type': 'integer',
                         'description': 'ID of the grantTemplate this role belongs to'
+                    },
+                    'exp_time': {
+                        'type': 'integer',
+                        'description': 'Expiration time in minutes for tokens issued with this role (must be > 0)'
                     }
                 }
             }
@@ -666,9 +665,13 @@ def add_role():
     name = data.get('name')
     grant_id = data.get('grant_id')
     description = data.get('description')
+    exp_time = data.get('exp_time')
 
-    if not name or grant_id is None:
-        return jsonify({"error": "Fields 'name' and 'grant_id' are required"}), 400
+    if not name or grant_id is None or exp_time is None:
+        return jsonify({"error": "Fields 'name', 'grant_id', and 'exp_time' are required"}), 400
+
+    if not isinstance(exp_time, int) or exp_time <= 0:
+        return jsonify({"error": "'exp_time' must be a positive integer"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -681,8 +684,8 @@ def add_role():
 
     try:
         cursor.execute(
-            "INSERT INTO roles (name, description, grant_id) VALUES (?, ?, ?)",
-            (name, description, grant_id)
+            "INSERT INTO roles (name, description, grant_id, exp_time) VALUES (?, ?, ?, ?)",
+            (name, description, grant_id, exp_time)
         )
         conn.commit()
         new_id = cursor.lastrowid
@@ -752,7 +755,7 @@ def delete_role(role_id):
 @swag_from({
     'tags': ['Roles'],
     'summary': 'Update a role by ID (superadmin only)',
-    'description': 'Allows a superadmin to update the name, description or associated grantTemplate of an existing role by its ID.',
+    'description': 'Allows a superadmin to update the name, description, expiration time or associated grantTemplate of an existing role by its ID.',
     'security': [{'BearerAuth': []}],
     'parameters': [
         {
@@ -780,6 +783,10 @@ def delete_role(role_id):
                     'grant_id': {
                         'type': 'integer',
                         'description': 'ID of the associated grantTemplate'
+                    },
+                    'exp_time': {
+                        'type': 'integer',
+                        'description': 'New expiration time in minutes (e.g., 60)'
                     }
                 }
             }
@@ -823,6 +830,7 @@ def update_role(role_id):
 
     fields = []
     values = []
+
     if 'name' in data:
         fields.append("name = ?")
         values.append(data['name'])
@@ -832,6 +840,9 @@ def update_role(role_id):
     if 'grant_id' in data:
         fields.append("grant_id = ?")
         values.append(data['grant_id'])
+    if 'exp_time' in data:
+        fields.append("exp_time = ?")
+        values.append(data['exp_time'])
 
     if not fields:
         conn.close()
