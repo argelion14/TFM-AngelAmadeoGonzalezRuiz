@@ -1881,7 +1881,7 @@ def remove_roles_from_user(user_id):
 @swag_from({
     'tags': ['JWT Utilities'],
     'summary': 'Decode JWT payload',
-    'description': 'Decodes the payload of a JWT token and shows UNIX timestamp fields in UTC and Madrid time (UTC+2 fixed offset).',
+    'description': 'Decodes the payload of a JWT token and shows UNIX timestamp fields in UTC and Europe/Madrid time (including daylight saving time).',
     'parameters': [
         {
             'name': 'body',
@@ -1934,9 +1934,7 @@ def api_decode():
         decoded_bytes = base64.urlsafe_b64decode(padded_payload)
         payload_data = json.loads(decoded_bytes)
 
-        # Simula horario de verano manualmente
-        madrid_offset = timedelta(hours=2)
-        madrid_tz = timezone(madrid_offset)
+        madrid_tz = ZoneInfo("Europe/Madrid")
 
         for key in ['exp', 'iat', 'nbf']:
             if key in payload_data:
@@ -1947,7 +1945,7 @@ def api_decode():
 
                     payload_data[key] = {
                         'utc': utc_dt.strftime('%Y-%m-%d %H:%M:%S UTC'),
-                        'madrid': madrid_dt.strftime('%Y-%m-%d %H:%M:%S +02:00 Europe/Madrid (fixed offset)')
+                        'madrid': madrid_dt.strftime('%Y-%m-%d %H:%M:%S Europe/Madrid')
                     }
                 except Exception:
                     pass
