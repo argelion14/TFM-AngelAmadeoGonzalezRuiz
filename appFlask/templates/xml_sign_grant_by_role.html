@@ -65,11 +65,18 @@
     {% if grant_name and xml_output %}
     <div class="card card-info">
       <div class="card-header">
-        <h3 class="card-title">Generated Grant (unsigned XML)</h3>
+        <h3 class="card-title">
+          <i class="fas fa-file-code"></i> Generated Grant (unsigned XML)
+        </h3>
       </div>
       <div class="card-body">
-        <pre
-          style="white-space: pre-wrap; background-color: #f8f9fa; padding: 1rem; border-radius: 0.25rem;">{{ xml_output | e }}</pre>
+        <pre class="bg-light p-3 rounded" style="white-space: pre-wrap;">{{ xml_output | e }}</pre>
+      </div>
+      <div class="card-footer">
+        <a href="{{ url_for('download_unsigned_grant', filename=grant_name ~ '.xml') }}"
+          class="btn btn-outline-secondary">
+          <i class="fas fa-download"></i> Download {{ grant_name }}.xml
+        </a>
       </div>
     </div>
     {% endif %}

@@ -1516,6 +1516,8 @@ def export_grant(grant_id):
     return response
 
 # TODO Modificarlo en todos lados
+
+
 def generar_xml_grant(role_id, user_data, conn):
     cursor = conn.cursor()
 
@@ -2075,7 +2077,8 @@ def api_decode():
         decoded_bytes = base64.urlsafe_b64decode(padded_payload)
         payload_data = json.loads(decoded_bytes)
 
-        madrid_offset = timedelta(hours=2)  # Simula horario de verano manualmente
+        # Simula horario de verano manualmente
+        madrid_offset = timedelta(hours=2)
         madrid_tz = timezone(madrid_offset)
 
         for key in ['exp', 'iat', 'nbf']:
@@ -3054,9 +3057,9 @@ def auth_role_html():
                            f"Token created with maximum allowed time.")
 
             payload = {
-               'user_id': user_id,
-               'role_id': role_id,
-               'exp': datetime.now(timezone.utc) + timedelta(minutes=final_minutes)
+                'user_id': user_id,
+                'role_id': role_id,
+                'exp': datetime.now(timezone.utc) + timedelta(minutes=final_minutes)
             }
             token = jwt.encode(payload, CA_KEY, algorithm="ES256")
 
@@ -3194,7 +3197,8 @@ def decode():
                     if key in payload_data:
                         try:
                             timestamp = int(payload_data[key])
-                            utc_dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                            utc_dt = datetime.fromtimestamp(
+                                timestamp, tz=timezone.utc)
                             madrid_dt = utc_dt.astimezone(madrid_tz)
                             payload_data[key] = {
                                 'utc': utc_dt.strftime('%Y-%m-%d %H:%M:%S UTC'),
@@ -3276,7 +3280,18 @@ def download_signed_grant(filename):
         return redirect(url_for('role_list'))
     return send_file(path, as_attachment=True, mimetype='application/pkcs7-signature')
 
-# TODO: El sujeto lo tomo de la tabla usuario
+
+@app.route('/download_unsigned_grant/<filename>')
+@user_required
+def download_unsigned_grant(filename):
+    file_path = os.path.join(tempfile.gettempdir(), filename)
+    if not os.path.exists(file_path):
+        flash("The requested XML file does not exist.", "danger")
+        return redirect(url_for('xml_sign_grant_by_role_html'))
+
+    return send_file(file_path, as_attachment=True)
+
+
 def generar_xml_grant2(role_id, user_data, conn, not_before, not_after):
     cursor = conn.cursor()
 
@@ -3366,8 +3381,7 @@ def generar_xml_grant2(role_id, user_data, conn, not_before, not_after):
 
     return pretty_xml, grant_name, None
 
-# TODO: Cambiarle el nombre para qu siga la regla de los XML
-# TODO: Poner un boton para poder descargar el XML que se genera cuando no se firma por la CA
+
 @app.route('/xml_sign_grant_by_role_html', methods=['GET', 'POST'])
 @user_required
 def xml_sign_grant_by_role_html():
@@ -3451,11 +3465,19 @@ def xml_sign_grant_by_role_html():
                     flash("Grant signed successfully!", "success")
             else:
                 xml_output = xml_data.decode("utf-8")
+
+                # Guardamos el XML temporal para descarga
+                unsigned_xml_path = os.path.join(
+                    tempfile.gettempdir(), f"{grant_name}.xml")
+                with open(unsigned_xml_path, "wb") as f:
+                    f.write(xml_data)
+
                 flash("Grant generated without signature.", "info")
 
         conn.close()
 
     return render_template('xml_sign_grant_by_role.html', grant_name=grant_name, xml_output=xml_output)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
