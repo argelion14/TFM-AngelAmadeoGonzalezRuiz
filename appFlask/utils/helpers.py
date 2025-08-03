@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# TODO: Cambiar a que esta variabel de JWT sea una variable de entorno
 JWT_EXPIRATION_MINUTES = 60
 
 CA_CERT_PATH = os.getenv("CA_CERT_PATH")
