@@ -70,7 +70,6 @@ swagger = Swagger(app, config=swagger_config, template=swagger_template)
 app.secret_key = 'super secret key'
 
 
-# TODO: Verificar todos los métodos de la API que funcionan correctamente
 # TODO: Mejorar la estructura de los certificados, ponerlo bien para el docker
 
 #########################
@@ -1190,7 +1189,7 @@ def update_user(user_id):
 
 @app.route('/api/users/<int:user_id>/roles', methods=['POST'])
 @swag_from({
-    'tags': ['TEST'],
+    'tags': ['Users'],
     'summary': 'Associate roles to a user',
     'description': 'Adds one or more roles to the specified user. Skips any roles already associated.',
     'parameters': [
@@ -1624,15 +1623,10 @@ def export_grant_by_role_token():
                         })
 
 
-#########################
-# SECCIÓN DE TEST
-# Funciones auxiliares para gestión de TEST
-#########################
-
-
+# TODO Llevarlo al frontal
 @app.route('/api/verify-signed-file', methods=['POST'])
 @swag_from({
-    'tags': ['TEST'],
+    'tags': ['XML'],
     'summary': 'Verifica un archivo .p7s firmado (PKCS#7)',
     'description': 'Verifica la firma digital de un archivo .p7s usando el certificado del firmante',
     'consumes': ['multipart/form-data'],
@@ -1700,15 +1694,15 @@ def verify_signed_file():
         if os.path.exists(verified_path):
             os.remove(verified_path)
 
-
 #########################
 # SECCIÓN DE grantTemplate - rols
 # Funciones auxiliares para interacción entre roles y grantTemplate
 #########################
 
+
 @app.route('/api/roles/<int:role_id>/grant', methods=['PATCH'])
 @swag_from({
-    'tags': ['TEST'],
+    'tags': ['Roles'],
     'summary': 'Associate or update a grantTemplate to a role',
     'description': 'Updates the grantTemplate (grant_id) associated with a given role.',
     'parameters': [
@@ -1796,7 +1790,7 @@ def update_role_grant(role_id):
 
 @app.route('/api/users/<int:user_id>/roles', methods=['DELETE'])
 @swag_from({
-    'tags': ['TEST'],
+    'tags': ['Roles'],
     'summary': 'Remove roles from a user',
     'description': 'Removes one or more roles associated with a user. Ignores roles that are not currently associated.',
     'parameters': [
