@@ -69,14 +69,6 @@ swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
 app.secret_key = 'super secret key'
 
-# TODO: Borrar el JWT_EXPIRATION_MINUTES cuando el último método no lo use ya
-JWT_EXPIRATION_MINUTES = 60
-
-
-# TODO: Hacer que para pedir un GrantTemplate de un usuario solo te de los de dando el JWT de roles que se pide y no dando tu el rol, también hacer que
-# el tiempo de expiración sea el mismo que el de la validez del token JWT, y que este token JWT le puedas dar una validez personalizada que como
-# máximo dura el tiempo de validez del rol, no más
-
 
 #########################
 # SECCIÓN DE AUTENTICACION JWT PARA LA API
@@ -338,8 +330,6 @@ def delete_grant_api(grant_id):
 # Funciones auxiliares para gestión token de roles
 #########################
 
-# TODO: Cambiar el tiempo que dura, que sea personalizado que no supere el tiempo por defecto del rol y cambiar que no te pida un JSON que es incomodo, no usar el JWT_EXPIRATION_MINUTES
-
 
 @app.route('/api/auth-role', methods=['POST'])
 @user_required_api
@@ -348,18 +338,21 @@ def delete_grant_api(grant_id):
     'summary': 'Authenticate a specific role for an already authenticated user',
     'description': 'Returns a JWT if the authenticated user has the requested role and it is assigned to a grantTemplate.',
     'security': [{'BearerAuth': []}],
+    'consumes': ['application/x-www-form-urlencoded'],
     'parameters': [
         {
-            'name': 'body',
-            'in': 'body',
+            'name': 'role_id',
+            'in': 'formData',
+            'type': 'integer',
             'required': True,
-            'schema': {
-                'type': 'object',
-                'properties': {
-                    'role_id': {'type': 'integer'}
-                },
-                'required': ['role_id']
-            }
+            'description': 'ID of the role to authenticate'
+        },
+        {
+            'name': 'exp_minutes',
+            'in': 'formData',
+            'type': 'integer',
+            'required': True,
+            'description': 'Requested expiration time in minutes (must not exceed the role limit)'
         }
     ],
     'responses': {
@@ -384,8 +377,11 @@ def delete_grant_api(grant_id):
     }
 })
 def auth_role():
-    data = request.get_json()
-    role_id = data.get('role_id')
+    role_id = request.form.get('role_id', type=int)
+    requested_minutes = request.form.get('exp_minutes', type=int)
+
+    if not role_id or not requested_minutes:
+        return jsonify({'error': 'Missing required fields'}), 400
 
     user_data = verificar_jwt_api()
     username = user_data.get('username')
@@ -411,18 +407,21 @@ def auth_role():
         conn.close()
         return jsonify({'error': 'User does not have the specified role'}), 401
 
-    # 3. Verify that the role is linked to a grantTemplate (i.e. roles.grant_id IS NOT NULL)
-    cursor.execute('SELECT grant_id FROM roles WHERE id = ?', (role_id,))
+    # 3. Verify that the role is linked to a grantTemplate and get max exp time
+    cursor.execute('SELECT grant_id, exp_time FROM roles WHERE id = ?', (role_id,))
     result = cursor.fetchone()
     if not result or result[0] is None:
         conn.close()
         return jsonify({'error': 'Role is not linked to a grantTemplate'}), 401
 
+    max_minutes = result[1]
+    final_minutes = min(requested_minutes, max_minutes)
+
     # 4. Issue new JWT for this role
     payload = {
         'user_id': user_id,
         'role_id': role_id,
-        'exp': datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRATION_MINUTES)
+        'exp': datetime.now(timezone.utc) + timedelta(minutes=final_minutes)
     }
     token = jwt.encode(payload, CA_KEY, algorithm="ES256")
 
