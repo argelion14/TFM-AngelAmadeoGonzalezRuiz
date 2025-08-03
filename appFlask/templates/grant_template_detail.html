@@ -18,7 +18,9 @@ Grant Templates
 
   <div class="card mb-4">
     <div class="card-body">
-      <h5 class="card-title">{{ grant['name'] }}</h5>
+      <div class="alert alert-primary" role="alert">
+        <h5 class="mb-0"><i class="fas fa-certificate"></i> {{ grant['name'] }}</h5>
+      </div>
       <p><strong>ID:</strong> {{ grant['id'] }}</p>
       <p><strong>Default Action:</strong>
         {% if grant['default_action'] == 'ALLOW' %}

@@ -8,6 +8,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 # TODO Mejorar donde se guardan las claves privadas y certificados
+
+
 def generate_cert_and_key(common_name):
     # Generar clave privada EC
     private_key = ec.generate_private_key(ec.SECP256R1())
@@ -18,7 +20,8 @@ def generate_cert_and_key(common_name):
         x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "Madrid"),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Mi Empresa"),
         x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-        x509.NameAttribute(NameOID.EMAIL_ADDRESS, f"{common_name}@miempresa.com"),
+        x509.NameAttribute(NameOID.EMAIL_ADDRESS,
+                           f"{common_name}@miempresa.com"),
     ])
 
     cert = (
@@ -102,7 +105,7 @@ def create_tables():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS grantTemplate (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
+            name TEXT NOT NULL UNIQUE,
             default_action TEXT CHECK(default_action IN ('ALLOW', 'DENY'))
         )
     ''')
@@ -181,7 +184,8 @@ def create_tables():
     for username, password_plain, cn, is_superuser in users:
         # TODO Generar los certificados en el path correcto, esta relacionado con el TOOD de la linea 10
         cert_pem, key_path = generate_cert_and_key(cn)
-        hashed_password = bcrypt.hashpw(password_plain.encode('utf-8'), bcrypt.gensalt())
+        hashed_password = bcrypt.hashpw(
+            password_plain.encode('utf-8'), bcrypt.gensalt())
         cursor.execute(
             'INSERT OR IGNORE INTO users (username, password, cert, is_superuser) VALUES (?, ?, ?, ?)',
             (username, hashed_password.decode('utf-8'), cn, is_superuser)

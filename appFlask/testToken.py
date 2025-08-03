@@ -6,15 +6,15 @@ import subprocess
 import tempfile
 import platform
 import functools
-from functools import wraps
-from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 import yaml
 import bcrypt
 import jwt
 import xmlschema
-from xml.dom import minidom
 import xml.etree.ElementTree as ET
+from functools import wraps
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+from xml.dom import minidom
 from cryptography.x509 import load_pem_x509_certificate
 
 from flask import (
@@ -67,9 +67,11 @@ with open(swagger_file, "r") as f:
 
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
+# TODO: Eliminar la carpeta, cuando se cambie el metodo que la usa
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.secret_key = 'super secret key'
-JWT_SECRET = 'clave_jwt_segura'
+
+# TODO: Borrar el JWT_EXPIRATION_MINUTES cuando el último método no lo use ya
 JWT_EXPIRATION_MINUTES = 60
 
 
@@ -206,6 +208,8 @@ def list_grant_templates_api():
     ]
     return jsonify(grants)
 
+# TODO: Cambiar el insert_grant_from_xml para este método
+
 
 @app.route('/api/grants', methods=['POST'])
 @superadmin_required
@@ -332,7 +336,7 @@ def delete_grant_api(grant_id):
 # Funciones auxiliares para gestión token de roles
 #########################
 
-# TODO: Cambiar el tiempo que dura, que sea personalizado que no supere el tiempo por defecto del rol y cambiar que no te pida un JSON que es incomodo
+# TODO: Cambiar el tiempo que dura, que sea personalizado que no supere el tiempo por defecto del rol y cambiar que no te pida un JSON que es incomodo, no usar el JWT_EXPIRATION_MINUTES
 
 
 @app.route('/api/auth-role', methods=['POST'])
@@ -1515,7 +1519,7 @@ def export_grant(grant_id):
     response.headers['Content-Disposition'] = f'attachment; filename=grant_{grant_id}.xml'
     return response
 
-# TODO Modificarlo en todos lados
+# TODO Modificarlo en todos lados, pues ahora existe el 2
 
 
 def generar_xml_grant(role_id, user_data, conn):
@@ -2619,12 +2623,15 @@ def get_grant_templates():
     conn.close()
     return rows
 
+# TODO: Cambiar donde antes se usase el insert_grant_from_xml por este nuevo metodo
 
-def insert_grant_from_xml(xml_path):
-    if not os.path.exists(xml_path):
-        raise FileNotFoundError(f"The file {xml_path} does not exist")
 
-    tree = ET.parse(xml_path)
+def insert_grant_from_xml_file(xml_file_obj, override_name=None):
+    try:
+        tree = ET.parse(xml_file_obj)
+    except ET.ParseError:
+        raise ValueError("Invalid XML structure.")
+
     root = tree.getroot()
 
     default_elem = root.find('.//default')
@@ -2636,30 +2643,26 @@ def insert_grant_from_xml(xml_path):
         raise ValueError(f"Invalid default value: {default_action}")
 
     grant_elem = root.find('.//grant')
-    name = grant_elem.attrib.get('name', 'unnamed_grant')
+    name = override_name.strip() if override_name else grant_elem.attrib.get(
+        'name', 'unnamed_grant')
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
-        # Insert into grantTemplate (sin role_id)
         cursor.execute('''
             INSERT INTO grantTemplate (name, default_action)
             VALUES (?, ?)
         ''', (name, default_action))
         grant_id = cursor.lastrowid
 
-        # Procesar reglas
         for rule_type in ['allow_rule', 'deny_rule']:
             for rule in root.findall(f'.//grant/{rule_type}'):
                 permiso = rule_type
-
                 cursor.execute(
-                    'INSERT INTO rules (permiso) VALUES (?)', (permiso,)
-                )
+                    'INSERT INTO rules (permiso) VALUES (?)', (permiso,))
                 rule_id = cursor.lastrowid
 
-                # Domains
                 for domain in rule.findall('./domains/id'):
                     if domain.text:
                         domain_name = domain.text.strip()
@@ -2674,7 +2677,6 @@ def insert_grant_from_xml(xml_path):
                             VALUES (?, ?)
                         ''', (rule_id, domain_id))
 
-                # Topics - Publish
                 for topic in rule.findall('./publish/topics/topic'):
                     if topic.text:
                         topic_name = topic.text.strip()
@@ -2689,7 +2691,6 @@ def insert_grant_from_xml(xml_path):
                             VALUES (?, ?, 'publish')
                         ''', (rule_id, topic_id))
 
-                # Topics - Subscribe
                 for topic in rule.findall('./subscribe/topics/topic'):
                     if topic.text:
                         topic_name = topic.text.strip()
@@ -2704,7 +2705,6 @@ def insert_grant_from_xml(xml_path):
                             VALUES (?, ?, 'subscribe')
                         ''', (rule_id, topic_id))
 
-                # Enlazar regla con grantTemplate
                 cursor.execute('''
                     INSERT INTO grant_rules (grant_id, rule_id)
                     VALUES (?, ?)
@@ -2831,7 +2831,6 @@ def grant_template_detail(grant_id):
     conn.close()
     return render_template('grant_template_detail.html', grant=grant, roles=roles, rules=detailed_rules)
 
-# TODO Hacer que no se puedan crear con el mismo nombre las grantTemplate
 
 
 @app.route('/grants/new', methods=['GET', 'POST'])
@@ -2839,22 +2838,21 @@ def grant_template_detail(grant_id):
 def new_grant_template():
     if request.method == 'POST':
         xml_file = request.files.get('xml_file')
+        name_override = request.form.get('name_override', '').strip()
 
         if not xml_file:
-            flash('Debes subir un archivo XML.', 'danger')
+            flash('You must upload an XML file.', 'danger')
             return redirect(request.url)
 
         try:
-            filename = secure_filename(xml_file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            xml_file.save(filepath)
-
-            grant_id, name, default_action = insert_grant_from_xml(filepath)
+            grant_id, name, default_action = insert_grant_from_xml_file(
+                xml_file.stream, name_override or None)
             flash(
-                f'Plantilla de permisos "{name}" creada correctamente con acción por defecto {default_action}.', 'success')
+                f'Permission template "{name}" successfully created with default action "{default_action}".', 'success')
             return redirect(url_for('grant_template_detail', grant_id=grant_id))
         except Exception as e:
-            flash(f'Error al crear la plantilla: {str(e)}', 'danger')
+            print("❌ Error al procesar el XML:", str(e))
+            flash(f'Error creating the template: {str(e)}', 'danger')
             return redirect(request.url)
 
     return render_template('new_grantTemplate.html')
