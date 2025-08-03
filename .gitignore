@@ -179,3 +179,5 @@ cython_debug/
 *.csr
 *.p7s
 *.srl
+
+.vscode
