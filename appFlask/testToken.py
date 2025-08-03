@@ -67,8 +67,6 @@ with open(swagger_file, "r") as f:
 
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
-# TODO: Eliminar la carpeta, cuando se cambie el metodo que la usa
-app.config['UPLOAD_FOLDER'] = 'uploads'
 app.secret_key = 'super secret key'
 
 # TODO: Borrar el JWT_EXPIRATION_MINUTES cuando el último método no lo use ya
@@ -208,8 +206,6 @@ def list_grant_templates_api():
     ]
     return jsonify(grants)
 
-# TODO: Cambiar el insert_grant_from_xml para este método
-
 
 @app.route('/api/grants', methods=['POST'])
 @superadmin_required
@@ -226,6 +222,13 @@ def list_grant_templates_api():
             'type': 'file',
             'required': True,
             'description': 'XML DDS Permissions file'
+        },
+        {
+            'name': 'name_override',
+            'in': 'formData',
+            'type': 'string',
+            'required': False,
+            'description': 'Optional name for the grant template'
         }
     ],
     'responses': {
@@ -252,17 +255,16 @@ def list_grant_templates_api():
     }
 })
 def create_grant_api():
-    f = request.files.get('xml_file')
+    xml_file = request.files.get('xml_file')
+    name_override = request.form.get('name_override', '').strip()
 
-    if not f:
+    if not xml_file:
         return jsonify({'error': 'Missing XML file'}), 400
 
     try:
-        filename = secure_filename(f.filename)
-        path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        f.save(path)
-
-        grant_id, name, default_action = insert_grant_from_xml(path)
+        grant_id, name, default_action = insert_grant_from_xml_file(
+            xml_file.stream, name_override or None
+        )
         return jsonify({
             'grant_id': grant_id,
             'name': name,
