@@ -19,7 +19,7 @@ from cryptography.x509 import load_pem_x509_certificate
 
 from flask import (
     Flask, abort, json, render_template, request, redirect, url_for,
-    flash, make_response, g, jsonify, send_file
+    flash, make_response, g, jsonify, send_file, Response
 )
 from werkzeug.utils import secure_filename
 from flasgger import Swagger, swag_from
@@ -408,7 +408,8 @@ def auth_role():
         return jsonify({'error': 'User does not have the specified role'}), 401
 
     # 3. Verify that the role is linked to a grantTemplate and get max exp time
-    cursor.execute('SELECT grant_id, exp_time FROM roles WHERE id = ?', (role_id,))
+    cursor.execute(
+        'SELECT grant_id, exp_time FROM roles WHERE id = ?', (role_id,))
     result = cursor.fetchone()
     if not result or result[0] is None:
         conn.close()
@@ -1389,141 +1390,139 @@ def validate_xml_api():
         os.remove(xml_path)
 
 
-@app.route('/api/export_grant/<int:grant_id>', methods=['GET'])
-@user_required_api
-@swag_from({
-    'tags': ['XML'],
-    'summary': 'Export a grant as an XML file',
-    'description': 'Generates and exports an XML file for a specific grant ID, including associated domains and topic rules, following the DDS Permissions 7.3.0 schema.',
-    'parameters': [
-        {
-            'name': 'grant_id',
-            'in': 'path',
-            'type': 'integer',
-            'required': True,
-            'description': 'ID of the grant to export'
-        }
-    ],
-    'responses': {
-        200: {
-            'description': 'XML file generated successfully',
-            'content': {
-                'application/xml': {
-                    'schema': {
-                        'type': 'string'
-                    }
-                }
-            }
-        },
-        404: {
-            'description': 'Grant not found'
-        }
-    },
-    'deprecated': True
-})
-def export_grant(grant_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
+# @app.route('/api/export_grant/<int:grant_id>', methods=['GET'])
+# @user_required_api
+# @swag_from({
+#     'tags': ['XML'],
+#     'summary': 'Export a grant as an XML file',
+#     'description': 'Generates and exports an XML file for a specific grant ID, including associated domains and topic rules, following the DDS Permissions 7.3.0 schema.',
+#     'parameters': [
+#         {
+#             'name': 'grant_id',
+#             'in': 'path',
+#             'type': 'integer',
+#             'required': True,
+#             'description': 'ID of the grant to export'
+#         }
+#     ],
+#     'responses': {
+#         200: {
+#             'description': 'XML file generated successfully',
+#             'content': {
+#                 'application/xml': {
+#                     'schema': {
+#                         'type': 'string'
+#                     }
+#                 }
+#             }
+#         },
+#         404: {
+#             'description': 'Grant not found'
+#         }
+#     },
+#     'deprecated': True
+# })
+# def export_grant(grant_id):
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
 
-    # Retrieve grant data
-    cursor.execute(
-        'SELECT name, default_action FROM grantTemplate WHERE id = ?', (grant_id,))
-    row = cursor.fetchone()
-    if not row:
-        return {"error": "Grant not found"}, 404
+#     # Retrieve grant data
+#     cursor.execute(
+#         'SELECT name, default_action FROM grantTemplate WHERE id = ?', (grant_id,))
+#     row = cursor.fetchone()
+#     if not row:
+#         return {"error": "Grant not found"}, 404
 
-    grant_name, default_action = row
+#     grant_name, default_action = row
 
-    # Build XML structure
-    dds = ET.Element('dds', {
-        'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
-        'xsi:noNamespaceSchemaLocation': "http://community.rti.com/schema/7.3.0/dds_security_permissions.xsd"
-    })
-    permissions = ET.SubElement(dds, 'permissions')
-    grant_elem = ET.SubElement(permissions, 'grant', {'name': grant_name})
+#     # Build XML structure
+#     dds = ET.Element('dds', {
+#         'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
+#         'xsi:noNamespaceSchemaLocation': "http://community.rti.com/schema/7.3.0/dds_security_permissions.xsd"
+#     })
+#     permissions = ET.SubElement(dds, 'permissions')
+#     grant_elem = ET.SubElement(permissions, 'grant', {'name': grant_name})
 
-    # Sample subject_name and validity (hardcoded for now)
-    subject = ET.SubElement(grant_elem, 'subject_name')
-    subject.text = "C=ES, ST=CLM, O=JCCM, emailAddress=argel@arge.site, CN=FlaskExported"
+#     # Sample subject_name and validity (hardcoded for now)
+#     subject = ET.SubElement(grant_elem, 'subject_name')
+#     subject.text = "C=ES, ST=CLM, O=JCCM, emailAddress=argel@arge.site, CN=FlaskExported"
 
-    validity = ET.SubElement(grant_elem, 'validity')
-    not_before = ET.SubElement(validity, 'not_before')
-    not_before.text = '2019-10-31T13:00:00'
-    not_after = ET.SubElement(validity, 'not_after')
-    not_after.text = '2029-10-31T13:00:00'
+#     validity = ET.SubElement(grant_elem, 'validity')
+#     not_before = ET.SubElement(validity, 'not_before')
+#     not_before.text = '2019-10-31T13:00:00'
+#     not_after = ET.SubElement(validity, 'not_after')
+#     not_after.text = '2029-10-31T13:00:00'
 
-    # Retrieve associated rules
-    cursor.execute('''
-        SELECT rules.id, rules.permiso
-        FROM rules
-        JOIN grant_rules ON rules.id = grant_rules.rule_id
-        WHERE grant_rules.grant_id = ?
-    ''', (grant_id,))
-    rules = cursor.fetchall()
+#     # Retrieve associated rules
+#     cursor.execute('''
+#         SELECT rules.id, rules.permiso
+#         FROM rules
+#         JOIN grant_rules ON rules.id = grant_rules.rule_id
+#         WHERE grant_rules.grant_id = ?
+#     ''', (grant_id,))
+#     rules = cursor.fetchall()
 
-    for rule_id, permiso in rules:
-        rule_tag = ET.SubElement(grant_elem, permiso)
+#     for rule_id, permiso in rules:
+#         rule_tag = ET.SubElement(grant_elem, permiso)
 
-        # Domains
-        cursor.execute('''
-            SELECT domains.name
-            FROM rule_domains
-            JOIN domains ON rule_domains.domain_id = domains.id
-            WHERE rule_domains.rule_id = ?
-        ''', (rule_id,))
-        domain_rows = cursor.fetchall()
-        if domain_rows:
-            domains_elem = ET.SubElement(rule_tag, 'domains')
-            for (domain,) in domain_rows:
-                ET.SubElement(domains_elem, 'id').text = domain
+#         # Domains
+#         cursor.execute('''
+#             SELECT domains.name
+#             FROM rule_domains
+#             JOIN domains ON rule_domains.domain_id = domains.id
+#             WHERE rule_domains.rule_id = ?
+#         ''', (rule_id,))
+#         domain_rows = cursor.fetchall()
+#         if domain_rows:
+#             domains_elem = ET.SubElement(rule_tag, 'domains')
+#             for (domain,) in domain_rows:
+#                 ET.SubElement(domains_elem, 'id').text = domain
 
-        # Topics - publish
-        cursor.execute('''
-            SELECT topics.name
-            FROM rule_topics
-            JOIN topics ON rule_topics.topic_id = topics.id
-            WHERE rule_topics.rule_id = ? AND rule_topics.action = 'publish'
-        ''', (rule_id,))
-        publish_rows = cursor.fetchall()
-        if publish_rows:
-            publish_elem = ET.SubElement(rule_tag, 'publish')
-            topics_elem = ET.SubElement(publish_elem, 'topics')
-            for (topic,) in publish_rows:
-                ET.SubElement(topics_elem, 'topic').text = topic
+#         # Topics - publish
+#         cursor.execute('''
+#             SELECT topics.name
+#             FROM rule_topics
+#             JOIN topics ON rule_topics.topic_id = topics.id
+#             WHERE rule_topics.rule_id = ? AND rule_topics.action = 'publish'
+#         ''', (rule_id,))
+#         publish_rows = cursor.fetchall()
+#         if publish_rows:
+#             publish_elem = ET.SubElement(rule_tag, 'publish')
+#             topics_elem = ET.SubElement(publish_elem, 'topics')
+#             for (topic,) in publish_rows:
+#                 ET.SubElement(topics_elem, 'topic').text = topic
 
-        # Topics - subscribe
-        cursor.execute('''
-            SELECT topics.name
-            FROM rule_topics
-            JOIN topics ON rule_topics.topic_id = topics.id
-            WHERE rule_topics.rule_id = ? AND rule_topics.action = 'subscribe'
-        ''', (rule_id,))
-        subscribe_rows = cursor.fetchall()
-        if subscribe_rows:
-            subscribe_elem = ET.SubElement(rule_tag, 'subscribe')
-            topics_elem = ET.SubElement(subscribe_elem, 'topics')
-            for (topic,) in subscribe_rows:
-                ET.SubElement(topics_elem, 'topic').text = topic
+#         # Topics - subscribe
+#         cursor.execute('''
+#             SELECT topics.name
+#             FROM rule_topics
+#             JOIN topics ON rule_topics.topic_id = topics.id
+#             WHERE rule_topics.rule_id = ? AND rule_topics.action = 'subscribe'
+#         ''', (rule_id,))
+#         subscribe_rows = cursor.fetchall()
+#         if subscribe_rows:
+#             subscribe_elem = ET.SubElement(rule_tag, 'subscribe')
+#             topics_elem = ET.SubElement(subscribe_elem, 'topics')
+#             for (topic,) in subscribe_rows:
+#                 ET.SubElement(topics_elem, 'topic').text = topic
 
-    # Default action
-    default_elem = ET.SubElement(grant_elem, 'default')
-    default_elem.text = default_action
+#     # Default action
+#     default_elem = ET.SubElement(grant_elem, 'default')
+#     default_elem.text = default_action
 
-    # Generate XML in memory
-    xml_io = io.BytesIO()
-    tree = ET.ElementTree(dds)
-    tree.write(xml_io, encoding='utf-8', xml_declaration=True)
-    xml_io.seek(0)
+#     # Generate XML in memory
+#     xml_io = io.BytesIO()
+#     tree = ET.ElementTree(dds)
+#     tree.write(xml_io, encoding='utf-8', xml_declaration=True)
+#     xml_io.seek(0)
 
-    response = make_response(xml_io.read())
-    response.headers['Content-Type'] = 'application/xml'
-    response.headers['Content-Disposition'] = f'attachment; filename=grant_{grant_id}.xml'
-    return response
-
-# TODO Modificarlo en todos lados, pues ahora existe el 2
+#     response = make_response(xml_io.read())
+#     response.headers['Content-Type'] = 'application/xml'
+#     response.headers['Content-Disposition'] = f'attachment; filename=grant_{grant_id}.xml'
+#     return response
 
 
-def generar_xml_grant(role_id, user_data, conn):
+def generar_xml_grant_by_role(role_id, user_data, conn):
     cursor = conn.cursor()
 
     # Obtener el grant_id y datos del grant
@@ -1618,30 +1617,60 @@ def generar_xml_grant(role_id, user_data, conn):
     return pretty_xml, grant_name, None
 
 
-@app.route('/api/export-grantbyrole/<int:role_id>', methods=['GET'])
-@user_required_api
+@app.route('/api/export-grantbyrole', methods=['POST'])
 @swag_from({
     'tags': ['XML'],
-    'summary': 'Export a grantTemplate in XML format associated with a role',
-    'description': 'Authenticated users who have access to the requested role can export the corresponding XML grant definition. The XML contains permission rules, domains, topics (publish/subscribe), and default actions.',
+    'summary': 'Export a grantTemplate in XML format using JWT token, optionally signed',
+    'description': 'Authenticated users submit a signed JWT token that includes the role_id and exp timestamp. If authorized, the XML is returned. Use the "sign" parameter to get it signed.',
     'security': [{'BearerAuth': []}],
+    'consumes': ['application/x-www-form-urlencoded'],
     'parameters': [
         {
-            'name': 'role_id',
-            'in': 'path',
+            'name': 'token',
+            'in': 'formData',
+            'type': 'string',
             'required': True,
-            'type': 'integer',
-            'description': 'ID of the role for which the grant should be exported'
+            'description': 'Signed JWT token with role_id and exp'
+        },
+        {
+            'name': 'sign',
+            'in': 'formData',
+            'type': 'string',
+            'required': False,
+            'description': 'Set to "on" or "true" to return signed XML (.p7s)'
         }
     ],
     'responses': {
-        200: {'description': 'XML file generated successfully'},
-        401: {'description': 'Invalid token or unauthorized user'},
+        200: {'description': 'XML or signed file returned successfully'},
+        400: {'description': 'Missing or invalid input'},
+        401: {'description': 'Unauthorized user'},
         403: {'description': 'User does not have access to this role'},
         404: {'description': 'Role or grant not found'}
     }
 })
-def export_grant_by_role(role_id):
+@user_required_api
+def export_grant_by_role_token():
+    token = request.form.get("token")
+    sign = request.form.get("sign", "").lower() in ["on", "true", "1"]
+
+    if not token:
+        return jsonify({'error': 'Token is required'}), 400
+
+    try:
+        payload = jwt.decode(token, CA_KEY, algorithms=["ES256"])
+        role_id = payload.get("role_id")
+        exp = payload.get("exp")
+
+        if not role_id or not exp:
+            return jsonify({'error': 'Invalid token: missing role_id or exp'}), 400
+
+        not_before = datetime.now()
+        not_after = datetime.fromtimestamp(exp)
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token has expired'}), 400
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 400
+
     user_data = verificar_jwt_api()
     username = user_data.get('username')
 
@@ -1659,17 +1688,57 @@ def export_grant_by_role(role_id):
     if cursor.fetchone() is None:
         return jsonify({'error': 'Role does not belong to user'}), 403
 
-    xml_data, _, error = generar_xml_grant(role_id, user_data, conn)
+    xml_data, grant_name, error = generar_xml_grant(
+        role_id, user_data, conn,
+        not_before=not_before,
+        not_after=not_after
+    )
     conn.close()
 
     if error:
         return jsonify({'error': error}), 404
 
-    response = make_response(xml_data)
-    response.headers['Content-Type'] = 'application/xml'
-    response.headers[
-        'Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
-    return response
+    if sign:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as xml_file:
+            xml_file.write(xml_data)
+            xml_path = xml_file.name
+
+        signed_output_path = os.path.join(
+            tempfile.gettempdir(), f"{grant_name}.p7s"
+        )
+
+        OPENSSL_PATH = (
+            r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+            if platform.system() == "Windows"
+            else "/usr/bin/openssl"
+        )
+
+        result = subprocess.run([
+            OPENSSL_PATH, "smime", "-sign",
+            "-in", xml_path,
+            "-out", signed_output_path,
+            "-signer", CA_CERT_PATH,
+            "-inkey", CA_KEY_PATH,
+            "-outform", "DER",
+            "-nodetach"
+        ], capture_output=True)
+
+        os.remove(xml_path)
+
+        if result.returncode != 0:
+            return jsonify({'error': 'Signing failed: ' + result.stderr.decode()}), 400
+
+        return send_file(signed_output_path,
+                         as_attachment=True,
+                         download_name=f"{grant_name}.p7s",
+                         mimetype='application/pkcs7-signature')
+
+    else:
+        return Response(xml_data,
+                        mimetype='application/xml',
+                        headers={
+                            'Content-Disposition': f'attachment; filename={grant_name}.xml'
+                        })
 
 
 #########################
@@ -1678,98 +1747,99 @@ def export_grant_by_role(role_id):
 #########################
 
 
-@app.route('/api/sign-grant-by-role/<int:role_id>', methods=['GET'])
-@user_required_api
-@swag_from({
-    'tags': ['TEST'],
-    'summary': 'Sign and export a grantTemplate as a PKCS#7 (.p7s) file',
-    'description': 'Authenticated users can export a signed version of the XML grantTemplate associated with a specific role. The response is a .p7s file (PKCS#7 detached signature).',
-    'security': [{'BearerAuth': []}],
-    'parameters': [
-        {
-            'name': 'role_id',
-            'in': 'path',
-            'required': True,
-            'type': 'integer',
-            'description': 'ID of the role whose grant should be signed and exported'
-        }
-    ],
-    'responses': {
-        200: {'description': 'Signed grantTemplate exported successfully as .p7s'},
-        401: {'description': 'Invalid token or unauthorized user'},
-        403: {'description': 'User does not have access to this role'},
-        404: {'description': 'Role or grant not found'},
-        500: {'description': 'Error while signing the grant'}
-    }
-})
-def sign_grant_by_role(role_id):
-    user_data = verificar_jwt_api()
-    username = user_data.get('username')
+# @app.route('/api/sign-grant-by-role/<int:role_id>', methods=['GET'])
+# @user_required_api
+# @swag_from({
+#     'tags': ['TEST'],
+#     'summary': 'Sign and export a grantTemplate as a PKCS#7 (.p7s) file',
+#     'description': 'Authenticated users can export a signed version of the XML grantTemplate associated with a specific role. The response is a .p7s file (PKCS#7 detached signature).',
+#     'security': [{'BearerAuth': []}],
+#     'parameters': [
+#         {
+#             'name': 'role_id',
+#             'in': 'path',
+#             'required': True,
+#             'type': 'integer',
+#             'description': 'ID of the role whose grant should be signed and exported'
+#         }
+#     ],
+#     'responses': {
+#         200: {'description': 'Signed grantTemplate exported successfully as .p7s'},
+#         401: {'description': 'Invalid token or unauthorized user'},
+#         403: {'description': 'User does not have access to this role'},
+#         404: {'description': 'Role or grant not found'},
+#         500: {'description': 'Error while signing the grant'}
+#     },
+#     'deprecated': True
+# })
+# def sign_grant_by_role(role_id):
+#     user_data = verificar_jwt_api()
+#     username = user_data.get('username')
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
-    user = cursor.fetchone()
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
+#     cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
+#     user = cursor.fetchone()
 
-    if not user:
-        return jsonify({'error': 'User not found'}), 401
+#     if not user:
+#         return jsonify({'error': 'User not found'}), 401
 
-    user_id = user[0]
-    cursor.execute(
-        'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
-    if cursor.fetchone() is None:
-        return jsonify({'error': 'Role does not belong to user'}), 403
+#     user_id = user[0]
+#     cursor.execute(
+#         'SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?', (user_id, role_id))
+#     if cursor.fetchone() is None:
+#         return jsonify({'error': 'Role does not belong to user'}), 403
 
-    xml_data, grant_name, error = generar_xml_grant(role_id, user_data, conn)
-    conn.close()
+#     xml_data, grant_name, error = generar_xml_grant(role_id, user_data, conn)
+#     conn.close()
 
-    if error:
-        return jsonify({'error': error}), 404
+#     if error:
+#         return jsonify({'error': error}), 404
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as xml_file:
-        xml_file.write(xml_data)
-        xml_path = xml_file.name
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as xml_file:
+#         xml_file.write(xml_data)
+#         xml_path = xml_file.name
 
-    signed_output_path = os.path.join(
-        tempfile.gettempdir(), f"{grant_name}.p7s")
+#     signed_output_path = os.path.join(
+#         tempfile.gettempdir(), f"{grant_name}.p7s")
 
-    # Detectar entorno
-    if platform.system() == "Windows":
-        OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
-    else:
-        # Se espera que esté en el PATH (como en Docker)
-        OPENSSL_PATH = "/usr/bin/openssl"
+#     # Detectar entorno
+#     if platform.system() == "Windows":
+#         OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+#     else:
+#         # Se espera que esté en el PATH (como en Docker)
+#         OPENSSL_PATH = "/usr/bin/openssl"
 
-    result = subprocess.run([
-        OPENSSL_PATH, "smime", "-sign",
-        "-in", xml_path,
-        "-out", signed_output_path,
-        "-signer", CA_CERT_PATH,
-        "-inkey", CA_KEY_PATH,
-        "-outform", "DER",
-        "-nodetach"
-    ], capture_output=True)
+#     result = subprocess.run([
+#         OPENSSL_PATH, "smime", "-sign",
+#         "-in", xml_path,
+#         "-out", signed_output_path,
+#         "-signer", CA_CERT_PATH,
+#         "-inkey", CA_KEY_PATH,
+#         "-outform", "DER",
+#         "-nodetach"
+#     ], capture_output=True)
 
-    # result = subprocess.run([
-    #     OPENSSL_PATH, "smime", "-sign",
-    #     "-in", xml_path,
-    #     "-text",
-    #     "-out", signed_output_path,
-    #     "-signer", CA_CERT_PATH,
-    #     "-inkey", CA_KEY_PATH
-    # ], capture_output=True)
+#     # result = subprocess.run([
+#     #     OPENSSL_PATH, "smime", "-sign",
+#     #     "-in", xml_path,
+#     #     "-text",
+#     #     "-out", signed_output_path,
+#     #     "-signer", CA_CERT_PATH,
+#     #     "-inkey", CA_KEY_PATH
+#     # ], capture_output=True)
 
-    os.remove(xml_path)
+#     os.remove(xml_path)
 
-    if result.returncode != 0:
-        return jsonify({'error': 'Signing failed', 'details': result.stderr.decode()}), 500
+#     if result.returncode != 0:
+#         return jsonify({'error': 'Signing failed', 'details': result.stderr.decode()}), 500
 
-    return send_file(
-        signed_output_path,
-        as_attachment=True,
-        download_name=f"{grant_name}.p7s",
-        mimetype='application/pkcs7-signature'
-    )
+#     return send_file(
+#         signed_output_path,
+#         as_attachment=True,
+#         download_name=f"{grant_name}.p7s",
+#         mimetype='application/pkcs7-signature'
+#     )
 
 
 @app.route('/api/verify-signed-file', methods=['POST'])
@@ -2831,7 +2901,6 @@ def grant_template_detail(grant_id):
     return render_template('grant_template_detail.html', grant=grant, roles=roles, rules=detailed_rules)
 
 
-
 @app.route('/grants/new', methods=['GET', 'POST'])
 @superuser_required
 def new_grant_template():
@@ -2921,7 +2990,7 @@ def xml_export_grant():
         if not role_id:
             flash('Please select a role.', 'danger')
         else:
-            xml_data, grant_name, error = generar_xml_grant(
+            xml_data, grant_name, error = generar_xml_grant_by_role(
                 role_id, user_data, conn)
 
             if error:
@@ -2933,22 +3002,22 @@ def xml_export_grant():
     return render_template('xml_export_grant.html', roles=roles, xml_output=xml_output, grant_name=grant_name)
 
 
-@app.route('/public/export-grantbyrole/<int:role_id>', methods=['GET'])
-@user_required
-def public_export_grant_by_role(role_id):
-    conn = get_db_connection()
-    user_data = {"username": "public_user", "is_superuser": False}
-    xml_data, _, error = generar_xml_grant(role_id, user_data, conn)
-    conn.close()
+# @app.route('/public/export-grantbyrole/<int:role_id>', methods=['GET'])
+# @user_required
+# def public_export_grant_by_role(role_id):
+#     conn = get_db_connection()
+#     user_data = {"username": "public_user", "is_superuser": False}
+#     xml_data, _, error = generar_xml_grant(role_id, user_data, conn)
+#     conn.close()
 
-    if error:
-        return jsonify({'error': error}), 404
+#     if error:
+#         return jsonify({'error': error}), 404
 
-    response = make_response(xml_data)
-    response.headers['Content-Type'] = 'application/xml'
-    response.headers[
-        'Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
-    return response
+#     response = make_response(xml_data)
+#     response.headers['Content-Type'] = 'application/xml'
+#     response.headers[
+#         'Content-Disposition'] = f'attachment; filename=grant_role_{role_id}.xml'
+#     return response
 
 
 @app.route('/xml_vality', methods=['GET', 'POST'])
@@ -3289,7 +3358,7 @@ def download_unsigned_grant(filename):
     return send_file(file_path, as_attachment=True)
 
 
-def generar_xml_grant2(role_id, user_data, conn, not_before, not_after):
+def generar_xml_grant(role_id, user_data, conn, not_before, not_after):
     cursor = conn.cursor()
 
     # Obtener el grant_id y datos del grant
@@ -3419,7 +3488,7 @@ def xml_sign_grant_by_role_html():
             return redirect(url_for("login"))
 
         conn = get_db_connection()
-        xml_data, grant_name, error = generar_xml_grant2(
+        xml_data, grant_name, error = generar_xml_grant(
             role_id, user_data, conn,
             not_before=not_before,
             not_after=not_after
