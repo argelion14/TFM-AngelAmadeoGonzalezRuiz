@@ -2624,8 +2624,6 @@ def get_grant_templates():
     conn.close()
     return rows
 
-# TODO: Cambiar donde antes se usase el insert_grant_from_xml por este nuevo metodo
-
 
 def insert_grant_from_xml_file(xml_file_obj, override_name=None):
     try:
