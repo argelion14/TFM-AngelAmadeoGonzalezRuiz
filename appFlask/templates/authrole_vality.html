@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}
+Validate JWT Role Token
+{% endblock %}
+
+{% block active_verify_role_token %}
+active
+{% endblock %}
+
+{% block header %}
+Validate JWT Role Token Against Database
+{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item active" aria-current="page">Validate JWT Role Token</li>
+{% endblock %}
+
+{% block content %}
+<div class="card card-primary">
+    <div class="card-header">
+        <h3 class="card-title">JWT Role Token Validation</h3>
+    </div>
+    <form method="POST">
+        <div class="card-body">
+            <div class="form-group">
+                <label for="token">JWT Token</label>
+                <textarea name="token" id="token" class="form-control" rows="4"
+                    required>{{ request.form.get('token', '') }}</textarea>
+            </div>
+        </div>
+        <div class="card-footer">
+            <button type="submit" class="btn btn-primary">Validate</button>
+        </div>
+    </form>
+</div>
+
+{% if result %}
+<div class="alert {% if result.valid %}alert-success{% else %}alert-danger{% endif %} mt-3">
+    {% if result.valid %}
+    ✅ <strong>Valid token</strong><br>
+    <strong>User ID:</strong> {{ result.user_id }}<br>
+    <strong>Role ID:</strong> {{ result.role_id }}
+    {% else %}
+    ❌ <strong>Error:</strong> {{ result.error }}
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

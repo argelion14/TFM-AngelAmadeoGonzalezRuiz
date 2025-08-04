@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}Grant Template Details{% endblock %}
+
+{% block header %}
+Grant Templates
+{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item"><a href="{{ url_for('grant_template_list') }}">Grant Templates</a></li>
+<li class="breadcrumb-item active">Details</li>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Grant Template Details</h2>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="alert alert-primary" role="alert">
+        <h5 class="mb-0"><i class="fas fa-certificate"></i> {{ grant['name'] }}</h5>
+      </div>
+      <p><strong>ID:</strong> {{ grant['id'] }}</p>
+      <p><strong>Default Action:</strong>
+        {% if grant['default_action'] == 'ALLOW' %}
+        <span class="badge bg-success">ALLOW</span>
+        {% else %}
+        <span class="badge bg-danger">DENY</span>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <h4>Associated Roles</h4>
+  {% if roles %}
+  <ul class="list-group mb-4">
+    {% for role in roles %}
+    <li class="list-group-item">
+      <strong>{{ role['name'] }}</strong><br>
+      {{ role['description'] or 'No description provided.' }}<br>
+      <small>Expires in {{ role['exp_time'] }} minutes</small>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>There are no roles associated with this template.</p>
+  {% endif %}
+
+  <h4>Associated Rules</h4>
+  {% if rules %}
+  {% for rule in rules %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5>Rule #{{ rule['id'] }}</h5>
+      <p><strong>Permission:</strong>
+        {% if rule['permiso'] == 'allow_rule' %}
+        <span class="badge bg-success">ALLOW</span>
+        {% else %}
+        <span class="badge bg-danger">DENY</span>
+        {% endif %}
+      </p>
+
+      <p><strong>Domains:</strong>
+        {% if rule['domains'] %}
+      <ul>
+        {% for domain in rule['domains'] %}
+        <li>{{ domain }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <em>No associated domains.</em>
+      {% endif %}
+      </p>
+
+      <p><strong>Topics:</strong>
+        {% if rule['topics'] %}
+      <ul>
+        {% for topic in rule['topics'] %}
+        <li>{{ topic['action'] | capitalize }} → {{ topic['name'] }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <em>No associated topics.</em>
+      {% endif %}
+      </p>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <p>There are no rules associated with this template.</p>
+  {% endif %}
+
+  <a href="{{ url_for('grant_template_list') }}" class="btn btn-secondary mt-3">← Back to List</a>
+</div>
+{% endblock %}

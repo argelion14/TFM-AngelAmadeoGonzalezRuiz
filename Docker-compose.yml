@@ -1,26 +1,30 @@
+version: '3.8'
+
 services:
-  app:
+  tfm_app:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: tfm_app
     ports:
       - "5000:5000"
-    restart: unless-stopped
     environment:
-      - FLASK_ENV=development
-      - FLASK_APP=app.py
-    # volumes:
-    #   - .:/app
-    # networks:
-    #   - app-network
-  # db:
-  #   image: postgres:latest
-  #   restart: unless-stopped
-  #   environment:
-  #     POSTGRES_USER: user
-  #     POSTGRES_PASSWORD: password
-  #     POSTGRES_DB: mydatabase
-  #   volumes:
-  #     - db_data:/var/lib/postgresql/data
-  #   networks:
-  #     - app-network
+      DEBIAN_FRONTEND:                noninteractive
+      PYTHONDONTWRITEBYTECODE:        "1"
+      PYTHONUNBUFFERED:               "1"
+      PATH:                           "/home/appuser/.local/bin:$PATH"
+      CA_CERT_PATH:                   /app/appFlask/config/certs/ecdsa01RootCaCert.pem
+      CA_KEY_PATH:                    /app/appFlask/config/certs/ecdsa01RootCaKey.pem
+      JWT_EXPIRATION_MINUTES:         60
+      DB_PATH:                        /app/appFlask/config/TFM.db
+      NEW_CERT_PATH:                  /app/appFlask/config/certs
+    read_only: false
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges
+    cap_drop:
+      - ALL
+    volumes:
+      - /d/REPOS/TFM-AngelAmadeoGonzalezRuiz/docker/config/certs:/app/appFlask/config/certs
+      - /d/REPOS/TFM-AngelAmadeoGonzalezRuiz/docker/config:/app/appFlask/config

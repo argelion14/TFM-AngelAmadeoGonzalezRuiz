@@ -179,3 +179,8 @@ cython_debug/
 *.csr
 *.p7s
 *.srl
+
+
+certs/
+private_keys/
+.vscode

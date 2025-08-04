@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}
+Validate XML
+{% endblock %}
+
+{% block active_validar_xml %}
+active
+{% endblock %}
+
+{% block header %}Validate RTI Permissions XML File{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item active">Validate XML</li>
+{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+<form method="POST" enctype="multipart/form-data" action="{{ url_for('xml_vality') }}">
+    <div class="card card-info">
+        <div class="card-header">
+            <h3 class="card-title">Validate XML Against DDS 7.5.0 Schema</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label for="xml_file">XML File</label>
+                <div class="custom-file">
+                    <input type="file" name="xml_file" class="custom-file-input" id="xml_file" required>
+                    <label class="custom-file-label" for="xml_file">Select file...</label>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <button type="submit" class="btn btn-info">Validate</button>
+        </div>
+    </div>
+</form>
+
+<script>
+    // Show selected file name
+    document.getElementById("xml_file").addEventListener("change", function () {
+        const fileName = this.files[0]?.name || "Select file...";
+        const label = this.nextElementSibling;
+        if (label) label.textContent = fileName;
+    });
+</script>
+{% endblock %}

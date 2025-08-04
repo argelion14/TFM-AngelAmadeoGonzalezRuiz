@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}
+Validate XML
+{% endblock %}
+
+{% block active_export_grantbyrole %}
+active
+{% endblock %}
+
+{% block header %}Validate RTI Permissions XML File{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item active">Validate XML</li>
+{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <h1>Export Grant XML</h1>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="card card-primary">
+      <div class="card-header">
+        <h3 class="card-title">Select a Role</h3>
+      </div>
+      <form method="POST">
+        <div class="card-body">
+          <div class="form-group">
+            <label for="role_id">Available Roles</label>
+            <select class="form-control" name="role_id" id="role_id" required>
+              <option value="" disabled selected>-- Select a role --</option>
+              {% for id, name in roles %}
+              <option value="{{ id }}">{{ name }} (ID: {{ id }})</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-file-code"></i> Generate XML</button>
+        </div>
+      </form>
+    </div>
+
+    {% if xml_output %}
+    <div class="card card-info">
+      <div class="card-header">
+        <h3 class="card-title">Generated Grant: {{ grant_name }}</h3>
+      </div>
+      <div class="card-body">
+        <pre style="white-space: pre-wrap; word-break: break-word;">{{ xml_output }}</pre>
+        <a href="{{ url_for('public_export_grant_by_role', role_id=request.form.get('role_id')) }}"
+          class="btn btn-success mt-3">
+          <i class="fas fa-download"></i> Download XML
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</section>
+{% endblock %}

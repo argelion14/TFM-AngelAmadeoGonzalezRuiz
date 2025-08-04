@@ -1,105 +1,80 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Verificador de permisos JWT - {{nombre}}</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f9f9f9;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            max-width: 700px;
-            margin: auto;
-        }
-        textarea {
-            width: 100%;
-            height: 120px;
-            padding: 10px;
-            font-family: monospace;
-            margin-bottom: 20px;
-            border-radius: 10px;
-            border: 1px solid #ddd;
-        }
-        button {
-            background-color: #4CAF50;
-            border: none;
-            color: white;
-            padding: 12px 25px;
-            text-align: center;
-            text-decoration: none;
-            font-size: 16px;
-            margin: 5px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-        button.danger {
-            background-color: #f44336;
-        }
-        #result {
-            margin-top: 20px;
-            font-size: 18px;
-            padding: 10px;
-            border-radius: 10px;
-        }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
 
-    <div class="container">
-        <h1>Verificador de permisos JWT - {{nombre}} 😎</h1>
+{% block title %}Welcome{% endblock %}
 
-        <label for="token">Token JWT fraccionado:</label>
-        <textarea id="token" placeholder="Pega aquí tu token..."></textarea>
+{% block header %}Welcome to the RTI Permissions Management System{% endblock %}
 
-        <div>
-            <button onclick="checkAction('PUBLISH')">¿Puede PUBLICAR?</button>
-            <button class="danger" onclick="checkAction('SUBSCRIBE')">¿Puede SUSCRIBIRSE?</button>
-        </div>
+{% block active_home_panel %} active {% endblock %}
 
-        <div id="result"></div>
-    </div>
+{% block path_main %}
+<li class="breadcrumb-item active">Home</li>
+{% endblock %}
 
-    <script>
-        function checkAction(action) {
-            var token = document.getElementById('token').value.trim();
+{% block content %}
+<div class="card card-primary">
+  <div class="card-header">
+    <h3 class="card-title">About the Project</h3>
+  </div>
+  <div class="card-body">
+    <p>
+      This web application is the result of an academic final project that implements a comprehensive permission
+      management system based on <strong>DDS RTI Security XML policies</strong>. It enables the creation, assignment,
+      validation, and visualization of users, roles, and security permissions through JWT tokens.
+    </p>
+    <p>The project is built using:</p>
+    <ul>
+      <li>🌐 <strong>Flask</strong> for the backend and routing</li>
+      <li>🗂️ <strong>SQLite</strong> for lightweight data persistence</li>
+      <li>🎨 <strong>AdminLTE</strong> for responsive and professional UI components</li>
+    </ul>
+    <p>Its purpose is to simulate real-world RBAC and permission validation processes for distributed systems using
+      cryptographic certificates.</p>
+  </div>
+</div>
 
-            if (!token) {
-                alert('Por favor, pega un token primero.');
-                return;
-            }
+<div class="card card-info">
+  <div class="card-header">
+    <h3 class="card-title">Available Features</h3>
+  </div>
+  <div class="card-body">
+    <ul>
+      <li><strong>Users</strong>:
+        <ul>
+          <li>Create, list, view details, and delete users</li>
+          <li>Generate and manage public/private certificates</li>
+        </ul>
+      </li>
+      <li><strong>Roles</strong>:
+        <ul>
+          <li>Define new roles with expiration time</li>
+          <li>Associate roles to users</li>
+          <li>Assign roles based on grant templates</li>
+        </ul>
+      </li>
+      <li><strong>Grant Templates</strong>:
+        <ul>
+          <li>Upload and parse DDS Permissions XML files</li>
+          <li>View associated rules, domains, and topics</li>
+        </ul>
+      </li>
+      <li><strong>JWT Token Management</strong>:
+        <ul>
+          <li>Create tokens with cryptographic signature</li>
+          <li>Validate tokens and decode payload</li>
+        </ul>
+      </li>
+      <li><strong>Dashboard</strong>:
+        <ul>
+          <li>See summary statistics about users, roles, grants, etc.</li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+</div>
 
-            fetch('/action', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: token, action: action })
-            })
-            .then(response => response.json().then(data => ({status: response.status, body: data})))
-            .then(result => {
-                if (result.status === 200) {
-                    document.getElementById('result').innerHTML = `
-                        ✅ <strong>PERMITIDO:</strong> Puede hacer <b>${result.body.action}</b> en el dominio <b>${result.body.domain}</b>.
-                    `;
-                    document.getElementById('result').style.backgroundColor = "#d4edda";
-                } else {
-                    document.getElementById('result').innerHTML = `
-                        ❌ <strong>DENEGADO:</strong> No puede hacer <b>${action}</b> en este dominio.
-                    `;
-                    document.getElementById('result').style.backgroundColor = "#f8d7da";
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('result').innerHTML = '⚠️ Error al verificar token.';
-                document.getElementById('result').style.backgroundColor = "#fff3cd";
-            });
-        }
-    </script>
-
-</body>
-</html>
+<div class="card card-light">
+  <div class="card-footer text-center">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary"><i class="fas fa-chart-pie"></i> Go to Dashboard</a>
+  </div>
+</div>
+{% endblock %}

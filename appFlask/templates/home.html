@@ -1,20 +1,9 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hola Mundo - Flask</title>
-</head>
-<body>
-    <h1>¡Hola Mundo!</h1>
-    <p>Bienvenido a mi aplicación Flask</p>
-</body>
-</html>
+{% extends 'base.html' %}
 
-<!DOCTYPE html>
-<html>
-<head><title>Jinja2 con Flask</title></head>
-<body>
-    <h1>Hola {{ nombre }}!</h1>
-</body>
-</html>
+{% block title %}Inicio{% endblock %}
+
+{% block header %}Página de Inicio{% endblock %}
+
+{% block content %}
+<p>Contenido de la página de inicio.</p>
+{% endblock %}

@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+
+{% block title %} Information{% endblock %}
+
+{% block active_information %}active{% endblock %}
+
+{% block header %}Information{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Dashboard</a></li>
+<li class="breadcrumb-item active">Information</li>
+{% endblock %}
+
+{% block content %}
+<div class="card-body">
+    <div id="accordion">
+
+        <!-- Introduction -->
+        <div class="card card-primary">
+            <div class="card-header">
+                <h4 class="card-title w-100">
+                    <a class="d-block w-100" data-toggle="collapse" href="#collapseOne" aria-expanded="true">
+                        <i class="fas fa-rocket"></i> TFM
+                    </a>
+                </h4>
+            </div>
+            <div id="collapseOne" class="collapse show">
+                <div class="card-body">
+                    <p>
+                        Traditional access control models rely on roles (Role-Based Access Control, RBAC), which often
+                        lack flexibility and granularity. A more modern approach is Attribute-Based Access Control
+                        (ABAC), where access rights are granted based on user attributes like role, department, project,
+                        or operation type.
+                    </p>
+                    <p>
+                        Flask app is a prototype authentication and access control server developed for a Master's Thesis. It
+                        issues access control tokens based on user attributes. The system includes authentication, token
+                        issuance, user/role/permission management, and a dynamic ruleset for DDS (Data Distribution
+                        Service) environments.
+                    </p>
+                    <ul>
+                        <li><strong>User Management</strong>: Create, edit and delete users. Assign superuser roles.
+                        </li>
+                        <li><strong>Certificate Management</strong>: Store and display public certificates per user.
+                        </li>
+                        <li><strong>Role Templates</strong>: Define role-based permissions with expiration and grant
+                            rules.</li>
+                        <li><strong>Access Rules</strong>: Define allow/deny rules for topics/domains with
+                            publish/subscribe actions.</li>
+                        <li><strong>Token Generation</strong>: Token-based access using cryptographically signed
+                            permissions.</li>
+                        <li><strong>Dashboard</strong>: Visualize database statistics and system usage.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Color Palette -->
+        <div class="card card-teal">
+            <div class="card-header">
+                <h4 class="card-title w-100">
+                    <a class="d-block w-100 collapsed" data-toggle="collapse" href="#collapseTwo" aria-expanded="false">
+                        <i class="fas fa-solid fa-palette"></i> Logo and colour palette used
+                    </a>
+                </h4>
+            </div>
+            <div id="collapseTwo" class="collapse" style="">
+                <div class="card-body">
+                    <div class="col-12">
+                        <h5>Theme Colors</h5>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center">Primary</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-primary color-palette"><span>#007bff</span></div>
+                                <div class="bg-primary disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center">Secondary</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-secondary color-palette"><span>#6c757d</span></div>
+                                <div class="bg-secondary disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center">Info</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-info color-palette"><span>#17a2b8</span></div>
+                                <div class="bg-info disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center">Success</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-success color-palette"><span>#28a745</span></div>
+                                <div class="bg-success disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-warning">Warning</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-warning color-palette"><span>#ffc107</span></div>
+                                <div class="bg-warning disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center">Danger</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-danger color-palette"><span>#dc3545</span></div>
+                                <div class="bg-danger disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="col-12">
+                        <h5 class="mt-3">Black/White Nuances</h5>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center">Black</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-black color-palette"><span>#000000</span></div>
+                                <div class="bg-black disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center">Gray Dark</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-gray-dark color-palette"><span>#343a40</span></div>
+                                <div class="bg-gray-dark disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center">Gray</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-gray color-palette"><span>#adb5bd</span></div>
+                                <div class="bg-gray disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-light">Light</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-light color-palette"><span>#1f2d3d</span></div>
+                                <div class="bg-light disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="col-12">
+                        <h5 class="mt-3">Colors</h5>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-indigo">Indigo</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-indigo color-palette"><span>#6610f2</span></div>
+                                <div class="bg-indigo disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-lightblue">Lightblue</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-lightblue color-palette"><span>#3c8dbc</span></div>
+                                <div class="bg-lightblue disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-navy">Navy</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-navy color-palette"><span>#001f3f</span></div>
+                                <div class="bg-navy disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-purple">Purple</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-purple color-palette"><span>#605ca8</span></div>
+                                <div class="bg-purple disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-fuchsia">Fuchsia</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-fuchsia color-palette"><span>#f012be</span></div>
+                                <div class="bg-fuchsia disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-pink">Pink</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-pink color-palette"><span>#e83e8c</span></div>
+                                <div class="bg-pink disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-maroon">Maroon</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-maroon color-palette"><span>#d81b60</span></div>
+                                <div class="bg-maroon disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-orange">Orange</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-orange color-palette"><span>#ff851b</span></div>
+                                <div class="bg-orange disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-lime">Lime</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-lime color-palette"><span>#01ff70</span></div>
+                                <div class="bg-lime disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-teal">Teal</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-teal color-palette"><span>#39cccc</span></div>
+                                <div class="bg-teal disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4 col-md-2">
+                            <h4 class="text-center bg-olive">Olive</h4>
+                            <div class="color-palette-set">
+                                <div class="bg-olive color-palette"><span>#3d9970</span></div>
+                                <div class="bg-olive disabled color-palette"><span>Disabled</span></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- License -->
+        <div class="card card-info">
+            <div class="card-header">
+                <h4 class="card-title w-100">
+                    <a class="d-block w-100 collapsed" data-toggle="collapse" href="#collapseThree"
+                        aria-expanded="false">
+                        <i class="fas fa-file-contract"></i> License
+                    </a>
+                </h4>
+            </div>
+            <div id="collapseThree" class="collapse">
+                <div class="card-body">
+                    <a href="https://opensource.org/licenses/MIT">MIT License</a><br><br>
+
+                    Copyright (c) 2025 Ángel Amadeo González Ruiz<br><br>
+
+                    Permission is hereby granted, free of charge, to any person obtaining a copy
+                    of this software and associated documentation files (the "Software"), to deal
+                    in the Software without restriction, including without limitation the rights
+                    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+                    copies of the Software, and to permit persons to whom the Software is
+                    furnished to do so, subject to the following conditions:<br><br>
+
+                    The above copyright notice and this permission notice shall be included in all
+                    copies or substantial portions of the Software.<br><br>
+
+                    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+                    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+                    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+                    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+                    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+                    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+                    SOFTWARE.
+                </div>
+            </div>
+        </div>
+
+        <!-- Dependencies -->
+        <div class="card card-lightblue">
+            <div class="card-header">
+                <h4 class="card-title w-100">
+                    <a class="d-block w-100 collapsed" data-toggle="collapse" href="#collapseFour"
+                        aria-expanded="false">
+                        <i class="fas fa-handshake"></i> Dependencies
+                    </a>
+                </h4>
+            </div>
+            <div id="collapseFour" class="collapse">
+                <div class="card-body">
+                    <div class="row px-3">
+                        <div class="col-sm-3">
+                            <ul class="list-unstyled">
+                                <li>
+                                    <h4>Typography</h4>
+                                </li>
+                                <li><a href="https://fonts.google.com/specimen/Source+Sans+Pro?query=sans+"
+                                        rel="noopener" target="_blank">Google Fonts</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-sm-3">
+                            <ul class="list-unstyled">
+                                <li>
+                                    <h4>Icons</h4>
+                                </li>
+                                <li><a href="https://fontawesome.com/" rel="noopener" target="_blank">FontAwesome 5</a>
+                                </li>
+                                <li><a href="https://github.com/lipis/flag-icon-css#readme" rel="noopener"
+                                        target="_blank">flag-icon-css</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-sm-3">
+                            <ul class="list-unstyled">
+                                <li>
+                                    <h4>Design Tools</h4>
+                                </li>
+                                <li><a href="https://kingsora.github.io/OverlayScrollbars/" rel="noopener"
+                                        target="_blank">Overlay Scrollbars</a></li>
+                                <li><a href="https://www.chartjs.org/" rel="noopener" target="_blank">ChartJS</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-sm-3">
+                            <ul class="list-unstyled">
+                                <li>
+                                    <h4>Form Elements</h4>
+                                </li>
+                                <li><a href="https://github.com/Johann-S/bs-custom-file-input#readme" rel="noopener"
+                                        target="_blank">bs-custom-file-input</a></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="row px-3">
+                        <div class="col-sm-3">
+                            <ul class="list-unstyled">
+                                <li>
+                                    <h4>CSS</h4>
+                                </li>
+                                <li><a href="https://cdn.jsdelivr.net/npm/admin-lte@3.1/dist/css/adminlte.min.css"
+                                        rel="noopener" target="_blank">css/adminlte</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-sm-3">
+                            <ul class="list-unstyled">
+                                <li>
+                                    <h4>JavaScript</h4>
+                                </li>
+                                <li><a href="https://cdn.jsdelivr.net/npm/admin-lte@3.1/dist/js/adminlte.min.js"
+                                        rel="noopener" target="_blank">js/adminlte</a></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

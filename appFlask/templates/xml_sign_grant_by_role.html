@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Grant{% endblock %}
+
+{% block active_export_signgrantbyrole %}active{% endblock %}
+
+{% block header %}Sign Grant by Role{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item active">Sign Grant</li>
+{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <h1>Sign Grant (.p7s or XML)</h1>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="card card-primary">
+      <div class="card-header">
+        <h3 class="card-title">Paste Role Token</h3>
+      </div>
+      <form method="POST">
+        <div class="card-body">
+          <div class="form-group">
+            <label for="token">JWT Token (signed with CA_KEY)</label>
+            <textarea id="token" name="token" rows="4" class="form-control" placeholder="Paste the signed token here..."
+              required></textarea>
+            <small class="form-text text-muted">The token must contain <code>role_id</code> and
+              <code>exp</code>.</small>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="sign" name="sign" checked>
+            <label class="form-check-label" for="sign">
+              Sign the XML and download as .p7s (recommended)
+            </label>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-file-signature"></i> Generate Grant
+          </button>
+        </div>
+      </form>
+    </div>
+
+    {% if grant_name and xml_output %}
+    <div class="card card-info">
+      <div class="card-header">
+        <h3 class="card-title">
+          <i class="fas fa-file-code"></i> Generated Grant (unsigned XML)
+        </h3>
+      </div>
+      <div class="card-body">
+        <pre class="bg-light p-3 rounded" style="white-space: pre-wrap;">{{ xml_output | e }}</pre>
+      </div>
+      <div class="card-footer">
+        <a href="{{ url_for('download_unsigned_grant', filename=grant_name ~ '.xml') }}"
+          class="btn btn-outline-secondary">
+          <i class="fas fa-download"></i> Download {{ grant_name }}.xml
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if grant_name and not xml_output %}
+    <div class="card card-success">
+      <div class="card-header">
+        <h3 class="card-title">Download Signed Grant</h3>
+      </div>
+      <div class="card-body">
+        <a href="{{ url_for('download_signed_grant', filename=grant_name ~ '.p7s') }}" class="btn btn-success">
+          <i class="fas fa-download"></i> Download {{ grant_name }}.p7s
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</section>
+{% endblock %}

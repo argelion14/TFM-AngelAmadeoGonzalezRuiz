@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}User Details{% endblock %}
+
+{% block active_module_USER %}active{% endblock %}
+{% block open_USERS %}-open{% endblock %}
+{% block active_users %}active{% endblock %}
+
+{% block header %}
+User Details: {{ user['username'] }}
+{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item"><a href="{{ url_for('user_list') }}">Users</a></li>
+<li class="breadcrumb-item active">Details</li>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">User Information</h3>
+    </div>
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Username</dt>
+            <dd class="col-sm-9">{{ user['username'] }}</dd>
+
+            <dt class="col-sm-3">Superuser</dt>
+            <dd class="col-sm-9">{{ 'Yes' if user['is_superuser'] else 'No' }}</dd>
+
+            <dt class="col-sm-3">Certificate Subject</dt>
+            <dd class="col-sm-9">
+                {% if user['cert'] %}
+                <code>{{ user['cert'] }}</code>
+                {% else %}
+                <span class="text-muted">Not available</span>
+                {% endif %}
+            </dd>
+
+            <dt class="col-sm-3">Public Certificate</dt>
+            <dd class="col-sm-9">
+                {% if keys %}
+                <div class="position-relative">
+                    <pre id="cert-pub" class="bg-light p-2">{{ keys['public_cert'] }}</pre>
+                    <button onclick="copyToClipboard('cert-pub')"
+                        class="btn btn-sm btn-outline-secondary position-absolute" style="top: 0.5rem; right: 0.5rem;">
+                        Copy
+                    </button>
+                </div>
+                {% else %}
+                <span class="text-muted">Not available</span>
+                {% endif %}
+            </dd>
+            <dt class="col-sm-3">Roles</dt>
+            <dd class="col-sm-9">
+                {% if roles %}
+                <div
+                    style="max-height: 120px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.25rem; padding: 0.5rem; background-color: #f8f9fa;">
+                    <ul class="mb-0 pl-3">
+                        {% for role in roles %}
+                        <li>{{ role }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
+                <span class="text-muted">No roles assigned</span>
+                {% endif %}
+            </dd>
+        </dl>
+        <a href="{{ url_for('user_list') }}" class="btn btn-secondary">Back to List</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function copyToClipboard(elementId) {
+        const text = document.getElementById(elementId).innerText;
+        navigator.clipboard.writeText(text).catch(err => {
+            console.error("Copy failed:", err);
+        });
+    }
+</script>
+{% endblock %}

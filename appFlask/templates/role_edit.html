@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Role{% endblock %}
+
+{% block active_module_rol %}active{% endblock %}
+{% block open_rol %}-open{% endblock %}
+{% block active_roles %}active{% endblock %}
+
+{% block header %}Edit Role{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item"><a href="{{ url_for('role_list') }}">Roles</a></li>
+<li class="breadcrumb-item active">Edit</li>
+{% endblock %}
+
+{% block content %}
+<div class="card card-primary">
+  <div class="card-header">
+    <h3 class="card-title">Role Editing Form</h3>
+  </div>
+  <form method="POST" action="{{ url_for('edit_role', role_id=role.id) }}">
+    <div class="card-body">
+      <div class="form-group">
+        <label for="name">Role Name</label>
+        <input type="text" class="form-control" name="name" id="name" value="{{ role.name }}" required>
+      </div>
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea class="form-control" name="description" id="description">{{ role.description }}</textarea>
+      </div>
+      <div class="form-group">
+        <label for="exp_time">Expiration Time (in minutes)</label>
+        <input type="number" class="form-control" name="exp_time" id="exp_time" min="1" value="{{ role.exp_time }}"
+          required>
+      </div>
+      <div class="form-group">
+        <label for="grant_id">Permission Template</label>
+        <select class="form-control" name="grant_id" id="grant_id">
+          <option value="">— None —</option>
+          {% for grant in grant_templates %}
+          <option value="{{ grant.id }}" {% if grant.id==role.grant_id %}selected{% endif %}>{{ grant.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="card-footer">
+      <button type="submit" class="btn btn-success">Save Changes</button>
+      <a href="{{ url_for('role_list') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

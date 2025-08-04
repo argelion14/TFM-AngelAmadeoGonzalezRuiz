@@ -1,21 +1,39 @@
-# Usa una imagen base de Python
-FROM python:3.13-slim
+# Use an official minimal Python image
+FROM python:3.11-slim
 
-# Establece el directorio de trabajo dentro del contenedor
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/home/appuser/.local/bin:/usr/bin:$PATH"
+
+# Install required system dependencies including OpenSSL
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libffi-dev \
+    libssl-dev \
+    openssl \
+    build-essential \
+    && apt-get purge -y --auto-remove gcc build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user for security
+RUN adduser --disabled-password --gecos "" appuser
+
+# Set the working directory and assign ownership
 WORKDIR /app
+COPY --chown=appuser:appuser requirements.txt ./
 
-# Instalar dependencias del sistema
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Install Python dependencies
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Copia los archivos necesarios
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy application code
+COPY --chown=appuser:appuser appFlask/ appFlask/
 
-# Copia el código de la aplicación
-COPY appFlask ./
+# Switch to non-root user
+USER appuser
 
-# Exponer el puerto en el que correrá la aplicación Flask
 EXPOSE 5000
 
-# Comando para iniciar la aplicación
-CMD ["python", "testToken.py"]
+# Change the entrypoint to start Flask app (ajústalo a tu script principal si es necesario)
+ENTRYPOINT ["/usr/local/bin/python3", "appFlask/testToken.py"]

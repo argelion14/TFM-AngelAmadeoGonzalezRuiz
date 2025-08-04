@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}
+Grant Templates List
+{% endblock %}
+
+{% block active_module_grantTemplate %}
+active
+{% endblock %}
+
+{% block open_grantTemplate %}-open{% endblock %}
+
+{% block active_grantTemplateList %}
+active
+{% endblock %}
+
+{% block header %}
+Grant Templates
+{% endblock %}
+
+{% block path_main %}
+<li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+<li class="breadcrumb-item active">Grant Templates</li>
+{% endblock %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+{% block content %}
+<section class="content-header">
+    <h1>Grant Templates <small>List</small></h1>
+</section>
+
+<section class="content">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Grant Templates</h3>
+        </div>
+        <div class="card-body table-responsive p-0">
+            <table class="table table-hover text-nowrap">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Default Action</th>
+                        <th>Associated Roles</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for template in templates %}
+                    <tr>
+                        <td>{{ template['id'] }}</td>
+                        <td>{{ template['name'] }}</td>
+                        <td>
+                            {% if template['default_action'] == 'ALLOW' %}
+                            <span class="badge bg-success">ALLOW</span>
+                            {% else %}
+                            <span class="badge bg-danger">DENY</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ template['roles'] or '—' }}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('grant_template_detail', grant_id=template['id']) }}"
+                                class="btn btn-sm btn-info">View Details</a>
+                            <form action="{{ url_for('delete_grant_template', grant_id=template['id']) }}" method="post"
+                                style="display:inline;"
+                                onsubmit="return confirm('Are you sure you want to delete this template and its rules?');">
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">No grant templates registered.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
