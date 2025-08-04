@@ -180,4 +180,7 @@ cython_debug/
 *.p7s
 *.srl
 
+
+certs/
+private_keys/
 .vscode

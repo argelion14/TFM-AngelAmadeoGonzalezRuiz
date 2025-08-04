@@ -13,8 +13,10 @@ services:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
       PATH: "/home/appuser/.local/bin:$PATH"
-      CA_CERT_PATH: appFlask/certs/ecdsa01RootCaCert.pem
-      CA_KEY_PATH: appFlask/certs/ecdsa01RootCaKey.pem
+      CA_CERT_PATH: /app/appFlask/config/certs/ecdsa01RootCaCert.pem
+      CA_KEY_PATH: /app/appFlask/config/certs/ecdsa01RootCaKey.pem
+      JWT_EXPIRATION_MINUTES: 60
+      DB_PATH: /app/appFlask/config/TFM.db
     read_only: false
     tmpfs:
       - /tmp
@@ -23,5 +25,5 @@ services:
     cap_drop:
       - ALL
     volumes:
-      # Bind mount desde Windows (convertido a formato compatible con Docker Desktop)
-      - /d/REPOS/TFM-AngelAmadeoGonzalezRuiz/appFlask:/app/appFlask
+      - /d/REPOS/TFM-AngelAmadeoGonzalezRuiz/docker/config/certs:/app/appFlask/config/certs
+      - /d/REPOS/TFM-AngelAmadeoGonzalezRuiz/docker/config:/app/appFlask/config

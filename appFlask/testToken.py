@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from xml.dom import minidom
 from cryptography.x509 import load_pem_x509_certificate
+from init_db import initialize_db
 
 from flask import (
     Flask, abort, json, render_template, request, redirect, url_for,
@@ -28,6 +29,8 @@ from dotenv import load_dotenv
 from utils.helpers import (
     get_db_connection, verificar_jwt_api, decodificar_jwt, generar_jwt, verificar_jwt
 )
+
+initialize_db()
 
 load_dotenv()
 
@@ -3254,6 +3257,12 @@ def xml_sign_grant_by_role_html():
         conn.close()
 
     return render_template('xml_sign_grant_by_role.html', grant_name=grant_name, xml_output=xml_output)
+
+
+# TODO: Hacer que me cree el TFM.db si no está ya creado, y lo guarden en una carpeta en volumen, se puede juntar con la CA
+# TODO: Hacer que certificado CA principal lo tome de un volumen
+# TODO: Guardar los certificados de los usuarios en otra carpeta de configuración también en volumen en el docker
+
 
 
 if __name__ == '__main__':

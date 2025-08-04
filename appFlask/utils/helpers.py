@@ -11,9 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# TODO: Cambiar a que esta variabel de JWT sea una variable de entorno
-JWT_EXPIRATION_MINUTES = 60
-
+JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", 60))
 CA_CERT_PATH = os.getenv("CA_CERT_PATH")
 CA_KEY_PATH = os.getenv("CA_KEY_PATH")
 
@@ -28,9 +26,9 @@ with open(CA_KEY_PATH, "rb") as f:
 
 
 def get_db_connection():
-    # Carpeta raíz del proyecto (donde está TFM.db)
-    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    db_path = os.path.join(BASE_DIR, "TFM.db")
+    # Carpeta raíz del proyecto
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    db_path = os.path.join(BASE_DIR, "appFlask", "config", "TFM.db")
 
     conn = sqlite3.connect(db_path)
     conn.execute('PRAGMA foreign_keys = ON')

@@ -1,7 +1,6 @@
 # Use an official minimal Python image
 FROM python:3.11-slim
 
-# Set secure and useful environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -20,22 +19,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create a non-root user for security
 RUN adduser --disabled-password --gecos "" appuser
 
-# Set the working directory and assign ownership to the non-root user
+# Set the working directory and assign ownership
 WORKDIR /app
-RUN chown appuser:appuser /app
-
-# Copy only requirements first to leverage Docker layer caching
-COPY --chown=appuser:appuser requirements.txt .
+COPY --chown=appuser:appuser requirements.txt ./
 
 # Install Python dependencies
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
+# Copy application code
+COPY --chown=appuser:appuser appFlask/ appFlask/
+
 # Switch to non-root user
 USER appuser
 
-# Expose Flask default port
 EXPOSE 5000
 
-# Use exec form for better signal handling and process management
+# Change the entrypoint to start Flask app (ajústalo a tu script principal si es necesario)
 ENTRYPOINT ["/usr/local/bin/python3", "appFlask/testToken.py"]
