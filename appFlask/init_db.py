@@ -1,59 +1,80 @@
 import os
 import sqlite3
 import bcrypt
+import subprocess
+import platform
 from datetime import datetime, timedelta
 from cryptography import x509
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
+from dotenv import load_dotenv
 
+load_dotenv()
+
+CA_CERT_PATH = os.getenv("CA_CERT_PATH")
+CA_KEY_PATH = os.getenv("CA_KEY_PATH")
+NEW_CERT_PATH = os.getenv("NEW_CERT_PATH")
 DB_PATH = os.getenv("DB_PATH", "config/TFM.db")
 
+# TODO: Borrar este DEBUG
 print(f"🗄️ Usando base de datos en: {DB_PATH}")
 
-def generate_cert_and_key(common_name):
-    # Generar clave privada EC
-    private_key = ec.generate_private_key(ec.SECP256R1())
+# Detectar entorno (Windows o Unix)
+if platform.system() == "Windows":
+    OPENSSL_PATH = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+else:
+    OPENSSL_PATH = "/usr/bin/openssl"
 
-    # Generar certificado autofirmado (simulación si no hay CA)
-    subject = issuer = x509.Name([
-        x509.NameAttribute(NameOID.COUNTRY_NAME, "ES"),
-        x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "Madrid"),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Mi Empresa"),
-        x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-        x509.NameAttribute(NameOID.EMAIL_ADDRESS,
-                           f"{common_name}@miempresa.com"),
-    ])
 
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(subject)
-        .issuer_name(issuer)
-        .public_key(private_key.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.utcnow())
-        .not_valid_after(datetime.utcnow() + timedelta(days=365))
-        .sign(private_key, hashes.SHA256())
-    )
+def generate_cert_and_key(username) -> tuple[str, str, str]:
+    """
+    Genera clave privada, CSR y certificado firmado por la CA.
 
-    cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
-    key_pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption()
-    ).decode("utf-8")
+    Devuelve:
+    - cert_pem: contenido del certificado en texto
+    - key_path: ruta absoluta al archivo de clave privada
+    - cert_path: ruta al archivo PEM del certificado
+    """
+    base_dir = os.path.join(NEW_CERT_PATH, username)
+    os.makedirs(base_dir, exist_ok=True)
 
-    # Guardar clave en archivo
-    key_path = f"private_keys/{common_name}.key"
-    os.makedirs(os.path.dirname(key_path), exist_ok=True)
-    with open(key_path, "w") as key_file:
-        key_file.write(key_pem)
+    key_path = os.path.join(base_dir, "private.key")
+    csr_path = os.path.join(base_dir, "request.csr")
+    cert_path = os.path.join(base_dir, "certificate.pem")
 
-    return cert_pem, key_path
+    # 1. Clave privada
+    subprocess.run([
+        OPENSSL_PATH, "genpkey", "-algorithm", "EC",
+        "-pkeyopt", "ec_paramgen_curve:P-256",
+        "-out", key_path
+    ], check=True)
+
+    # 2. CSR
+    subj = f"/C=ES/ST=Madrid/O=Mi Empresa/CN={username}/emailAddress={username}@miempresa.com"
+    subprocess.run([
+        OPENSSL_PATH, "req", "-new", "-key", key_path,
+        "-out", csr_path, "-subj", subj
+    ], check=True)
+
+    # 3. Firmar con la CA
+    subprocess.run([
+        OPENSSL_PATH, "x509", "-req", "-in", csr_path,
+        "-CA", CA_CERT_PATH, "-CAkey", CA_KEY_PATH,
+        "-CAcreateserial", "-out", cert_path,
+        "-days", "365"
+    ], check=True)
+
+    # 4. Leer contenido del certificado
+    with open(cert_path, 'r') as f:
+        cert_pem = f.read()
+
+    return cert_pem, key_path, cert_path
 
 
 def initialize_db():
     if os.path.exists(DB_PATH):
+        # TODO: Borrar este debug
         print("✔️ La base de datos ya existe, no se necesita crearla.")
         return
 
@@ -179,21 +200,42 @@ def initialize_db():
             'INSERT OR IGNORE INTO roles (name, description, exp_time) VALUES (?, ?, ?)', role)
 
     # --- USUARIOS ---
+    # --- USUARIOS ---
     users = [
-        ('usuario1', 'pass1', 'usuario1', 1),
-        ('usuario2', 'pass2', 'usuario2', 0)
+        ('usuario1', 'pass1', 1),
+        ('usuario2', 'pass2', 0)
     ]
 
-    for username, password_plain, cn, is_superuser in users:
-        cert_pem, key_path = generate_cert_and_key(cn)
-        hashed_password = bcrypt.hashpw(
-            password_plain.encode('utf-8'), bcrypt.gensalt())
+    for username, password_plain, is_superuser in users:
+        hashed_password = bcrypt.hashpw(password_plain.encode(
+            'utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+        # Insertar en tabla users (sin certificado aún)
         cursor.execute(
-            'INSERT OR IGNORE INTO users (username, password, cert, is_superuser) VALUES (?, ?, ?, ?)',
-            (username, hashed_password.decode('utf-8'), cn, is_superuser)
+            'INSERT INTO users (username, password, is_superuser) VALUES (?, ?, ?)',
+            (username, hashed_password, is_superuser)
         )
-        cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
-        user_id = cursor.fetchone()[0]
+        user_id = cursor.lastrowid
+
+        # Generar clave privada y certificado autofirmado con OpenSSL
+        cert_pem, key_path, cert_path = generate_cert_and_key(username)
+
+        # Obtener el subject real del certificado usando openssl
+        result = subprocess.run([
+            OPENSSL_PATH, "x509", "-in", cert_path, "-noout", "-subject"
+        ], capture_output=True, text=True, check=True)
+
+        # Procesar el subject (e.g. "subject= C=ES, ST=Madrid, O=Mi Empresa, CN=usuario1, emailAddress=usuario1@miempresa.com")
+        subject_line = result.stdout.strip()
+        subject_clean = subject_line.replace("subject=", "").strip()
+
+        # Actualizar campo cert con el subject limpio
+        cursor.execute(
+            'UPDATE users SET cert = ? WHERE id = ?',
+            (subject_clean, user_id)
+        )
+
+        # Guardar claves en user_keys
         cursor.execute(
             'INSERT INTO user_keys (user_id, public_cert, private_key_path) VALUES (?, ?, ?)',
             (user_id, cert_pem, key_path)

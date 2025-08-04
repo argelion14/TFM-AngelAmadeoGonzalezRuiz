@@ -36,6 +36,8 @@ load_dotenv()
 
 CA_CERT_PATH = os.getenv("CA_CERT_PATH")
 CA_KEY_PATH = os.getenv("CA_KEY_PATH")
+NEW_CERT_PATH = os.getenv("NEW_CERT_PATH")
+
 
 with open(CA_CERT_PATH, "rb") as f:
     cert_bytes = f.read()
@@ -955,6 +957,8 @@ def get_user(user_id):
     conn.close()
     return jsonify(user_data)
 
+# TODO Revisar y comparar con el frontal
+
 
 @app.route('/api/users', methods=['POST'])
 @superadmin_required
@@ -1008,8 +1012,6 @@ def create_user():
         conn.commit()
 
         # ==== GENERACIÓN DE CLAVES Y CERTIFICADO ====
-        ca_cert = os.getenv("CA_CERT_PATH")
-        ca_key = os.getenv("CA_KEY_PATH")
         base_dir = os.path.join("appFlask", "certs", username)
         os.makedirs(base_dir, exist_ok=True)
 
@@ -1041,7 +1043,7 @@ def create_user():
         # 3. Certificado firmado
         subprocess.run([
             OPENSSL_PATH, "x509", "-req", "-in", csr_path,
-            "-CA", ca_cert, "-CAkey", ca_key,
+            "-CA", CA_CERT_PATH, "-CAkey", CA_KEY_PATH,
             "-CAcreateserial", "-out", cert_path,
             "-days", "365"
         ], check=True)
@@ -2307,9 +2309,7 @@ def user_create():
             conn.commit()
 
             # ====== GENERACIÓN DE CLAVES Y CERTIFICADO ======
-            ca_cert = os.getenv("CA_CERT_PATH")
-            ca_key = os.getenv("CA_KEY_PATH")
-            base_dir = f"certs/{username}"
+            base_dir = f"{NEW_CERT_PATH}/{username}"
             os.makedirs(base_dir, exist_ok=True)
 
             key_path = os.path.join(base_dir, "private.key")
@@ -2340,7 +2340,7 @@ def user_create():
             # 3. Firmar con la CA
             subprocess.run([
                 OPENSSL_PATH, "x509", "-req", "-in", csr_path,
-                "-CA", ca_cert, "-CAkey", ca_key,
+                "-CA", CA_CERT_PATH, "-CAkey", CA_KEY_PATH,
                 "-CAcreateserial", "-out", cert_path,
                 "-days", "365"
             ], check=True)
@@ -3262,7 +3262,6 @@ def xml_sign_grant_by_role_html():
 # TODO: Hacer que me cree el TFM.db si no está ya creado, y lo guarden en una carpeta en volumen, se puede juntar con la CA
 # TODO: Hacer que certificado CA principal lo tome de un volumen
 # TODO: Guardar los certificados de los usuarios en otra carpeta de configuración también en volumen en el docker
-
 
 
 if __name__ == '__main__':

@@ -24,7 +24,7 @@ CA_PUBLIC_KEY = CA_CERT.public_key()
 with open(CA_KEY_PATH, "rb") as f:
     CA_KEY = f.read()
 
-
+# TODO: Usar la variable de entorno: DB_PATH
 def get_db_connection():
     # Carpeta raíz del proyecto
     BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))

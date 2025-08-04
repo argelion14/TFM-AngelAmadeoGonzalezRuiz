@@ -9,14 +9,15 @@ services:
     ports:
       - "5000:5000"
     environment:
-      DEBIAN_FRONTEND: noninteractive
-      PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONUNBUFFERED: "1"
-      PATH: "/home/appuser/.local/bin:$PATH"
-      CA_CERT_PATH: /app/appFlask/config/certs/ecdsa01RootCaCert.pem
-      CA_KEY_PATH: /app/appFlask/config/certs/ecdsa01RootCaKey.pem
-      JWT_EXPIRATION_MINUTES: 60
-      DB_PATH: /app/appFlask/config/TFM.db
+      DEBIAN_FRONTEND:                noninteractive
+      PYTHONDONTWRITEBYTECODE:        "1"
+      PYTHONUNBUFFERED:               "1"
+      PATH:                           "/home/appuser/.local/bin:$PATH"
+      CA_CERT_PATH:                   /app/appFlask/config/certs/ecdsa01RootCaCert.pem
+      CA_KEY_PATH:                    /app/appFlask/config/certs/ecdsa01RootCaKey.pem
+      JWT_EXPIRATION_MINUTES:         60
+      DB_PATH:                        /app/appFlask/config/TFM.db
+      NEW_CERT_PATH:                  /app/appFlask/config/certs
     read_only: false
     tmpfs:
       - /tmp
