@@ -3,11 +3,6 @@ import sqlite3
 import bcrypt
 import subprocess
 import platform
-from datetime import datetime, timedelta
-from cryptography import x509
-from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,10 +10,7 @@ load_dotenv()
 CA_CERT_PATH = os.getenv("CA_CERT_PATH")
 CA_KEY_PATH = os.getenv("CA_KEY_PATH")
 NEW_CERT_PATH = os.getenv("NEW_CERT_PATH")
-DB_PATH = os.getenv("DB_PATH", "config/TFM.db")
-
-# TODO: Borrar este DEBUG
-print(f"🗄️ Usando base de datos en: {DB_PATH}")
+DB_PATH = os.getenv("DB_PATH")
 
 # Detectar entorno (Windows o Unix)
 if platform.system() == "Windows":
@@ -74,8 +66,6 @@ def generate_cert_and_key(username) -> tuple[str, str, str]:
 
 def initialize_db():
     if os.path.exists(DB_PATH):
-        # TODO: Borrar este debug
-        print("✔️ La base de datos ya existe, no se necesita crearla.")
         return
 
     print("🛠️ Creando base de datos y tablas por primera vez...")
