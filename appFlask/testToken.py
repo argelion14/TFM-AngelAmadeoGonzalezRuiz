@@ -2733,7 +2733,6 @@ def delete_grant_template(grant_id):
 
 
 @app.route('/xml_vality', methods=['GET', 'POST'])
-@user_required
 def xml_vality():
     if request.method == 'POST':
         xml_file = request.files.get('xml_file')
