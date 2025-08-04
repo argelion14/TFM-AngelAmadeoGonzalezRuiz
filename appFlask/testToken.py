@@ -75,8 +75,6 @@ swagger = Swagger(app, config=swagger_config, template=swagger_template)
 app.secret_key = 'super secret key'
 
 
-# TODO: Mejorar la estructura de los certificados, ponerlo bien para el docker
-
 #########################
 # SECCIÓN DE AUTENTICACION JWT PARA LA API
 # Funciones auxiliares para gestión de seguridad
@@ -957,7 +955,7 @@ def get_user(user_id):
     conn.close()
     return jsonify(user_data)
 
-# TODO Revisar y comparar con el frontal
+# TODO: Revisar y comparar con el frontal
 
 
 @app.route('/api/users', methods=['POST'])
@@ -1628,7 +1626,7 @@ def export_grant_by_role_token():
                         })
 
 
-# TODO Llevarlo al frontal
+# TODO: Llevarlo al frontal
 @app.route('/api/verify-signed-file', methods=['POST'])
 @swag_from({
     'tags': ['XML'],
@@ -2384,7 +2382,7 @@ def user_create():
 
     return render_template('user_create.html')
 
-# TODO He de borrar también los certificados
+# TODO: He de borrar también los certificados
 
 
 @app.route('/usuarios/<int:id>/eliminar', methods=['POST'])
@@ -2412,7 +2410,7 @@ def eliminar_usuario(id):
     flash('Usuario y claves asociadas eliminados correctamente', 'success')
     return redirect(url_for('user_list'))
 
-# TODO Hacer que si se edita el name se ha de generar un nuevo certificado
+# TODO: Hacer que si se edita el name se ha de generar un nuevo certificado
 
 
 @app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
@@ -3257,11 +3255,6 @@ def xml_sign_grant_by_role_html():
         conn.close()
 
     return render_template('xml_sign_grant_by_role.html', grant_name=grant_name, xml_output=xml_output)
-
-
-# TODO: Hacer que me cree el TFM.db si no está ya creado, y lo guarden en una carpeta en volumen, se puede juntar con la CA
-# TODO: Hacer que certificado CA principal lo tome de un volumen
-# TODO: Guardar los certificados de los usuarios en otra carpeta de configuración también en volumen en el docker
 
 
 if __name__ == '__main__':
