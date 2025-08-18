@@ -1,0 +1,14 @@
+FROM python:3.11-slim
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Copiar requerimientos e instalar dependencias
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar el script principal
+COPY agent_loop.py .
+
+# Comando por defecto al arrancar el contenedor
+CMD ["python", "agent_loop.py"]

@@ -1,0 +1,17 @@
+services:
+  tfm-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tfm-agent
+    volumes:
+      - /d/REPOS/rticonnextdds-getting-started/output:/output
+    restart: unless-stopped
+    environment:
+      - DEBIAN_FRONTEND=noninteractive
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - API_BASE=http://host.docker.internal:5000
+      - AUTH_HEADER=eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InVzdWFyaW8xIiwiY2VydCI6IkM9RVMsIFNUPU1hZHJpZCwgTz1NaSBFbXByZXNhLCBDTj11c3VhcmlvMSwgZW1haWxBZGRyZXNzPXVzdWFyaW8xQG1pZW1wcmVzYS5jb20iLCJpc19zdXBlcnVzZXIiOnRydWUsImV4cCI6MTc1NDM0ODY2OH0.l31V4rHddpJRAKpIRQ0UzIpgoK1l8rzgApUHTFwDoG-pzOsEXX24tng-3hvcTr8ifoH2PRFhPDWjrEHWHqmYHA
+      - ROLE_ID=1
+      - EXP_MINUTES=1

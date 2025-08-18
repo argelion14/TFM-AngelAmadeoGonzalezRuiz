@@ -1,15 +1,15 @@
 # Guía de Instalación y Ejecución del Proyecto 🚀
 
-Este documento describe los pasos necesarios para instalar, configurar y ejecutar el proyecto en un entorno local, partiendo del código fuente disponible en GitHub.  
+Este documento describe los pasos necesarios para instalar, configurar y ejecutar el proyecto en un entorno local, partiendo del código fuente disponible en GitHub.
 
-Incluye instrucciones para clonar el repositorio, generar una Autoridad Certificadora (CA) autofirmada, configurar las variables de entorno y levantar la aplicación mediante **Docker Compose**.  
+Incluye instrucciones para clonar el repositorio, generar una Autoridad Certificadora (CA) autofirmada, configurar las variables de entorno y levantar la aplicación mediante **Docker Compose**.
 
-El objetivo es que cualquier persona pueda reproducir el entorno de ejecución de forma **segura** y **controlada**, siguiendo las buenas prácticas recomendadas.  
+El objetivo es que cualquier persona pueda reproducir el entorno de ejecución de forma **segura** y **controlada**, siguiendo las buenas prácticas recomendadas.
 
 ---
 
 ## 1. Instalación desde el repositorio GitHub
-El proyecto se encuentra disponible públicamente en:  
+El proyecto se encuentra disponible públicamente en:
 👉 [https://github.com/argelion14/TFM-AngelAmadeoGonzalezRuiz](https://github.com/argelion14/TFM-AngelAmadeoGonzalezRuiz)
 
 ### Pasos:
@@ -83,15 +83,15 @@ En el archivo `docker-compose.yml` se definen las siguientes variables de entorn
 El repositorio incluye un archivo `docker-compose.yml` listo para su uso.
 
 - Iniciar el servicio:
-    
-    `docker compose up --build`
-    
-- Detener los contenedores:
-    
-    `docker compose down`
-    
 
-La aplicación Flask quedará disponible en:  
+    `docker compose up --build`
+
+- Detener los contenedores:
+
+    `docker compose down`
+
+
+La aplicación Flask quedará disponible en:
 👉 [http://localhost:5000](http://localhost:5000)
 
 ---
@@ -105,11 +105,11 @@ La base de datos contiene datos de prueba, incluyendo dos usuarios preconfigurad
 Usuario de interés:
 
 - **Nombre:** `usuario1`
-    
+
 - **Contraseña:** `pass1`
-    
+
 - **Rol:** Administrador
-    
+
 
 Este usuario permite explorar la aplicación en su totalidad desde el primer inicio.
 
@@ -120,24 +120,24 @@ Este usuario permite explorar la aplicación en su totalidad desde el primer ini
 El archivo `docker-compose.yml` ha sido configurado siguiendo **buenas prácticas de seguridad** recomendadas por:
 
 - Docker Inc.
-    
+
 - OWASP
-    
+
 - Center for Internet Security (CIS)
-    
+
 
 ### Medidas implementadas:
 
 - **Uso de `read_only: false` y `tmpfs`** → Se restringe la escritura en el contenedor.
-    
+
 - **Restricción de privilegios** → `cap_drop: - ALL` y `security_opt: - no-new-privileges`.
-    
+
 - **Definición explícita de volúmenes** → Solo se mapean rutas necesarias.
-    
+
 - **Control de variables de entorno** → Entorno aislado y seguro.
-    
+
 - **Exposición mínima de puertos** → Solo el puerto `5000` está expuesto.
-    
+
 
 ✅ Estas configuraciones reducen riesgos como ejecución con privilegios de `root`, apertura de puertos innecesarios o fugas de información sensible.
 
