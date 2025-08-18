@@ -33,6 +33,28 @@ El despliegue se realiza con **Docker Compose** para simplificar la configuraci�
 
 ---
 
+## Variables de entorno importantes
+
+Para que el agente funcione correctamente, es necesario configurar las siguientes variables de entorno en `docker-compose.yml`:
+
+- **`API_BASE`**: URL base de la API con la que se va a comunicar el agente.
+
+- **`AUTH_HEADER`**: token JWT del usuario que va a ejecutar el agente. Este token debe:
+
+    1. Ser válido y no estar vencido.
+
+    2. Tener permisos para el **rol** que se indica en `ROLE_ID`.
+
+
+    > En este ejemplo se ha incluido un **token vencido** únicamente a modo de referencia.
+
+- **`ROLE_ID`**: identificador del rol requerido para ejecutar el agente. En este ejemplo se usa `1`.
+
+- **`EXP_MINUTES`**: duración en minutos del ciclo de ejecución antes de que el agente considere expirada la sesión.
+
+
+---
+
 ## Ejecución del agente
 
 1. Construir y arrancar el servicio:
@@ -47,6 +69,8 @@ El despliegue se realiza con **Docker Compose** para simplificar la configuraci�
 
     `docker logs -f tfm-agent`
 
+
+> Si el token JWT no es válido o no tiene permisos para el rol indicado, el agente no podrá ejecutar correctamente las acciones sobre la API.
 
 ---
 
